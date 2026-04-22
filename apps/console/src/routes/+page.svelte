@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import {
     SvelteFlow,
     Background,
@@ -7,8 +6,6 @@
     type Node,
     type Edge,
   } from "@xyflow/svelte";
-  let status = $state<string>("loading…");
-  let error = $state<string | null>(null);
 
   let nodes = $state.raw<Node[]>([
     {
@@ -28,41 +25,14 @@
   let edges = $state.raw<Edge[]>([
     { id: "e1-2", source: "1", target: "2", animated: true },
   ]);
-
-  onMount(async () => {
-    try {
-      const res = await fetch("/healthz");
-      const data = await res.json();
-      status = data.status ?? "unknown";
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-      status = "unreachable";
-    }
-  });
 </script>
 
-<main class="p-6 flex flex-col gap-4">
-  <header>
-    <h1 class="text-3xl font-semibold">Argus</h1>
-    <p class="text-sm text-neutral-500">
-      Self-hosted console for DBOS Transact — pre-alpha.
-    </p>
-  </header>
+<div class="flex flex-col gap-4 p-6">
+  <p class="text-sm text-neutral-500">
+    Self-hosted console for DBOS Transact — pre-alpha.
+  </p>
 
-  <section class="rounded border border-neutral-300 p-3">
-    <h2 class="text-sm font-medium uppercase tracking-wide text-neutral-500">
-      Backend
-    </h2>
-    <p>
-      <span class="font-mono">/healthz</span> —
-      <strong>{status}</strong>
-      {#if error}
-        <span class="text-red-600">({error})</span>
-      {/if}
-    </p>
-  </section>
-
-  <section class="rounded border border-neutral-300 p-3 flex-1">
+  <section class="flex-1 rounded border border-neutral-300 p-3">
     <h2 class="text-sm font-medium uppercase tracking-wide text-neutral-500">
       Workflow graph (demo)
     </h2>
@@ -73,4 +43,4 @@
       </SvelteFlow>
     </div>
   </section>
-</main>
+</div>

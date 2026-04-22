@@ -7,8 +7,10 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from sqlalchemy import text
 
 from . import __version__
+from .db import engine
 from .protocol import HelloMessage
 from .settings import settings
 
@@ -32,7 +34,22 @@ app.add_middleware(
 
 @app.get("/healthz")
 async def healthz() -> dict[str, str]:
-    return {"status": "ok"}
+    db_up = True
+    db_error: str | None = None
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception as e:
+        db_up = False
+        db_error = str(e)
+    body: dict[str, str] = {
+        "status": "ok" if db_up else "degraded",
+        "database": "up" if db_up else "down",
+        "database_url": engine.url.render_as_string(hide_password=True),
+    }
+    if db_error is not None:
+        body["database_error"] = db_error
+    return body
 
 
 @app.get("/version")
