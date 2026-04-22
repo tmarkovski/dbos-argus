@@ -7,10 +7,6 @@
     type Node,
     type Edge,
   } from "@xyflow/svelte";
-  import { env } from "$env/dynamic/public";
-
-  const apiUrl: string = env.PUBLIC_ARGUS_API_URL ?? "http://localhost:8090";
-
   let status = $state<string>("loading…");
   let error = $state<string | null>(null);
 
@@ -35,7 +31,7 @@
 
   onMount(async () => {
     try {
-      const res = await fetch(`${apiUrl}/healthz`);
+      const res = await fetch("/healthz");
       const data = await res.json();
       status = data.status ?? "unknown";
     } catch (e) {
@@ -58,7 +54,7 @@
       Backend
     </h2>
     <p>
-      <span class="font-mono">{apiUrl}/healthz</span> —
+      <span class="font-mono">/healthz</span> —
       <strong>{status}</strong>
       {#if error}
         <span class="text-red-600">({error})</span>

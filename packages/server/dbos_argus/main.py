@@ -1,9 +1,12 @@
 import logging
+import os
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 
-from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from . import __version__
 from .protocol import HelloMessage
@@ -59,3 +62,22 @@ async def ws_apps(ws: WebSocket, api_key: str | None = Query(default=None)) -> N
             await ws.send_text(msg)
     except WebSocketDisconnect:
         logger.info("ws/apps disconnected conn=%s", connection_id)
+
+
+CONSOLE_DIR = Path(os.environ.get("ARGUS_CONSOLE_DIR", "/app/console"))
+
+if CONSOLE_DIR.is_dir() and (CONSOLE_DIR / "index.html").is_file():
+    logger.info("serving console from %s", CONSOLE_DIR)
+
+    @app.get("/{full_path:path}")
+    async def console_spa(request: Request, full_path: str) -> FileResponse:
+        candidate = (CONSOLE_DIR / full_path).resolve()
+        try:
+            candidate.relative_to(CONSOLE_DIR.resolve())
+        except ValueError as e:
+            raise HTTPException(status_code=404) from e
+        if candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(CONSOLE_DIR / "index.html")
+else:
+    logger.info("console static dir not found at %s; skipping SPA mount", CONSOLE_DIR)

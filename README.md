@@ -36,23 +36,19 @@ Argus is not affiliated with, endorsed by, or sponsored by DBOS Inc.
 ## Architecture
 
 ```
-┌──────────────┐                         ┌──────────────────┐
-│  DBOS app    │───── outbound WS ──────▶│  Argus backend   │
-│  (Py / TS)   │◀──── commands ──────────│  (FastAPI)       │
-└──────┬───────┘                         └────────┬─────────┘
+┌──────────────┐                         ┌────────────────────────┐
+│  DBOS app    │───── outbound WS ──────▶│  Argus                 │
+│  (Py / TS)   │◀──── commands ──────────│  FastAPI + console SPA │
+└──────┬───────┘                         └────────┬───────────────┘
        │                                          │
        ▼                                          ▼
-  ┌─────────┐                              ┌──────────────┐
-  │ app DB  │                              │  Argus DB    │
-  │  (PG)   │                              │   (PG)       │
-  └─────────┘                              └──────┬───────┘
-                                                  │
-                                                  ▼
-                                         ┌──────────────────┐
-                                         │  Argus console   │
-                                         │  (SvelteKit)     │
-                                         └──────────────────┘
+  ┌─────────┐                                ┌──────────┐
+  │ app DB  │                                │ Argus DB │
+  │  (PG)   │                                │   (PG)   │
+  └─────────┘                                └──────────┘
 ```
+
+The console is built as a static SPA and served by the FastAPI process on the same port — one image, one container, no CORS.
 
 The design mirrors Conductor's out-of-band model: your app initiates the WebSocket connection outward, so Argus never needs inbound network access to your application servers and never sees your application data.
 
@@ -60,44 +56,35 @@ The design mirrors Conductor's out-of-band model: your app initiates the WebSock
 
 ### Run from Docker Hub
 
-Published images (multi-arch, linux/amd64 + linux/arm64):
-- `tmarkovski/dbos-argus-server` — FastAPI backend
-- `tmarkovski/dbos-argus-console` — SvelteKit console
+One image — FastAPI backend with the SvelteKit console baked in as static assets, served from the same port. Multi-arch: linux/amd64 + linux/arm64.
 
-Fastest path (brings up Postgres, server, console):
+- [`tmarkovski/dbos-argus`](https://hub.docker.com/r/tmarkovski/dbos-argus)
+
+Fastest path (brings up Postgres + Argus):
 
 ```bash
 curl -O https://raw.githubusercontent.com/tmarkovski/dbos-argus/main/docker-compose.prod.yml
 docker compose -f docker-compose.prod.yml up
 ```
 
-Console → http://localhost:5173, server → http://localhost:8090/healthz.
+Then open http://localhost:8090 — that's both the console and the API.
 
-Point at your own Postgres instead:
-
-```bash
-ARGUS_DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/argus \
-  docker compose -f docker-compose.prod.yml up server console
-```
-
-Or run the server standalone:
+Point at your own Postgres:
 
 ```bash
 docker run --rm -p 8090:8090 \
   -e ARGUS_DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/argus \
-  tmarkovski/dbos-argus-server:edge
+  tmarkovski/dbos-argus:edge
 ```
 
 Tags: `:edge` (every `main` push), `:vX.Y.Z` / `:X.Y` / `:X` (release tags), `:sha-<short>` (per-commit).
 
 Runtime env vars:
 
-| Var | Service | Purpose |
-|---|---|---|
-| `ARGUS_DATABASE_URL` | server | SQLAlchemy async URL to the Argus Postgres |
-| `ARGUS_CORS_ORIGINS` | server | Comma-separated allowed origins for the console |
-| `PUBLIC_ARGUS_API_URL` | console | Public URL the browser uses to reach the server |
-| `ARGUS_CONSOLE_ORIGIN` | console | SvelteKit `ORIGIN` for CSRF — must match the browser URL |
+| Var | Purpose |
+|---|---|
+| `ARGUS_DATABASE_URL` | SQLAlchemy async URL to the Argus Postgres |
+| `ARGUS_CORS_ORIGINS` | Comma-separated allowed origins (only needed if the console is served from a different host than the API) |
 
 ### Connect your DBOS app
 

@@ -1,6 +1,6 @@
-# Run Argus from published Docker Hub images.
+# Run Argus from the published Docker Hub image.
 #
-# Quick start:
+# Quick start (brings up Postgres + Argus):
 #   docker compose -f docker-compose.prod.yml up
 #
 # Pin a version:
@@ -8,7 +8,7 @@
 #
 # Point at an external Postgres (skip the bundled one):
 #   ARGUS_DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/db \
-#     docker compose -f docker-compose.prod.yml up server console
+#     docker compose -f docker-compose.prod.yml up argus
 
 services:
   postgres:
@@ -27,11 +27,10 @@ services:
     volumes:
       - argus-pg-data:/var/lib/postgresql/data
 
-  server:
-    image: tmarkovski/dbos-argus-server:${ARGUS_IMAGE_TAG:-edge}
+  argus:
+    image: tmarkovski/dbos-argus:${ARGUS_IMAGE_TAG:-edge}
     environment:
       ARGUS_DATABASE_URL: ${ARGUS_DATABASE_URL:-postgresql+asyncpg://argus:argus@postgres:5432/argus}
-      ARGUS_CORS_ORIGINS: ${ARGUS_CORS_ORIGINS:-http://localhost:5173}
     depends_on:
       postgres:
         condition: service_healthy
@@ -40,24 +39,6 @@ services:
       - "8090:8090"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8090/healthz').status==200 else 1)"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-  console:
-    image: tmarkovski/dbos-argus-console:${ARGUS_IMAGE_TAG:-edge}
-    environment:
-      PORT: "5173"
-      HOST: "0.0.0.0"
-      ORIGIN: ${ARGUS_CONSOLE_ORIGIN:-http://localhost:5173}
-      PUBLIC_ARGUS_API_URL: ${PUBLIC_ARGUS_API_URL:-http://localhost:8090}
-    depends_on:
-      server:
-        condition: service_healthy
-    ports:
-      - "5173:5173"
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:5173/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 5s
       timeout: 3s
       retries: 20

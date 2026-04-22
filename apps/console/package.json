@@ -7,7 +7,6 @@
     "dev": "vite dev --host 0.0.0.0 --port 5173",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 5173",
-    "start": "node build/index.js",
     "lint": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --threshold warning",
     "test": "vitest run",
     "test:e2e": "playwright test"
@@ -20,7 +19,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",
-    "@sveltejs/adapter-node": "^5.2.0",
+    "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.8.0",
     "@sveltejs/vite-plugin-svelte": "^4.0.0",
     "@tailwindcss/vite": "^4.0.0-beta.3",

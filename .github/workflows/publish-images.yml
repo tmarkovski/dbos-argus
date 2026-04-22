@@ -12,16 +12,6 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: server
-            image: tmarkovski/dbos-argus-server
-            dockerfile: packages/server/Dockerfile
-          - name: console
-            image: tmarkovski/dbos-argus-console
-            dockerfile: apps/console/Dockerfile
     steps:
       - uses: actions/checkout@v4
 
@@ -38,7 +28,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ matrix.image }}
+          images: tmarkovski/dbos-argus
           tags: |
             type=ref,event=branch,enable=${{ github.ref == format('refs/heads/{0}', 'main') }},value=edge
             type=semver,pattern={{version}}
@@ -50,10 +40,10 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
+          file: Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -51,19 +51,21 @@ uv run ruff check packages/server      # python lint
 uv run ruff format packages/server     # python format
 ```
 
-Full dev stack in Docker (postgres + server + console):
+Full dev stack in Docker (postgres + bundled argus):
 
 ```bash
-docker compose up         # all three services, with health checks
+docker compose up         # postgres + argus (FastAPI + built console SPA)
 docker compose up -d      # detached
-docker compose logs -f server
+docker compose logs -f argus
 ```
 
-Endpoints when up:
-- Console: http://localhost:5173
-- Server healthz: http://localhost:8090/healthz
-- Server WS: ws://localhost:8090/ws/apps?api_key=…
+Endpoints when up (single port):
+- Console SPA: http://localhost:8090/
+- API healthz: http://localhost:8090/healthz
+- WS: ws://localhost:8090/ws/apps?api_key=…
 - Postgres: localhost:5432 (user/pass/db = `argus/argus/argus`)
+
+Pure frontend dev (HMR): `pnpm --filter console dev` starts Vite on :5173 and proxies `/healthz`, `/version`, `/ws/*` to a locally running server on :8090 (set `ARGUS_BACKEND_URL` to override).
 
 Database migrations (alembic runs on container startup; run manually with):
 
@@ -92,7 +94,7 @@ The generated `packages/client-ts/src/protocol.ts` is checked in.
 - **Svelte 5 runes** (`$state`, `$props`, `$state.raw`) — *not* Svelte 4 stores. Component props are destructured from `$props()`.
 - **Tailwind v4** via `@tailwindcss/vite` plugin — no `tailwind.config.js`. Styles are imported with `@import "tailwindcss";` in `apps/console/src/app.css`.
 - **@xyflow/svelte** for workflow graphs; **elkjs** for layout (not dagre).
-- **SvelteKit adapter-node** — the console is served as a Node process in production (`node build/index.js`), not static.
+- **SvelteKit adapter-static** with `fallback: 'index.html'` — the console builds to a static SPA and is served by FastAPI via a catch-all route in `packages/server/dbos_argus/main.py`. No Node process in production.
 - **FastAPI native WebSockets** (`@app.websocket(...)`), not a third-party lib.
 - **SQLAlchemy 2.x async** + asyncpg. Alembic uses the same engine via `alembic/env.py`.
 
