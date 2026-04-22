@@ -67,12 +67,7 @@ Endpoints when up (single port):
 
 Pure frontend dev (HMR): `pnpm --filter console dev` starts Vite on :5173 and proxies `/healthz`, `/version`, `/ws/*` to a locally running server on :8090 (set `ARGUS_BACKEND_URL` to override).
 
-Database migrations (alembic runs on container startup; run manually with):
-
-```bash
-uv run alembic -c packages/server/alembic.ini upgrade head
-uv run alembic -c packages/server/alembic.ini revision --autogenerate -m "message"
-```
+Argus does not own a schema. It reads DBOS Transact's system tables (`dbos.workflow_status`, etc.) from the Postgres DB that the DBOS app also uses. No migrations to run.
 
 Regenerating the WS protocol TS types after editing `packages/server/dbos_argus/protocol.py`:
 
@@ -96,7 +91,7 @@ The generated `packages/client-ts/src/protocol.ts` is checked in.
 - **@xyflow/svelte** for workflow graphs; **elkjs** for layout (not dagre).
 - **SvelteKit adapter-static** with `fallback: 'index.html'` — the console builds to a static SPA and is served by FastAPI via a catch-all route in `packages/server/dbos_argus/main.py`. No Node process in production.
 - **FastAPI native WebSockets** (`@app.websocket(...)`), not a third-party lib.
-- **SQLAlchemy 2.x async** + asyncpg. Alembic uses the same engine via `alembic/env.py`.
+- **SQLAlchemy 2.x async** + asyncpg, reading directly from the DBOS system schema (`dbos.*`).
 
 ## CI
 

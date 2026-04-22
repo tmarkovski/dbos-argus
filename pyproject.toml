@@ -35,9 +35,6 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "W"]
 
-[tool.ruff.lint.per-file-ignores]
-"**/alembic/versions/*.py" = ["E501"]
-
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["packages/server/tests"]

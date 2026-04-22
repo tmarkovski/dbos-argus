@@ -57,4 +57,4 @@ WORKDIR /app/packages/server
 
 EXPOSE 8090
 
-CMD ["sh", "-c", "uv run --project /app alembic -c alembic.ini upgrade head && uv run --project /app uvicorn dbos_argus.main:app --host 0.0.0.0 --port 8090"]
+CMD ["uv", "run", "--project", "/app", "uvicorn", "dbos_argus.main:app", "--host", "0.0.0.0", "--port", "8090"]

@@ -53,7 +53,6 @@ Python-only commands run through `uv`:
 ```bash
 uv run ruff check packages/server
 uv run pytest packages/server
-uv run alembic -c packages/server/alembic.ini upgrade head
 ```
 
 ## Regenerating the WS protocol types

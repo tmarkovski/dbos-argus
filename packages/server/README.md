@@ -13,7 +13,6 @@ uv add dbos-argus
 ## Run
 
 ```bash
-uv run alembic -c alembic.ini upgrade head
 uv run uvicorn dbos_argus.main:app --host 0.0.0.0 --port 8090
 ```
 
