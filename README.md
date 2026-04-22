@@ -58,15 +58,50 @@ The design mirrors Conductor's out-of-band model: your app initiates the WebSock
 
 ## Quick start
 
-*Not yet. Targeting v0.1.0.*
+### Run from Docker Hub
 
-When it exists, it will look roughly like:
+Published images (multi-arch, linux/amd64 + linux/arm64):
+- `tmarkovski/dbos-argus-server` — FastAPI backend
+- `tmarkovski/dbos-argus-console` — SvelteKit console
+
+Fastest path (brings up Postgres, server, console):
 
 ```bash
-docker compose up argus
+curl -O https://raw.githubusercontent.com/tmarkovski/dbos-argus/main/docker-compose.prod.yml
+docker compose -f docker-compose.prod.yml up
 ```
 
-Then in your DBOS app:
+Console → http://localhost:5173, server → http://localhost:8090/healthz.
+
+Point at your own Postgres instead:
+
+```bash
+ARGUS_DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/argus \
+  docker compose -f docker-compose.prod.yml up server console
+```
+
+Or run the server standalone:
+
+```bash
+docker run --rm -p 8090:8090 \
+  -e ARGUS_DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/argus \
+  tmarkovski/dbos-argus-server:edge
+```
+
+Tags: `:edge` (every `main` push), `:vX.Y.Z` / `:X.Y` / `:X` (release tags), `:sha-<short>` (per-commit).
+
+Runtime env vars:
+
+| Var | Service | Purpose |
+|---|---|---|
+| `ARGUS_DATABASE_URL` | server | SQLAlchemy async URL to the Argus Postgres |
+| `ARGUS_CORS_ORIGINS` | server | Comma-separated allowed origins for the console |
+| `PUBLIC_ARGUS_API_URL` | console | Public URL the browser uses to reach the server |
+| `ARGUS_CONSOLE_ORIGIN` | console | SvelteKit `ORIGIN` for CSRF — must match the browser URL |
+
+### Connect your DBOS app
+
+*Not yet. Targeting v0.1.0.* When it exists, it will look roughly like:
 
 ```python
 # Python
