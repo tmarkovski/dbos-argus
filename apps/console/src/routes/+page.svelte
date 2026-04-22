@@ -7,9 +7,9 @@
     type Node,
     type Edge,
   } from "@xyflow/svelte";
-  import { PUBLIC_ARGUS_API_URL } from "$env/static/public";
+  import { env } from "$env/dynamic/public";
 
-  const apiUrl: string = PUBLIC_ARGUS_API_URL ?? "http://localhost:8090";
+  const apiUrl: string = env.PUBLIC_ARGUS_API_URL ?? "http://localhost:8090";
 
   let status = $state<string>("loading…");
   let error = $state<string | null>(null);
