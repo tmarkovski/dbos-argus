@@ -6,6 +6,7 @@
   "scripts": {
     "lint": "uv run ruff check dbos_argus tests && uv run ruff format --check dbos_argus tests",
     "test": "uv run pytest tests",
-    "build": "echo 'server build is handled via Docker / uv build'"
+    "build": "echo 'server build is handled via Docker / uv build'",
+    "dev": "uv run --project ../.. uvicorn dbos_argus.main:app --host 0.0.0.0 --port 8090 --reload --reload-dir dbos_argus"
   }
 }
