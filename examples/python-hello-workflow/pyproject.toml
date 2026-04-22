@@ -1,0 +1,16 @@
+[project]
+name = "argus-example-hello-workflow"
+version = "0.0.1"
+description = "Minimal DBOS Transact app that connects to Argus (scaffold)."
+requires-python = ">=3.12"
+dependencies = [
+  "dbos>=0.27.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+include = ["main.py"]

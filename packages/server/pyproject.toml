@@ -1,0 +1,29 @@
+[project]
+name = "dbos-argus"
+version = "0.0.1"
+description = "Self-hosted management console for DBOS Transact — FastAPI backend."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "The dbos-argus contributors" }]
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
+  "sqlalchemy[asyncio]>=2.0.35",
+  "asyncpg>=0.29.0",
+  "alembic>=1.13.0",
+  "pydantic>=2.9.0",
+  "pydantic-settings>=2.6.0",
+  "bcrypt>=4.2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/tmarkovski/dbos-argus"
+Issues = "https://github.com/tmarkovski/dbos-argus/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["dbos_argus"]

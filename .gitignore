@@ -1,0 +1,35 @@
+# JavaScript / TypeScript
+node_modules/
+.pnpm-store/
+.turbo/
+dist/
+build/
+.svelte-kit/
+.vite/
+coverage/
+test-results/
+playwright-report/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log

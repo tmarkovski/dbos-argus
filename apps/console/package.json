@@ -1,0 +1,34 @@
+{
+  "name": "console",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev --host 0.0.0.0 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 5173",
+    "start": "node build/index.js",
+    "lint": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --threshold warning",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@dbos-argus/client": "workspace:*",
+    "@dbos-argus/ui": "workspace:*",
+    "@xyflow/svelte": "^1.2.0",
+    "elkjs": "^0.9.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@sveltejs/adapter-node": "^5.2.0",
+    "@sveltejs/kit": "^2.8.0",
+    "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0-beta.3",
+    "svelte": "^5.1.0",
+    "svelte-check": "^4.0.0",
+    "tailwindcss": "^4.0.0-beta.3",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0",
+    "vitest": "^2.1.0"
+  }
+}

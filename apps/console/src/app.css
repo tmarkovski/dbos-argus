@@ -1,0 +1,11 @@
+@import "tailwindcss";
+@import "@xyflow/svelte/dist/style.css";
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  margin: 0;
+}
