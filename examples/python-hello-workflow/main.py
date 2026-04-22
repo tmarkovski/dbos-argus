@@ -29,12 +29,30 @@ LOG = logging.getLogger("argus-example")
 ARGUS_URL = os.environ.get("ARGUS_URL", "ws://localhost:8090/ws/apps")
 ARGUS_API_KEY = os.environ.get("ARGUS_API_KEY", "local-dev-key")
 
-DBOS()
+DBOS_SYSTEM_DB = os.environ.get(
+    "DBOS_SYSTEM_DATABASE_URL", "postgresql://argus:argus@localhost:5432/argus"
+)
+DBOS(config={"name": "hello-workflow", "system_database_url": DBOS_SYSTEM_DB})
 
 
 @DBOS.workflow()
 def hello_workflow(name: str) -> str:
     return f"hello, {name}"
+
+
+@DBOS.workflow()
+def greet_child(name: str, nested: bool = False) -> str:
+    if nested:
+        inner = DBOS.start_workflow(greet_child, name, nested=False)
+        return f"(child) hi, {name} | inner={inner.get_result()}"
+    return f"(child) hi, {name}"
+
+
+@DBOS.workflow()
+def greet_parent(name: str) -> str:
+    branch = DBOS.start_workflow(greet_child, name, nested=True)
+    leaf = DBOS.start_workflow(greet_child, name, nested=False)
+    return f"(parent) got: [{branch.get_result()}] and [{leaf.get_result()}]"
 
 
 async def connect_to_argus() -> None:
@@ -61,8 +79,9 @@ async def connect_to_argus() -> None:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
-    result = hello_workflow("argus")
-    LOG.info("workflow result: %s", result)
+    DBOS.launch()
+    LOG.info("hello_workflow result: %s", hello_workflow("argus"))
+    LOG.info("greet_parent result: %s", greet_parent("argus"))
     asyncio.run(connect_to_argus())
 
 

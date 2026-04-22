@@ -17,6 +17,7 @@ export default defineConfig({
     proxy: {
       "/healthz": BACKEND_HTTP,
       "/version": BACKEND_HTTP,
+      "/api": BACKEND_HTTP,
       "/ws": { target: BACKEND_WS, ws: true },
     },
   },
