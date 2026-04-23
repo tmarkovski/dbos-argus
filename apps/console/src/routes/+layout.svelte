@@ -49,7 +49,7 @@
   <nav
     class="flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-3"
   >
-    <span class="text-lg font-semibold">Argus</span>
+    <a href="/" class="text-lg font-semibold hover:text-neutral-600">Argus</a>
     <span class="flex flex-col items-end text-sm leading-tight">
       <span class="flex items-center gap-2">
         <span

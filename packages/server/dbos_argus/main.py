@@ -14,6 +14,7 @@ from sqlalchemy.exc import ProgrammingError
 
 from . import __version__
 from .db import engine
+from .decoding import decode_dbos_value
 from .protocol import HelloMessage
 from .settings import settings
 
@@ -199,6 +200,201 @@ async def list_workflows(
         )
         for r in rows
     ]
+
+
+class WorkflowStep(BaseModel):
+    # Which workflow in the family this step belongs to.
+    workflow_id: str
+    function_id: int
+    function_name: str
+    output: str | None
+    error: str | None
+    child_workflow_id: str | None
+    started_at: datetime | None
+    completed_at: datetime | None
+    # Serialization format of `output` / `error`. DBOS stores "pickle" by
+    # default (base64-encoded pickle bytes); apps can opt into "json".
+    serialization: str | None
+    # Best-effort pretty-printed JSON of the decoded output/error. None when
+    # the payload wasn't decodable — e.g. pickled custom classes which our
+    # restricted unpickler refuses to instantiate. See decoding.py.
+    output_decoded: str | None
+    error_decoded: str | None
+
+
+# Richer version of WorkflowListItem used by the detail endpoint — includes
+# output/error so clients can display workflow results. Kept separate from
+# WorkflowListItem to avoid sending potentially-large output payloads on the
+# workflows-list endpoint.
+class WorkflowFamilyItem(WorkflowListItem):
+    output: str | None
+    error: str | None
+    serialization: str | None
+    output_decoded: str | None
+    error_decoded: str | None
+
+
+class WorkflowDetail(BaseModel):
+    workflow_id: str
+    parent_workflow_id: str | None
+    name: str | None
+    status: str | None
+    started_at: datetime
+    updated_at: datetime
+    # Entire workflow family rooted at the topmost ancestor, in DFS order
+    # (same shape & ordering as the grouped list endpoint). Single-entry
+    # when the workflow has no parent and no children.
+    family: list[WorkflowFamilyItem]
+    # Steps (dbos.operation_outputs rows) for every workflow in `family`,
+    # ordered by (workflow_id, function_id ASC). Clients group by
+    # workflow_id to build per-workflow timelines.
+    steps: list[WorkflowStep]
+
+
+# Walks up parent_workflow_id to find the topmost ancestor (or the workflow
+# itself if it has no parent), then expands that ancestor's whole subtree in
+# DFS order — matching how the list endpoint groups trees.
+@app.get("/api/workflows/{workflow_id}")
+async def get_workflow(workflow_id: str) -> WorkflowDetail:
+    sql = """
+        WITH RECURSIVE
+            up AS (
+                SELECT workflow_uuid, parent_workflow_id, 0 AS lvl
+                FROM dbos.workflow_status
+                WHERE workflow_uuid = :workflow_id
+
+                UNION ALL
+
+                SELECT ws.workflow_uuid, ws.parent_workflow_id, u.lvl + 1
+                FROM dbos.workflow_status ws
+                JOIN up u ON ws.workflow_uuid = u.parent_workflow_id
+            ),
+            root AS (
+                SELECT workflow_uuid
+                FROM up
+                ORDER BY lvl DESC
+                LIMIT 1
+            ),
+            tree AS (
+                SELECT
+                    ws.workflow_uuid,
+                    ws.parent_workflow_id,
+                    ws.name,
+                    ws.status,
+                    ws.output,
+                    ws.error,
+                    ws.serialization,
+                    COALESCE(ws.started_at_epoch_ms, ws.created_at) AS started_ms,
+                    ws.updated_at AS updated_ms,
+                    0 AS depth,
+                    ARRAY[COALESCE(ws.started_at_epoch_ms, ws.created_at)] AS sort_path
+                FROM dbos.workflow_status ws
+                JOIN root r ON ws.workflow_uuid = r.workflow_uuid
+
+                UNION ALL
+
+                SELECT
+                    c.workflow_uuid,
+                    c.parent_workflow_id,
+                    c.name,
+                    c.status,
+                    c.output,
+                    c.error,
+                    c.serialization,
+                    COALESCE(c.started_at_epoch_ms, c.created_at),
+                    c.updated_at,
+                    t.depth + 1,
+                    t.sort_path || COALESCE(c.started_at_epoch_ms, c.created_at)
+                FROM dbos.workflow_status c
+                JOIN tree t ON c.parent_workflow_id = t.workflow_uuid
+            )
+        SELECT
+            workflow_uuid, parent_workflow_id, name, status, output, error,
+            serialization, started_ms, updated_ms, depth
+        FROM tree
+        ORDER BY sort_path ASC
+    """
+    steps_sql = """
+        SELECT
+            workflow_uuid,
+            function_id,
+            function_name,
+            output,
+            error,
+            child_workflow_id,
+            started_at_epoch_ms,
+            completed_at_epoch_ms,
+            serialization
+        FROM dbos.operation_outputs
+        WHERE workflow_uuid = ANY(:workflow_ids)
+        ORDER BY workflow_uuid, function_id ASC
+    """
+
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(text(sql), {"workflow_id": workflow_id})
+            rows = result.fetchall()
+            family_ids = [r.workflow_uuid for r in rows]
+            steps_result = await conn.execute(text(steps_sql), {"workflow_ids": family_ids})
+            step_rows = steps_result.fetchall()
+    except ProgrammingError as e:
+        raise HTTPException(status_code=404, detail="workflow not found") from e
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="workflow not found")
+
+    family = [
+        WorkflowFamilyItem(
+            workflow_id=r.workflow_uuid,
+            parent_workflow_id=r.parent_workflow_id,
+            name=r.name,
+            status=r.status,
+            output=r.output,
+            error=r.error,
+            serialization=r.serialization,
+            output_decoded=decode_dbos_value(r.output, r.serialization),
+            error_decoded=decode_dbos_value(r.error, r.serialization),
+            started_at=datetime.fromtimestamp(r.started_ms / 1000, tz=UTC),
+            updated_at=datetime.fromtimestamp(r.updated_ms / 1000, tz=UTC),
+            depth=r.depth,
+        )
+        for r in rows
+    ]
+    steps = [
+        WorkflowStep(
+            workflow_id=s.workflow_uuid,
+            function_id=s.function_id,
+            function_name=s.function_name,
+            output=s.output,
+            error=s.error,
+            serialization=s.serialization,
+            output_decoded=decode_dbos_value(s.output, s.serialization),
+            error_decoded=decode_dbos_value(s.error, s.serialization),
+            child_workflow_id=s.child_workflow_id,
+            started_at=(
+                datetime.fromtimestamp(s.started_at_epoch_ms / 1000, tz=UTC)
+                if s.started_at_epoch_ms is not None
+                else None
+            ),
+            completed_at=(
+                datetime.fromtimestamp(s.completed_at_epoch_ms / 1000, tz=UTC)
+                if s.completed_at_epoch_ms is not None
+                else None
+            ),
+        )
+        for s in step_rows
+    ]
+    self_item = next(w for w in family if w.workflow_id == workflow_id)
+    return WorkflowDetail(
+        workflow_id=self_item.workflow_id,
+        parent_workflow_id=self_item.parent_workflow_id,
+        name=self_item.name,
+        status=self_item.status,
+        started_at=self_item.started_at,
+        updated_at=self_item.updated_at,
+        family=family,
+        steps=steps,
+    )
 
 
 @app.websocket("/ws/apps")

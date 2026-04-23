@@ -1,0 +1,210 @@
+<script lang="ts">
+  import type { FlowSelection } from "./WorkflowFlow.svelte";
+  import { statusBadgeClass } from "$lib/workflow-tree";
+
+  let { selection }: { selection: FlowSelection } = $props();
+
+  type ViewMode = "raw" | "decoded";
+
+  // Preference survives across selections so the user doesn't have to
+  // re-toggle every click.
+  let preferredMode = $state<ViewMode>("decoded");
+
+  function formatDuration(ms: number): string {
+    if (ms < 1000) return `${ms}ms`;
+    const s = ms / 1000;
+    if (s < 60) return `${s.toFixed(s < 10 ? 2 : 1)}s`;
+    const m = s / 60;
+    if (m < 60) return `${m.toFixed(1)}m`;
+    return `${(m / 60).toFixed(1)}h`;
+  }
+
+  const heading = $derived.by(() => {
+    if (!selection) return null;
+    if (selection.kind === "workflow") {
+      const w = selection.workflow;
+      const dur =
+        new Date(w.updated_at).getTime() - new Date(w.started_at).getTime();
+      return {
+        eyebrow: "Workflow",
+        title: w.name ?? "—",
+        subtitle: w.workflow_id,
+        status: w.status,
+        startedAt: w.started_at,
+        durationMs: dur >= 0 ? dur : null,
+      };
+    }
+    const s = selection.step;
+    const dur =
+      s.started_at && s.completed_at
+        ? new Date(s.completed_at).getTime() - new Date(s.started_at).getTime()
+        : null;
+    return {
+      eyebrow: `Step #${s.function_id}`,
+      title: s.function_name,
+      subtitle: s.workflow_id,
+      status: null as string | null,
+      startedAt: s.started_at,
+      durationMs: dur,
+    };
+  });
+
+  type Payload =
+    | { kind: "none" }
+    | { kind: "error"; raw: string; decoded: string | null; serialization: string | null }
+    | { kind: "output"; raw: string; decoded: string | null; serialization: string | null };
+
+  const payload = $derived.by<Payload>(() => {
+    if (!selection) return { kind: "none" };
+    const src = selection.kind === "workflow" ? selection.workflow : selection.step;
+    if (src.error) {
+      return {
+        kind: "error",
+        raw: src.error,
+        decoded: src.error_decoded,
+        serialization: src.serialization,
+      };
+    }
+    if (src.output !== null) {
+      return {
+        kind: "output",
+        raw: src.output,
+        decoded: src.output_decoded,
+        serialization: src.serialization,
+      };
+    }
+    return { kind: "none" };
+  });
+
+  // Only offer "decoded" when the backend actually produced one.
+  const effectiveMode = $derived.by<ViewMode>(() => {
+    if (payload.kind === "none") return "raw";
+    if (preferredMode === "decoded" && payload.decoded !== null) return "decoded";
+    return "raw";
+  });
+</script>
+
+<aside class="border-border bg-card flex h-full w-full flex-col overflow-hidden rounded-lg border">
+  <div class="border-border bg-muted/30 flex items-center gap-2 border-b px-4 py-2.5">
+    <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+      Result
+    </span>
+    {#if payload.kind !== "none" && payload.serialization}
+      <span
+        class="bg-muted text-muted-foreground ml-auto inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium"
+        title="Serialization format (DBOS `serialization` column)"
+      >
+        {payload.serialization}
+      </span>
+    {/if}
+  </div>
+
+  {#if !selection || !heading}
+    <div class="text-muted-foreground flex flex-1 items-center justify-center p-6 text-sm">
+      Select a workflow or step to see its result.
+    </div>
+  {:else}
+    <div class="border-border flex flex-col gap-1 border-b px-4 py-3">
+      <div class="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+        {heading.eyebrow}
+      </div>
+      <div class="flex items-start gap-2">
+        <span class="truncate font-mono text-sm font-medium" title={heading.title}>
+          {heading.title}
+        </span>
+        {#if heading.status}
+          <span
+            class="ml-auto inline-flex flex-none items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-inset {statusBadgeClass(
+              heading.status,
+            )}"
+          >
+            {heading.status}
+          </span>
+        {/if}
+      </div>
+      <div class="text-muted-foreground truncate font-mono text-[10px]" title={heading.subtitle}>
+        {heading.subtitle}
+      </div>
+      {#if heading.durationMs !== null || heading.startedAt}
+        <div class="text-muted-foreground mt-1 flex items-center gap-3 text-[11px]">
+          {#if heading.durationMs !== null}
+            <span class="inline-flex items-center gap-1" title="Execution duration">
+              <span class="text-muted-foreground/70">Duration</span>
+              <span class="text-foreground font-mono">{formatDuration(heading.durationMs)}</span>
+            </span>
+          {/if}
+          {#if heading.startedAt}
+            <span
+              class="inline-flex items-center gap-1"
+              title={new Date(heading.startedAt).toLocaleString()}
+            >
+              <span class="text-muted-foreground/70">Started</span>
+              <span class="font-mono">{new Date(heading.startedAt).toLocaleTimeString()}</span>
+            </span>
+          {/if}
+        </div>
+      {/if}
+    </div>
+
+    <div class="flex flex-1 flex-col overflow-hidden">
+      {#if payload.kind === "none"}
+        <div class="text-muted-foreground flex flex-1 items-center justify-center p-6 text-sm">
+          No result recorded.
+        </div>
+      {:else}
+        <div class="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
+          <span class="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+            {payload.kind === "error" ? "Error" : "Output"}
+          </span>
+          <div class="bg-muted flex items-center rounded-md p-0.5">
+            <button
+              type="button"
+              class="rounded px-2 py-0.5 text-[11px] font-medium transition
+                {effectiveMode === 'raw'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'}"
+              onclick={() => (preferredMode = "raw")}
+            >
+              Raw
+            </button>
+            <button
+              type="button"
+              disabled={payload.decoded === null}
+              class="rounded px-2 py-0.5 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40
+                {effectiveMode === 'decoded'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground enabled:hover:text-foreground'}"
+              onclick={() => (preferredMode = "decoded")}
+              title={payload.decoded === null
+                ? "Server couldn't decode this payload — showing raw"
+                : "Decoded via server-side unpickler / JSON parser"}
+            >
+              Decoded
+            </button>
+          </div>
+        </div>
+        <div class="flex-1 overflow-auto px-4 pb-4">
+          {#if payload.kind === "error"}
+            <pre
+              class="border-destructive/30 bg-destructive/5 text-destructive overflow-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap break-words">{effectiveMode ===
+              "decoded" && payload.decoded !== null
+                ? payload.decoded
+                : payload.raw}</pre>
+          {:else}
+            <pre
+              class="bg-muted/40 overflow-auto rounded-md p-3 font-mono text-xs whitespace-pre-wrap break-words">{effectiveMode ===
+              "decoded" && payload.decoded !== null
+                ? payload.decoded
+                : payload.raw}</pre>
+          {/if}
+          {#if payload.decoded === null && payload.serialization && payload.serialization.toLowerCase().includes("pickle")}
+            <p class="text-muted-foreground mt-2 text-[11px]">
+              Pickled Python value couldn't be decoded safely (likely a custom class). Showing
+              the raw on-disk base64 payload.
+            </p>
+          {/if}
+        </div>
+      {/if}
+    </div>
+  {/if}
+</aside>

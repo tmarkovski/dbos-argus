@@ -12,23 +12,12 @@
   import { Checkbox } from "$lib/components/ui/checkbox";
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
   import * as Popover from "$lib/components/ui/popover";
-
-  type Workflow = {
-    workflow_id: string;
-    parent_workflow_id: string | null;
-    name: string | null;
-    status: string | null;
-    started_at: string;
-    updated_at: string;
-    depth: number;
-  };
-
-  // For each row, a `lineage` array of booleans of length == depth.
-  // Entry at index i (i < depth-1) says "draw vertical line at this column"
-  // (true) vs "empty space" (false) based on whether the ancestor at depth
-  // i+1 has a next sibling. Entry at index depth-1 (the row's own connector
-  // column) is true for ├─ and false for └─.
-  type TreeRow = Workflow & { lineage: boolean[] };
+  import {
+    computeLineage,
+    statusBadgeClass,
+    type TreeRow,
+    type Workflow,
+  } from "$lib/workflow-tree";
 
   type ColumnKey = "status" | "workflow_id" | "name" | "started" | "updated";
 
@@ -163,44 +152,7 @@
   const rows = $derived.by<TreeRow[]>(() => {
     if (!workflows) return [];
     if (!grouped) return workflows.map((w) => ({ ...w, lineage: [] }));
-
-    const byId = new Map(workflows.map((w) => [w.workflow_id, w]));
-
-    // Rows arrive in DFS order: for each row R, scan forward — the first row
-    // with depth <= R.depth is either R's next sibling (depth ==) or breaks
-    // out of R's subtree (depth <).
-    const hasNext = new Map<string, boolean>();
-    for (let i = 0; i < workflows.length; i++) {
-      const r = workflows[i];
-      let flag = false;
-      for (let j = i + 1; j < workflows.length; j++) {
-        const q = workflows[j];
-        if (q.depth < r.depth) break;
-        if (q.depth === r.depth) {
-          flag = q.parent_workflow_id === r.parent_workflow_id;
-          break;
-        }
-      }
-      hasNext.set(r.workflow_id, flag);
-    }
-
-    return workflows.map((w) => {
-      // chain = [rootAncestor, ..., parent, w] ordered by increasing depth.
-      const chain: Workflow[] = [w];
-      let cur: Workflow | undefined = w;
-      while (cur?.parent_workflow_id) {
-        const p = byId.get(cur.parent_workflow_id);
-        if (!p) break;
-        chain.unshift(p);
-        cur = p;
-      }
-      const lineage: boolean[] = [];
-      for (let i = 0; i < w.depth; i++) {
-        const ancestor = chain[i + 1];
-        lineage.push(hasNext.get(ancestor.workflow_id) ?? false);
-      }
-      return { ...w, lineage };
-    });
+    return computeLineage(workflows);
   });
 
   function formatRelative(iso: string): string {
@@ -215,17 +167,6 @@
     if (h < 24) return `${h}h ago`;
     const d = Math.round(h / 24);
     return `${d}d ago`;
-  }
-
-  function statusBadgeClass(status: string | null): string {
-    const s = (status ?? "").toUpperCase();
-    if (s === "SUCCESS")
-      return "bg-green-100 text-green-800 ring-green-600/20 dark:bg-green-500/10 dark:text-green-400";
-    if (s === "PENDING" || s === "ENQUEUED" || s === "DELAYED")
-      return "bg-blue-100 text-blue-800 ring-blue-600/20 dark:bg-blue-500/10 dark:text-blue-400";
-    if (s === "ERROR" || s === "CANCELLED" || s === "MAX_RECOVERY_ATTEMPTS_EXCEEDED")
-      return "bg-red-100 text-red-800 ring-red-600/20 dark:bg-red-500/10 dark:text-red-400";
-    return "bg-muted text-muted-foreground ring-border";
   }
 
   function statusDotClass(status: string): string {
@@ -389,8 +330,15 @@
                   class="text-muted-foreground px-4 font-mono text-xs {!grouped || w.depth === 0
                     ? 'py-2'
                     : 'py-1'}"
-                  title={w.workflow_id}>{w.workflow_id}</td
+                  title={w.workflow_id}
                 >
+                  <a
+                    href="/workflows/{encodeURIComponent(w.workflow_id)}/"
+                    class="hover:text-foreground hover:underline"
+                  >
+                    {w.workflow_id}
+                  </a>
+                </td>
               {/if}
               {#if columns.name}
                 <td class="px-4 py-0 font-mono">
@@ -421,11 +369,14 @@
                         {/if}
                       </div>
                     {/each}
-                    <span
-                      class="{!grouped || w.depth === 0 ? 'py-2' : 'py-1'} {grouped && w.depth > 0
-                        ? 'pl-1'
-                        : ''}">{w.name ?? "—"}</span
+                    <a
+                      href="/workflows/{encodeURIComponent(w.workflow_id)}/"
+                      class="hover:text-foreground hover:underline {!grouped || w.depth === 0
+                        ? 'py-2'
+                        : 'py-1'} {grouped && w.depth > 0 ? 'pl-1' : ''}"
                     >
+                      {w.name ?? "—"}
+                    </a>
                   </div>
                 </td>
               {/if}
