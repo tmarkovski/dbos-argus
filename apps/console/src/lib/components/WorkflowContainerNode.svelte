@@ -1,14 +1,26 @@
 <script lang="ts">
   import { Handle, Position, type NodeProps } from "@xyflow/svelte";
+  import ChevronsUp from "@lucide/svelte/icons/chevrons-up";
   import { statusBadgeClass, type Workflow } from "$lib/workflow-tree";
 
-  type NodeData = { workflow: Workflow; isCurrent: boolean };
+  type NodeData = {
+    workflow: Workflow;
+    isCurrent: boolean;
+    isCollapsible: boolean;
+    isExpanded: boolean;
+    onToggle?: () => void;
+  };
 
   let { data, selected }: NodeProps & { data: NodeData } = $props();
+
+  function handleToggle(e: MouseEvent) {
+    e.stopPropagation();
+    data.onToggle?.();
+  }
 </script>
 
 <div
-  class="bg-card/60 flex h-full w-full cursor-pointer flex-col rounded-lg border backdrop-blur-sm
+  class="bg-card/60 relative flex h-full w-full cursor-pointer flex-col rounded-lg border backdrop-blur-sm
     {selected
       ? 'ring-primary border-primary ring-2'
       : data.isCurrent
@@ -29,7 +41,7 @@
     style="top: 65%"
     isConnectable={false}
   />
-  <div class="border-border bg-card/80 flex items-center gap-2 rounded-t-lg border-b px-3 py-2">
+  <div class="flex items-center gap-2 px-3 py-2">
     <span class="truncate font-mono text-xs font-medium">
       {data.workflow.name ?? "—"}
     </span>
@@ -47,4 +59,26 @@
   >
     {data.workflow.workflow_id}
   </div>
+  {#if data.isCollapsible && data.isExpanded}
+    <button
+      type="button"
+      onclick={handleToggle}
+      onmousedown={(e) => e.stopPropagation()}
+      class="border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted absolute -left-3 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm"
+      aria-label="Collapse steps"
+      title="Collapse"
+    >
+      <ChevronsUp class="h-3.5 w-3.5" />
+    </button>
+    <button
+      type="button"
+      onclick={handleToggle}
+      onmousedown={(e) => e.stopPropagation()}
+      class="border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted absolute -right-3 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm"
+      aria-label="Collapse steps"
+      title="Collapse"
+    >
+      <ChevronsUp class="h-3.5 w-3.5" />
+    </button>
+  {/if}
 </div>

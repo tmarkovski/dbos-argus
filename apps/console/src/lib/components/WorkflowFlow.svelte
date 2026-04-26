@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { SvelteSet } from "svelte/reactivity";
   import {
     Background,
     Controls,
@@ -12,6 +13,7 @@
   import type { Workflow } from "$lib/workflow-tree";
   import WorkflowContainerNode from "./WorkflowContainerNode.svelte";
   import StepNode from "./StepNode.svelte";
+  import EllipsisNode from "./EllipsisNode.svelte";
 
   export type FamilyWorkflow = Workflow & {
     output: string | null;
@@ -56,15 +58,63 @@
 
   const STEP_WIDTH = 220;
   const STEP_HEIGHT = 32;
+  const ELLIPSIS_HEIGHT = 22;
+  const HEAD = 5;
+  const TAIL = 5;
 
   const elk = new ELK();
   const nodeTypes: NodeTypes = {
     workflow: WorkflowContainerNode,
     step: StepNode,
+    ellipsis: EllipsisNode,
   };
 
   let nodes = $state.raw<Node[]>([]);
   let edges = $state.raw<Edge[]>([]);
+  let expanded = new SvelteSet<string>();
+
+  type VisibleItem =
+    | { kind: "step"; step: Step }
+    | { kind: "ellipsis"; from: number; to: number; count: number };
+
+  function ellipsisNodeId(wfId: string, from: number, to: number): string {
+    return `${wfId}/ellipsis/${from}-${to}`;
+  }
+
+  function buildVisibleItems(
+    wfSteps: Step[],
+    isExpanded: boolean,
+    importantIds: Set<string>,
+  ): VisibleItem[] {
+    if (isExpanded || wfSteps.length <= HEAD + TAIL) {
+      return wfSteps.map((step) => ({ kind: "step", step }));
+    }
+    const head = wfSteps.slice(0, HEAD);
+    const tail = wfSteps.slice(-TAIL);
+    const middleVisible = wfSteps
+      .slice(HEAD, wfSteps.length - TAIL)
+      .filter((s) => importantIds.has(stepNodeId(s.workflow_id, s.function_id)));
+    const visible: Step[] = [...head, ...middleVisible, ...tail];
+
+    const indexOf = new Map(wfSteps.map((s, i) => [s.function_id, i]));
+    const items: VisibleItem[] = [];
+    for (let i = 0; i < visible.length; i++) {
+      if (i > 0) {
+        const prevIdx = indexOf.get(visible[i - 1].function_id)!;
+        const curIdx = indexOf.get(visible[i].function_id)!;
+        if (curIdx - prevIdx > 1) {
+          items.push({
+            kind: "ellipsis",
+            from: prevIdx + 1,
+            to: curIdx - 1,
+            count: curIdx - prevIdx - 1,
+          });
+        }
+      }
+      items.push({ kind: "step", step: visible[i] });
+    }
+    return items;
+  }
 
   function stepKind(s: Step): "child" | "system" | "step" {
     if (s.function_name.startsWith("DBOS.")) return "system";
@@ -83,7 +133,12 @@
     return `${workflowId}/${functionId}`;
   }
 
-  async function layout(family: FamilyWorkflow[], steps: Step[], currentId: string) {
+  async function layout(
+    family: FamilyWorkflow[],
+    steps: Step[],
+    currentId: string,
+    expandedSet: Set<string>,
+  ) {
     const stepsByWf = new Map<string, Step[]>();
     for (const s of steps) {
       const list = stepsByWf.get(s.workflow_id) ?? [];
@@ -99,12 +154,37 @@
       return nameByWorkflowId.get(s.child_workflow_id) ?? null;
     }
 
-    // Stage 1: lay each container out independently with its steps stacked
-    // top→bottom. This produces per-container width/height and per-step
-    // positions relative to the container.
+    // Steps that connect to other family workflows (spawn or getResult) must
+    // remain visible even if they fall in the truncated middle range, otherwise
+    // their cross-container edges would lose an endpoint.
+    const importantIds = new Set<string>();
+    for (const s of steps) {
+      if (!s.child_workflow_id || !familyIds.has(s.child_workflow_id)) continue;
+      if (stepKind(s) === "child" || s.function_name === "DBOS.getResult") {
+        importantIds.add(stepNodeId(s.workflow_id, s.function_id));
+      }
+    }
+
+    const itemsByWf = new Map<string, VisibleItem[]>();
+    for (const w of family) {
+      const wfSteps = stepsByWf.get(w.workflow_id) ?? [];
+      itemsByWf.set(
+        w.workflow_id,
+        buildVisibleItems(wfSteps, expandedSet.has(w.workflow_id), importantIds),
+      );
+    }
+
+    function itemId(wfId: string, it: VisibleItem): string {
+      return it.kind === "step"
+        ? stepNodeId(it.step.workflow_id, it.step.function_id)
+        : ellipsisNodeId(wfId, it.from, it.to);
+    }
+
+    // Stage 1: lay each container out independently with its (possibly
+    // truncated) items stacked top→bottom.
     const containerLayouts = await Promise.all(
       family.map(async (w) => {
-        const wfSteps = stepsByWf.get(w.workflow_id) ?? [];
+        const items = itemsByWf.get(w.workflow_id) ?? [];
         const containerGraph: ElkNode = {
           id: w.workflow_id,
           layoutOptions: {
@@ -116,17 +196,19 @@
             "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
             "elk.layered.crossingMinimization.forceNodeModelOrder": "true",
           },
-          children: wfSteps.map((s) => ({
-            id: stepNodeId(s.workflow_id, s.function_id),
+          children: items.map((it) => ({
+            id: itemId(w.workflow_id, it),
             width: STEP_WIDTH,
-            height: STEP_HEIGHT,
+            height: it.kind === "step" ? STEP_HEIGHT : ELLIPSIS_HEIGHT,
           })),
-          edges: wfSteps.slice(1).map((s, i) => {
-            const prev = wfSteps[i];
+          edges: items.slice(1).map((it, i) => {
+            const prev = items[i];
+            const sourceId = itemId(w.workflow_id, prev);
+            const targetId = itemId(w.workflow_id, it);
             return {
-              id: `seq:${s.workflow_id}:${prev.function_id}->${s.function_id}`,
-              sources: [stepNodeId(prev.workflow_id, prev.function_id)],
-              targets: [stepNodeId(s.workflow_id, s.function_id)],
+              id: `seq:${w.workflow_id}:${sourceId}->${targetId}`,
+              sources: [sourceId],
+              targets: [targetId],
             };
           }),
         };
@@ -184,11 +266,18 @@
     for (const c of containerLayouts) {
       const w = family.find((f) => f.workflow_id === c.id)!;
       const pos = containerPos.get(c.id!) ?? { x: 0, y: 0 };
+      const wfStepCount = stepsByWf.get(c.id!)?.length ?? 0;
       nextNodes.push({
         id: c.id!,
         type: "workflow",
         position: pos,
-        data: { workflow: w, isCurrent: w.workflow_id === currentId },
+        data: {
+          workflow: w,
+          isCurrent: w.workflow_id === currentId,
+          isCollapsible: wfStepCount > HEAD + TAIL,
+          isExpanded: expandedSet.has(c.id!),
+          onToggle: () => toggleExpansion(c.id!),
+        },
         width: c.width,
         height: c.height,
         draggable: false,
@@ -196,20 +285,41 @@
         selectable: true,
         style: `width: ${c.width}px; height: ${c.height}px;`,
       });
-      for (const stepNode of c.children ?? []) {
-        const [, fnStr] = stepNode.id!.split("/");
-        const fnId = Number(fnStr);
-        const s = (stepsByWf.get(c.id!) ?? []).find((x) => x.function_id === fnId)!;
+      const items = itemsByWf.get(c.id!) ?? [];
+      const itemByNodeId = new Map<string, VisibleItem>();
+      for (const it of items) {
+        itemByNodeId.set(itemId(c.id!, it), it);
+      }
+      for (const childNode of c.children ?? []) {
+        const item = itemByNodeId.get(childNode.id!);
+        if (!item) continue;
+        if (item.kind === "ellipsis") {
+          nextNodes.push({
+            id: childNode.id!,
+            type: "ellipsis",
+            parentId: c.id!,
+            extent: "parent",
+            position: { x: childNode.x ?? 0, y: childNode.y ?? 0 },
+            data: { workflowId: c.id!, hiddenCount: item.count },
+            width: childNode.width,
+            height: childNode.height,
+            draggable: false,
+            connectable: false,
+            selectable: false,
+          });
+          continue;
+        }
+        const s = item.step;
         const durationMs =
           s.started_at && s.completed_at
             ? new Date(s.completed_at).getTime() - new Date(s.started_at).getTime()
             : null;
         nextNodes.push({
-          id: stepNode.id!,
+          id: childNode.id!,
           type: "step",
           parentId: c.id!,
           extent: "parent",
-          position: { x: stepNode.x ?? 0, y: stepNode.y ?? 0 },
+          position: { x: childNode.x ?? 0, y: childNode.y ?? 0 },
           data: {
             functionId: s.function_id,
             functionName: s.function_name,
@@ -224,8 +334,8 @@
                 : null,
             awaitedWorkflowName: awaitedName(s),
           },
-          width: stepNode.width,
-          height: stepNode.height,
+          width: childNode.width,
+          height: childNode.height,
           draggable: false,
           connectable: false,
           selectable: true,
@@ -280,10 +390,22 @@
   }
 
   $effect(() => {
-    layout(family, steps, currentId);
+    // Snapshot expanded so the effect re-runs when it changes.
+    const snapshot = new Set(expanded);
+    layout(family, steps, currentId, snapshot);
   });
 
+  function toggleExpansion(wfId: string) {
+    if (expanded.has(wfId)) expanded.delete(wfId);
+    else expanded.add(wfId);
+  }
+
   function handleNodeClick({ node }: { node: Node }) {
+    if (node.type === "ellipsis") {
+      const wfId = (node.data as { workflowId: string }).workflowId;
+      toggleExpansion(wfId);
+      return;
+    }
     if (!onSelect) return;
     if (node.type === "workflow") {
       const wf = family.find((w) => w.workflow_id === node.id);
