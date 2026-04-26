@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import {
     Background,
     Controls,
     SvelteFlow,
+    type ColorMode,
     type Edge,
     type Node,
     type NodeTypes,
@@ -72,6 +73,17 @@
   let nodes = $state.raw<Node[]>([]);
   let edges = $state.raw<Edge[]>([]);
   let expanded = new SvelteSet<string>();
+  let colorMode = $state<ColorMode>("light");
+
+  onMount(() => {
+    const sync = () => {
+      colorMode = document.documentElement.classList.contains("dark") ? "dark" : "light";
+    };
+    sync();
+    const obs = new MutationObserver(sync);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  });
 
   type VisibleItem =
     | { kind: "step"; step: Step }
@@ -290,6 +302,10 @@
       for (const it of items) {
         itemByNodeId.set(itemId(c.id!, it), it);
       }
+      const firstStepItem = items.find((it) => it.kind === "step");
+      const lastStepItem = [...items].reverse().find((it) => it.kind === "step");
+      const firstStepNodeId = firstStepItem ? itemId(c.id!, firstStepItem) : null;
+      const lastStepNodeId = lastStepItem ? itemId(c.id!, lastStepItem) : null;
       for (const childNode of c.children ?? []) {
         const item = itemByNodeId.get(childNode.id!);
         if (!item) continue;
@@ -333,6 +349,8 @@
                 ? s.child_workflow_id
                 : null,
             awaitedWorkflowName: awaitedName(s),
+            isFirst: childNode.id === firstStepNodeId,
+            isLast: childNode.id === lastStepNodeId,
           },
           width: childNode.width,
           height: childNode.height,
@@ -453,6 +471,7 @@
     bind:nodes
     bind:edges
     {nodeTypes}
+    {colorMode}
     fitView
     nodesDraggable={false}
     nodesConnectable={false}
@@ -467,3 +486,16 @@
     <Controls showLock={false} />
   </SvelteFlow>
 </div>
+
+<style>
+  /* Match step/container border tone so handles read as part of the
+     same outline rather than a contrasting accent dot. */
+  :global(.svelte-flow__handle) {
+    width: 4px;
+    height: 4px;
+    min-width: 4px;
+    min-height: 4px;
+    background: color-mix(in oklab, var(--color-foreground) 20%, transparent);
+    border: none;
+  }
+</style>

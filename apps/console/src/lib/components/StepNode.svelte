@@ -12,6 +12,8 @@
     durationMs: number | null;
     awaitsWorkflowId?: string | null;
     awaitedWorkflowName?: string | null;
+    isFirst?: boolean;
+    isLast?: boolean;
   };
 
   let { data, selected }: NodeProps & { data: NodeData } = $props();
@@ -46,10 +48,12 @@
 </script>
 
 <div
-  class="bg-background flex h-full w-full cursor-pointer items-center gap-2 rounded-md border border-border/70 px-2.5 py-1 shadow-xs transition-shadow hover:shadow-md
+  class="bg-background flex h-full w-full cursor-pointer items-center gap-2 rounded-md border border-foreground/20 px-2.5 py-1
     {selected ? 'ring-primary ring-2 border-primary' : ''}"
 >
-  <Handle type="target" position={Position.Top} isConnectable={false} />
+  {#if !data.isFirst}
+    <Handle type="target" position={Position.Top} isConnectable={false} />
+  {/if}
   <span class="h-2 w-2 flex-none rounded-full {dotClass}" aria-hidden="true"></span>
   <span class="text-muted-foreground flex-none font-mono text-[10px]">#{data.functionId}</span>
   {#if data.awaitedWorkflowName}
@@ -68,7 +72,9 @@
       {formatDuration(data.durationMs)}
     </span>
   {/if}
-  <Handle type="source" position={Position.Bottom} isConnectable={false} />
+  {#if !data.isLast}
+    <Handle type="source" position={Position.Bottom} isConnectable={false} />
+  {/if}
   {#if data.kind === "child"}
     <Handle id="spawn" type="source" position={Position.Right} isConnectable={false} />
   {/if}

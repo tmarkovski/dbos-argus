@@ -20,12 +20,12 @@
 </script>
 
 <div
-  class="bg-card/60 relative flex h-full w-full cursor-pointer flex-col rounded-lg border backdrop-blur-sm
+  class="bg-card/60 relative flex h-full w-full cursor-pointer flex-col rounded-lg border shadow-sm backdrop-blur-sm
     {selected
       ? 'ring-primary border-primary ring-2'
       : data.isCurrent
         ? 'ring-primary/40 border-primary/60 ring-2'
-        : 'border-border'}"
+        : 'border-foreground/20'}"
 >
   <Handle
     id="spawn"
