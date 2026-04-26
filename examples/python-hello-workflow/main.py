@@ -109,9 +109,9 @@ def hello_workflow(name: str) -> dict:
 
 
 @DBOS.workflow()
-def loop_workflow(name: str) -> dict:
-    greetings = [shout(f"{name}-{i}") for i in range(5)]
-    return {"name": name, "greetings": greetings}
+def loop_workflow(name: str, count: int = 5) -> dict:
+    greetings = [shout(f"{name}-{i}") for i in range(count)]
+    return {"name": name, "greetings": greetings, "count": count}
 
 
 @DBOS.workflow()
@@ -180,7 +180,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO)
     DBOS.launch()
     LOG.info("hello_workflow result: %s", hello_workflow("argus"))
-    LOG.info("loop_workflow result: %s", loop_workflow("argus"))
+    LOG.info("loop_workflow result: %s", loop_workflow("argus", 20))
     LOG.info("greet_parent result: %s", greet_parent("argus"))
     asyncio.run(connect_to_argus())
 
