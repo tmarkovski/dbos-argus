@@ -18,6 +18,14 @@
     type TreeRow,
     type Workflow,
   } from "$lib/workflow-tree";
+  import { breadcrumb } from "$lib/breadcrumb.svelte";
+
+  $effect(() => {
+    breadcrumb.items = [{ label: "Home" }];
+    return () => {
+      breadcrumb.items = [];
+    };
+  });
 
   type ColumnKey = "status" | "workflow_id" | "name" | "started" | "updated";
 
@@ -179,8 +187,6 @@
 </script>
 
 <div class="flex flex-col gap-4 p-6">
-  <h1 class="text-2xl font-semibold">Workflows</h1>
-
   <div class="flex flex-wrap items-center gap-2">
     <Popover.Root>
       <Popover.Trigger>

@@ -65,3 +65,12 @@ export function statusBadgeClass(status: string | null): string {
     return "bg-red-100 text-red-800 ring-red-600/20 dark:bg-red-500/10 dark:text-red-400";
   return "bg-muted text-muted-foreground ring-border";
 }
+
+export function statusDotClass(status: string | null): string {
+  const s = (status ?? "").toUpperCase();
+  if (s === "SUCCESS") return "bg-green-500";
+  if (s === "PENDING" || s === "ENQUEUED" || s === "DELAYED") return "bg-blue-500";
+  if (s === "ERROR" || s === "CANCELLED" || s === "MAX_RECOVERY_ATTEMPTS_EXCEEDED")
+    return "bg-red-500";
+  return "bg-muted-foreground/40";
+}

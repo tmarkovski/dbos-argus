@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
   import { page } from "$app/state";
   import ResultPane from "$lib/components/ResultPane.svelte";
   import WorkflowFlow, {
@@ -6,6 +7,7 @@
     type FlowSelection,
     type Step,
   } from "$lib/components/WorkflowFlow.svelte";
+  import { breadcrumb } from "$lib/breadcrumb.svelte";
 
   type WorkflowDetail = {
     workflow_id: string;
@@ -68,6 +70,35 @@
       .catch((e) => {
         error = e instanceof Error ? e.message : String(e);
       });
+  });
+
+  // Walk parent_workflow_id pointers up the family graph to build a
+  // root → ... → current chain, then publish to the global breadcrumb.
+  $effect(() => {
+    if (!detail) {
+      breadcrumb.items = [];
+      return;
+    }
+    const byId = new Map(detail.family.map((w) => [w.workflow_id, w]));
+    const chain: FamilyWorkflow[] = [];
+    let cur: FamilyWorkflow | undefined = byId.get(detail.workflow_id);
+    while (cur) {
+      chain.unshift(cur);
+      cur = cur.parent_workflow_id ? byId.get(cur.parent_workflow_id) : undefined;
+    }
+    breadcrumb.items = [
+      { label: "Home", href: "/", icon: "home", tooltip: "Home" },
+      ...chain.map((w) => ({
+        label: w.name ?? w.workflow_id,
+        href: `/workflows/${w.workflow_id}`,
+        status: w.status,
+        tooltip: w.workflow_id,
+      })),
+    ];
+  });
+
+  onDestroy(() => {
+    breadcrumb.items = [];
   });
 </script>
 
