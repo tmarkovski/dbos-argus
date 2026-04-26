@@ -15,7 +15,20 @@
         ? 'ring-primary/40 border-primary/60 ring-2'
         : 'border-border'}"
 >
-  <Handle type="target" position={Position.Top} isConnectable={false} />
+  <Handle
+    id="spawn"
+    type="target"
+    position={Position.Left}
+    style="top: 35%"
+    isConnectable={false}
+  />
+  <Handle
+    id="return"
+    type="source"
+    position={Position.Left}
+    style="top: 65%"
+    isConnectable={false}
+  />
   <div class="border-border bg-card/80 flex items-center gap-2 rounded-t-lg border-b px-3 py-2">
     <span class="truncate font-mono text-xs font-medium">
       {data.workflow.name ?? "—"}
@@ -34,5 +47,4 @@
   >
     {data.workflow.workflow_id}
   </div>
-  <Handle type="source" position={Position.Bottom} isConnectable={false} />
 </div>

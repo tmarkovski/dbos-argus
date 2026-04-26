@@ -10,6 +10,8 @@
     kind: StepKind;
     status: StepStatus;
     durationMs: number | null;
+    awaitsWorkflowId?: string | null;
+    awaitedWorkflowName?: string | null;
   };
 
   let { data, selected }: NodeProps & { data: NodeData } = $props();
@@ -47,16 +49,30 @@
   class="bg-background flex h-full w-full cursor-pointer items-center gap-2 rounded-md border border-border/70 px-2.5 py-1 shadow-xs transition-shadow hover:shadow-md
     {selected ? 'ring-primary ring-2 border-primary' : ''}"
 >
-  <Handle type="target" position={Position.Left} isConnectable={false} />
+  <Handle type="target" position={Position.Top} isConnectable={false} />
   <span class="h-2 w-2 flex-none rounded-full {dotClass}" aria-hidden="true"></span>
   <span class="text-muted-foreground flex-none font-mono text-[10px]">#{data.functionId}</span>
-  <span class="truncate font-mono text-xs {nameClass}" title={data.functionName}>
-    {data.functionName}
-  </span>
+  {#if data.awaitedWorkflowName}
+    <span class="text-muted-foreground truncate font-mono text-xs" title={data.functionName}>
+      result of <span class="text-indigo-700 dark:text-indigo-400"
+        >{data.awaitedWorkflowName}</span
+      >
+    </span>
+  {:else}
+    <span class="truncate font-mono text-xs {nameClass}" title={data.functionName}>
+      {data.functionName}
+    </span>
+  {/if}
   {#if data.durationMs !== null}
     <span class="text-muted-foreground ml-auto flex-none font-mono text-[10px]">
       {formatDuration(data.durationMs)}
     </span>
   {/if}
-  <Handle type="source" position={Position.Right} isConnectable={false} />
+  <Handle type="source" position={Position.Bottom} isConnectable={false} />
+  {#if data.kind === "child"}
+    <Handle id="spawn" type="source" position={Position.Right} isConnectable={false} />
+  {/if}
+  {#if data.awaitsWorkflowId}
+    <Handle id="return" type="target" position={Position.Right} isConnectable={false} />
+  {/if}
 </div>

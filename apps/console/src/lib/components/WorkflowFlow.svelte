@@ -92,37 +92,35 @@
     }
 
     const familyIds = new Set(family.map((w) => w.workflow_id));
+    const nameByWorkflowId = new Map(family.map((w) => [w.workflow_id, w.name ?? null]));
 
-    // Root graph: workflows as compound containers, arranged top→down in
-    // model order (family is already DFS/time-sorted on the server).
-    const rootGraph: ElkNode = {
-      id: "root",
-      layoutOptions: {
-        "elk.algorithm": "layered",
-        "elk.direction": "DOWN",
-        "elk.hierarchyHandling": "INCLUDE_CHILDREN",
-        "elk.spacing.nodeNode": "48",
-        "elk.layered.spacing.nodeNodeBetweenLayers": "72",
-        "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
-        "elk.layered.crossingMinimization.forceNodeModelOrder": "true",
-      },
-      children: family.map((w) => {
+    function awaitedName(s: Step): string | null {
+      if (s.function_name !== "DBOS.getResult" || !s.child_workflow_id) return null;
+      return nameByWorkflowId.get(s.child_workflow_id) ?? null;
+    }
+
+    // Stage 1: lay each container out independently with its steps stacked
+    // top→bottom. This produces per-container width/height and per-step
+    // positions relative to the container.
+    const containerLayouts = await Promise.all(
+      family.map(async (w) => {
         const wfSteps = stepsByWf.get(w.workflow_id) ?? [];
-        return {
+        const containerGraph: ElkNode = {
           id: w.workflow_id,
           layoutOptions: {
             "elk.algorithm": "layered",
-            "elk.direction": "RIGHT",
+            "elk.direction": "DOWN",
             "elk.padding": "[top=60,left=16,right=16,bottom=16]",
-            "elk.spacing.nodeNode": "16",
-            "elk.layered.spacing.nodeNodeBetweenLayers": "24",
+            "elk.spacing.nodeNode": "12",
+            "elk.layered.spacing.nodeNodeBetweenLayers": "12",
+            "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
+            "elk.layered.crossingMinimization.forceNodeModelOrder": "true",
           },
           children: wfSteps.map((s) => ({
             id: stepNodeId(s.workflow_id, s.function_id),
             width: STEP_WIDTH,
             height: STEP_HEIGHT,
           })),
-          // Sequential edges: step N → step N+1 inside each container.
           edges: wfSteps.slice(1).map((s, i) => {
             const prev = wfSteps[i];
             return {
@@ -132,55 +130,84 @@
             };
           }),
         };
+        return await elk.layout(containerGraph);
       }),
-      // Cross-hierarchy spawn edges: step with child_workflow_id → child
-      // workflow container. (Skip if the child isn't part of this family —
-      // shouldn't happen, but be defensive.)
-      edges: steps
-        .filter(
-          (s) =>
-            s.child_workflow_id !== null &&
-            stepKind(s) === "child" &&
-            familyIds.has(s.child_workflow_id),
-        )
-        .map((s) => ({
-          id: `spawn:${stepNodeId(s.workflow_id, s.function_id)}->${s.child_workflow_id}`,
-          sources: [stepNodeId(s.workflow_id, s.function_id)],
-          targets: [s.child_workflow_id as string],
-        })),
+    );
+
+    // Stage 2: lay containers out at the root with direction RIGHT, treating
+    // each container as a fixed-size box. Spawn edges are collapsed to
+    // container→container so ELK can place children to the right of parents.
+    const spawnSteps = steps.filter(
+      (s) =>
+        s.child_workflow_id !== null &&
+        stepKind(s) === "child" &&
+        familyIds.has(s.child_workflow_id),
+    );
+    const seenContainerEdge = new Set<string>();
+    const rootGraph: ElkNode = {
+      id: "root",
+      layoutOptions: {
+        "elk.algorithm": "layered",
+        "elk.direction": "RIGHT",
+        "elk.spacing.nodeNode": "60",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "120",
+        "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
+      },
+      children: containerLayouts.map((c) => ({
+        id: c.id!,
+        width: c.width,
+        height: c.height,
+      })),
+      edges: spawnSteps
+        .map((s) => {
+          const key = `${s.workflow_id}->${s.child_workflow_id}`;
+          if (seenContainerEdge.has(key)) return null;
+          seenContainerEdge.add(key);
+          return {
+            id: `container-spawn:${key}`,
+            sources: [s.workflow_id],
+            targets: [s.child_workflow_id as string],
+          };
+        })
+        .filter((e): e is NonNullable<typeof e> => e !== null),
     };
 
-    const laidOut = await elk.layout(rootGraph);
+    const laidOutRoot = await elk.layout(rootGraph);
+    const containerPos = new Map<string, { x: number; y: number }>();
+    for (const c of laidOutRoot.children ?? []) {
+      containerPos.set(c.id!, { x: c.x ?? 0, y: c.y ?? 0 });
+    }
 
     const nextNodes: Node[] = [];
     const nextEdges: Edge[] = [];
 
-    for (const wfNode of laidOut.children ?? []) {
-      const w = family.find((f) => f.workflow_id === wfNode.id)!;
+    for (const c of containerLayouts) {
+      const w = family.find((f) => f.workflow_id === c.id)!;
+      const pos = containerPos.get(c.id!) ?? { x: 0, y: 0 };
       nextNodes.push({
-        id: wfNode.id,
+        id: c.id!,
         type: "workflow",
-        position: { x: wfNode.x ?? 0, y: wfNode.y ?? 0 },
+        position: pos,
         data: { workflow: w, isCurrent: w.workflow_id === currentId },
-        width: wfNode.width,
-        height: wfNode.height,
+        width: c.width,
+        height: c.height,
         draggable: false,
         connectable: false,
         selectable: true,
-        style: `width: ${wfNode.width}px; height: ${wfNode.height}px;`,
+        style: `width: ${c.width}px; height: ${c.height}px;`,
       });
-      for (const stepNode of wfNode.children ?? []) {
-        const [, fnStr] = stepNode.id.split("/");
+      for (const stepNode of c.children ?? []) {
+        const [, fnStr] = stepNode.id!.split("/");
         const fnId = Number(fnStr);
-        const s = (stepsByWf.get(wfNode.id) ?? []).find((x) => x.function_id === fnId)!;
+        const s = (stepsByWf.get(c.id!) ?? []).find((x) => x.function_id === fnId)!;
         const durationMs =
           s.started_at && s.completed_at
             ? new Date(s.completed_at).getTime() - new Date(s.started_at).getTime()
             : null;
         nextNodes.push({
-          id: stepNode.id,
+          id: stepNode.id!,
           type: "step",
-          parentId: wfNode.id,
+          parentId: c.id!,
           extent: "parent",
           position: { x: stepNode.x ?? 0, y: stepNode.y ?? 0 },
           data: {
@@ -189,6 +216,13 @@
             kind: stepKind(s),
             status: stepStatus(s),
             durationMs,
+            awaitsWorkflowId:
+              s.function_name === "DBOS.getResult" &&
+              s.child_workflow_id &&
+              familyIds.has(s.child_workflow_id)
+                ? s.child_workflow_id
+                : null,
+            awaitedWorkflowName: awaitedName(s),
           },
           width: stepNode.width,
           height: stepNode.height,
@@ -197,24 +231,47 @@
           selectable: true,
         });
       }
-      for (const edge of wfNode.edges ?? []) {
+      for (const edge of c.edges ?? []) {
         nextEdges.push({
-          id: edge.id,
-          source: edge.sources[0],
-          target: edge.targets[0],
+          id: edge.id!,
+          source: edge.sources![0],
+          target: edge.targets![0],
           type: "smoothstep",
           style: "stroke: var(--color-border); stroke-width: 1px;",
         });
       }
     }
-    for (const edge of laidOut.edges ?? []) {
+
+    // Spawn edges connect step→child container directly via xyflow handles
+    // (right side of the spawning step → left side of the child container).
+    for (const s of spawnSteps) {
+      const sourceId = stepNodeId(s.workflow_id, s.function_id);
       nextEdges.push({
-        id: edge.id,
-        source: edge.sources[0],
-        target: edge.targets[0],
-        type: "smoothstep",
+        id: `spawn:${sourceId}->${s.child_workflow_id}`,
+        source: sourceId,
+        target: s.child_workflow_id as string,
+        sourceHandle: "spawn",
+        targetHandle: "spawn",
+        type: "bezier",
         animated: true,
         style: "stroke: rgb(99 102 241 / 0.8); stroke-width: 1.5px;",
+      });
+    }
+
+    // Return edges: child container → DBOS.getResult step that awaited it.
+    for (const s of steps) {
+      if (s.function_name !== "DBOS.getResult") continue;
+      if (!s.child_workflow_id || !familyIds.has(s.child_workflow_id)) continue;
+      const targetId = stepNodeId(s.workflow_id, s.function_id);
+      nextEdges.push({
+        id: `return:${s.child_workflow_id}->${targetId}`,
+        source: s.child_workflow_id,
+        target: targetId,
+        sourceHandle: "return",
+        targetHandle: "return",
+        type: "bezier",
+        animated: true,
+        style: "stroke: rgb(99 102 241 / 0.6); stroke-width: 1.25px;",
       });
     }
 
