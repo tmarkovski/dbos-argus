@@ -10,11 +10,13 @@ Argus is a web dashboard for observing, pausing, resuming, restarting, and audit
 
 ## Why Argus exists
 
-DBOS Transact is a great open-source library for durable execution. Operating it in production — multiple app instances, distributed queues, long-running workflows — benefits from a management plane for observability and intervention.
+We built this because we like [DBOS](https://www.dbos.dev/). A lot.
 
-DBOS Inc. offers exactly that product, [DBOS Conductor](https://www.dbos.dev/blog/introducing-dbos-conductor), and it's a good product. But Conductor is released under a [proprietary license](https://www.dbos.dev/conductor-license) and requires a paid key for commercial or production use.
+DBOS Transact takes durable execution — historically the territory of heavy infrastructure like Temporal — and packages it as a library that lives inside your app and persists workflow state to a Postgres database you already have. The core is MIT-licensed, the design has serious academic pedigree ([MIT, Stanford, CMU](https://en.wikipedia.org/wiki/DBOS)), and the API is one of the cleaner ones in this category. It mostly gets out of your way and lets you keep writing normal code that happens to be crash-safe.
 
-Argus is for teams and individuals who want a fully open-source, MIT-licensed alternative they can self-host without a license key. It aims for feature parity with the essentials — workflow observability, queue management, manual intervention — and nothing more.
+Once you're running real workflows, you eventually want a window into them — what's running, what failed, what's stuck — and a friendly way to nudge things along. Argus is that window. MIT, self-hosted, no telemetry, no upsell. Just a UI for the workflows DBOS is already managing for you.
+
+If you're already using DBOS and nodding along, you're our audience. Welcome.
 
 Argus is not affiliated with, endorsed by, or sponsored by DBOS Inc.
 
