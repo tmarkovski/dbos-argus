@@ -1,8 +1,11 @@
 <script lang="ts">
   import { Handle, Position, type NodeProps } from "@xyflow/svelte";
+  import { Zap } from "@lucide/svelte";
+  import prettyMs from "pretty-ms";
 
   type StepKind = "step" | "child" | "system";
   type StepStatus = "error" | "running" | "success" | null;
+  type EventDirection = "set" | "get" | null;
 
   type NodeData = {
     functionId: number;
@@ -12,6 +15,9 @@
     durationMs: number | null;
     awaitsWorkflowId?: string | null;
     awaitedWorkflowName?: string | null;
+    eventDirection?: EventDirection;
+    eventKey?: string | null;
+    sleepRequestedMs?: number | null;
     isFirst?: boolean;
     isLast?: boolean;
   };
@@ -40,11 +46,17 @@
   });
 
   function formatDuration(ms: number): string {
-    if (ms < 1000) return `${ms}ms`;
-    const s = ms / 1000;
-    if (s < 60) return `${s.toFixed(s < 10 ? 2 : 1)}s`;
-    return `${(s / 60).toFixed(1)}m`;
+    // Compact like "450ms", "1.5s", "2m 30s", "24h", "1d". `compact: true`
+    // keeps it to a single largest unit which fits the tight node label.
+    return prettyMs(ms, { compact: true });
   }
+
+  // Sleep steps display the originally requested duration (the "timeout") in
+  // place of wall-clock elapsed — for in-progress sleeps wall-clock is null
+  // and for completed sleeps it just duplicates the requested value.
+  const displayDurationMs = $derived(
+    data.sleepRequestedMs != null ? data.sleepRequestedMs : data.durationMs,
+  );
 </script>
 
 <div
@@ -54,22 +66,43 @@
   {#if !data.isFirst}
     <Handle type="target" position={Position.Top} isConnectable={false} />
   {/if}
-  <span class="h-2 w-2 flex-none rounded-full {dotClass}" aria-hidden="true"></span>
+  {#if data.eventDirection}
+    <Zap
+      class="h-3 w-3 flex-none fill-yellow-400 text-yellow-500 dark:fill-yellow-300 dark:text-yellow-400"
+      aria-hidden="true"
+    />
+  {:else}
+    <span class="h-2 w-2 flex-none rounded-full {dotClass}" aria-hidden="true"></span>
+  {/if}
   <span class="text-muted-foreground flex-none font-mono text-[10px]">#{data.functionId}</span>
-  {#if data.awaitedWorkflowName}
-    <span class="text-muted-foreground truncate font-mono text-xs" title={data.functionName}>
-      result of <span class="text-indigo-700 dark:text-indigo-400"
-        >{data.awaitedWorkflowName}</span
-      >
+  {#if data.eventDirection}
+    <span class="truncate font-mono text-xs" title={data.functionName}>
+      <span class="text-yellow-700 dark:text-yellow-400">{data.eventDirection}</span>
+      <span class="text-muted-foreground">
+        {data.eventDirection === "set" ? "→" : "←"}
+      </span>
+      {#if data.eventKey}
+        <span class="text-foreground">"{data.eventKey}"</span>
+      {:else}
+        <span class="text-muted-foreground">event</span>
+      {/if}
+    </span>
+  {:else if data.awaitedWorkflowName}
+    <span class="truncate font-mono text-xs" title={data.functionName}>
+      <span class="text-muted-foreground">result</span>
+      <span class="text-muted-foreground">←</span>
+      <span class="text-indigo-700 dark:text-indigo-400">{data.awaitedWorkflowName}</span>
     </span>
   {:else}
     <span class="truncate font-mono text-xs {nameClass}" title={data.functionName}>
-      {data.functionName}
+      {data.kind === "system" && data.functionName.startsWith("DBOS.")
+        ? data.functionName.slice("DBOS.".length)
+        : data.functionName}
     </span>
   {/if}
-  {#if data.durationMs !== null}
+  {#if displayDurationMs !== null}
     <span class="text-muted-foreground ml-auto flex-none font-mono text-[10px]">
-      {formatDuration(data.durationMs)}
+      {formatDuration(displayDurationMs)}
     </span>
   {/if}
   {#if !data.isLast}

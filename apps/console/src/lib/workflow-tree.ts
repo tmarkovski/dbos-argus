@@ -61,7 +61,9 @@ export function statusBadgeClass(status: string | null): string {
     return "bg-green-100 text-green-800 ring-green-600/20 dark:bg-green-500/10 dark:text-green-400";
   if (s === "PENDING" || s === "ENQUEUED" || s === "DELAYED")
     return "bg-blue-100 text-blue-800 ring-blue-600/20 dark:bg-blue-500/10 dark:text-blue-400";
-  if (s === "ERROR" || s === "CANCELLED" || s === "MAX_RECOVERY_ATTEMPTS_EXCEEDED")
+  if (s === "CANCELLED")
+    return "bg-amber-100 text-amber-800 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400";
+  if (s === "ERROR" || s === "MAX_RECOVERY_ATTEMPTS_EXCEEDED")
     return "bg-red-100 text-red-800 ring-red-600/20 dark:bg-red-500/10 dark:text-red-400";
   return "bg-muted text-muted-foreground ring-border";
 }
@@ -70,7 +72,7 @@ export function statusDotClass(status: string | null): string {
   const s = (status ?? "").toUpperCase();
   if (s === "SUCCESS") return "bg-green-500";
   if (s === "PENDING" || s === "ENQUEUED" || s === "DELAYED") return "bg-blue-500";
-  if (s === "ERROR" || s === "CANCELLED" || s === "MAX_RECOVERY_ATTEMPTS_EXCEEDED")
-    return "bg-red-500";
+  if (s === "CANCELLED") return "bg-amber-500";
+  if (s === "ERROR" || s === "MAX_RECOVERY_ATTEMPTS_EXCEEDED") return "bg-red-500";
   return "bg-muted-foreground/40";
 }

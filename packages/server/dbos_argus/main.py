@@ -218,6 +218,12 @@ class WorkflowStep(BaseModel):
     # restricted unpickler refuses to instantiate. See decoding.py.
     output_decoded: str | None
     error_decoded: str | None
+    # For `DBOS.setEvent` rows, the event key — joined from
+    # `dbos.workflow_events_history` on `(workflow_uuid, function_id)`. Always
+    # null for `DBOS.getEvent` because DBOS doesn't persist the call's input
+    # args (target workflow id + key) anywhere queryable, and we refuse to
+    # guess. The getEvent's deserialized value is in `output_decoded`.
+    event_key: str | None
 
 
 # Richer version of WorkflowListItem used by the detail endpoint — includes
@@ -314,18 +320,23 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
     """
     steps_sql = """
         SELECT
-            workflow_uuid,
-            function_id,
-            function_name,
-            output,
-            error,
-            child_workflow_id,
-            started_at_epoch_ms,
-            completed_at_epoch_ms,
-            serialization
-        FROM dbos.operation_outputs
-        WHERE workflow_uuid = ANY(:workflow_ids)
-        ORDER BY workflow_uuid, function_id ASC
+            o.workflow_uuid,
+            o.function_id,
+            o.function_name,
+            o.output,
+            o.error,
+            o.child_workflow_id,
+            o.started_at_epoch_ms,
+            o.completed_at_epoch_ms,
+            o.serialization,
+            seh.key AS event_key
+        FROM dbos.operation_outputs o
+        LEFT JOIN dbos.workflow_events_history seh
+            ON o.function_name = 'DBOS.setEvent'
+            AND seh.workflow_uuid = o.workflow_uuid
+            AND seh.function_id = o.function_id
+        WHERE o.workflow_uuid = ANY(:workflow_ids)
+        ORDER BY o.workflow_uuid, o.function_id ASC
     """
 
     try:
@@ -379,6 +390,7 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
                 if s.completed_at_epoch_ms is not None
                 else None
             ),
+            event_key=s.event_key,
         )
         for s in step_rows
     ]

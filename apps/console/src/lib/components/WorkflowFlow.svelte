@@ -36,6 +36,7 @@
     serialization: string | null;
     output_decoded: string | null;
     error_decoded: string | null;
+    event_key: string | null;
   };
 
   export type FlowSelection =
@@ -132,6 +133,24 @@
     if (s.function_name.startsWith("DBOS.")) return "system";
     if (s.child_workflow_id) return "child";
     return "step";
+  }
+
+  function eventDirection(s: Step): "set" | "get" | null {
+    if (s.function_name === "DBOS.setEvent") return "set";
+    if (s.function_name === "DBOS.getEvent") return "get";
+    return null;
+  }
+
+  // For `DBOS.sleep`, the row stores the wakeup time as a unix-seconds float
+  // in `output`. Subtracting `started_at` gives the originally requested
+  // duration (independent of how long the sleep actually elapsed in wall time).
+  function sleepRequestedMs(s: Step): number | null {
+    if (s.function_name !== "DBOS.sleep" || !s.output || !s.started_at) return null;
+    const wakeMs = parseFloat(s.output) * 1000;
+    if (!Number.isFinite(wakeMs)) return null;
+    const startedMs = new Date(s.started_at).getTime();
+    const requested = Math.round(wakeMs - startedMs);
+    return requested >= 0 ? requested : null;
   }
 
   function stepStatus(s: Step): "error" | "running" | "success" | null {
@@ -349,6 +368,9 @@
                 ? s.child_workflow_id
                 : null,
             awaitedWorkflowName: awaitedName(s),
+            eventDirection: eventDirection(s),
+            eventKey: s.event_key,
+            sleepRequestedMs: sleepRequestedMs(s),
             isFirst: childNode.id === firstStepNodeId,
             isLast: childNode.id === lastStepNodeId,
           },
@@ -387,10 +409,20 @@
     }
 
     // Return edges: child container → DBOS.getResult step that awaited it.
+    // Recolor based on the child's terminal status so the failure / cancel
+    // path is visually obvious.
+    const statusByWorkflowId = new Map(family.map((w) => [w.workflow_id, w.status]));
     for (const s of steps) {
       if (s.function_name !== "DBOS.getResult") continue;
       if (!s.child_workflow_id || !familyIds.has(s.child_workflow_id)) continue;
       const targetId = stepNodeId(s.workflow_id, s.function_id);
+      const childStatus = statusByWorkflowId.get(s.child_workflow_id);
+      let edgeStyle = "stroke: rgb(99 102 241 / 0.6); stroke-width: 1.25px;";
+      if (childStatus === "ERROR") {
+        edgeStyle = "stroke: rgb(239 68 68 / 0.85); stroke-width: 1.5px;";
+      } else if (childStatus === "CANCELLED") {
+        edgeStyle = "stroke: rgb(245 158 11 / 0.85); stroke-width: 1.5px;";
+      }
       nextEdges.push({
         id: `return:${s.child_workflow_id}->${targetId}`,
         source: s.child_workflow_id,
@@ -399,7 +431,7 @@
         targetHandle: "return",
         type: "bezier",
         animated: true,
-        style: "stroke: rgb(99 102 241 / 0.6); stroke-width: 1.25px;",
+        style: edgeStyle,
       });
     }
 

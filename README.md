@@ -4,6 +4,8 @@
 
 Argus is a web dashboard for observing the durable workflows your [DBOS Transact](https://github.com/dbos-inc/dbos-transact-py) apps are already running. It points at the Postgres database your DBOS app uses, reads its workflow tables directly, and gives you a UI on top. No agents, no app-side wiring, no schema of its own.
 
+![Argus workflow detail view](docs/images/workflow-detail.png)
+
 > **Status:** Pre-alpha. Everything will change. Not production-ready. If you're here early, welcome — the issue tracker and Discussions are the best place to have a say in where this goes.
 
 ---

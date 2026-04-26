@@ -12,7 +12,7 @@ wheels = [
 ]
 
 [[package]]
-name = "argus-example-hello-workflow"
+name = "argus-sample-app"
 version = "0.0.1"
 source = { editable = "." }
 dependencies = [

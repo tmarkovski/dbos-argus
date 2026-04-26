@@ -180,8 +180,8 @@
   function statusDotClass(status: string): string {
     if (status === "SUCCESS") return "bg-green-500";
     if (status === "PENDING" || status === "ENQUEUED" || status === "DELAYED") return "bg-blue-500";
-    if (status === "ERROR" || status === "CANCELLED" || status === "MAX_RECOVERY_ATTEMPTS_EXCEEDED")
-      return "bg-red-500";
+    if (status === "CANCELLED") return "bg-amber-500";
+    if (status === "ERROR" || status === "MAX_RECOVERY_ATTEMPTS_EXCEEDED") return "bg-red-500";
     return "bg-muted-foreground/50";
   }
 </script>
