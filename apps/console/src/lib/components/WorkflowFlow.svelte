@@ -448,7 +448,7 @@
   });
 </script>
 
-<div class="border-border bg-card h-full w-full overflow-hidden rounded-lg border">
+<div class="bg-card h-full w-full overflow-hidden">
   <SvelteFlow
     bind:nodes
     bind:edges

@@ -24,6 +24,32 @@
 
   const workflowId = $derived(page.params.id ?? "");
 
+  let rightWidth = $state(384); // matches the previous w-96
+  let dragging = $state(false);
+  let dragStartX = 0;
+  let dragStartWidth = 0;
+  const MIN_RIGHT = 280;
+  const MAX_RIGHT = 900;
+
+  function onHandlePointerDown(e: PointerEvent) {
+    dragging = true;
+    dragStartX = e.clientX;
+    dragStartWidth = rightWidth;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function onHandlePointerMove(e: PointerEvent) {
+    if (!dragging) return;
+    const delta = e.clientX - dragStartX;
+    const next = dragStartWidth - delta;
+    rightWidth = Math.max(MIN_RIGHT, Math.min(MAX_RIGHT, next));
+  }
+
+  function onHandlePointerUp(e: PointerEvent) {
+    dragging = false;
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+  }
+
   $effect(() => {
     const id = workflowId;
     detail = null;
@@ -56,7 +82,7 @@
 {:else if detail === null}
   <p class="text-muted-foreground p-6 text-sm">Loading…</p>
 {:else}
-  <div class="flex h-[calc(100vh-4rem)] gap-4 p-6">
+  <div class="flex h-[calc(100vh-4rem)]" class:select-none={dragging}>
     <div class="min-w-0 flex-1">
       <WorkflowFlow
         family={detail.family}
@@ -66,7 +92,25 @@
         onSelect={(s) => (selection = s)}
       />
     </div>
-    <div class="w-96 flex-none">
+    <div class="bg-border relative w-px flex-none" class:!bg-primary={dragging}>
+      <button
+        type="button"
+        aria-label="Resize result pane"
+        onpointerdown={onHandlePointerDown}
+        onpointermove={onHandlePointerMove}
+        onpointerup={onHandlePointerUp}
+        class="bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted absolute top-1/2 left-1/2 z-10 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-col-resize items-center justify-center rounded-full border shadow-sm"
+        class:!bg-primary={dragging}
+        class:!border-primary={dragging}
+        class:!text-primary-foreground={dragging}
+      >
+        <span class="flex h-3 items-center gap-0.5">
+          <span class="bg-current h-full w-px"></span>
+          <span class="bg-current h-full w-px"></span>
+        </span>
+      </button>
+    </div>
+    <div class="flex-none" style="width: {rightWidth}px">
       <ResultPane {selection} />
     </div>
   </div>

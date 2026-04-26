@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { FlowSelection } from "./WorkflowFlow.svelte";
   import { statusBadgeClass } from "$lib/workflow-tree";
+  import Copy from "@lucide/svelte/icons/copy";
+  import Check from "@lucide/svelte/icons/check";
 
   let { selection }: { selection: FlowSelection } = $props();
 
@@ -82,10 +84,32 @@
     if (preferredMode === "decoded" && payload.decoded !== null) return "decoded";
     return "raw";
   });
+
+  const displayedText = $derived.by(() => {
+    if (payload.kind === "none") return "";
+    return effectiveMode === "decoded" && payload.decoded !== null
+      ? payload.decoded
+      : payload.raw;
+  });
+
+  let justCopied = $state(false);
+  let copyTimer: ReturnType<typeof setTimeout> | null = null;
+
+  async function copyResult() {
+    if (!displayedText) return;
+    try {
+      await navigator.clipboard.writeText(displayedText);
+      justCopied = true;
+      if (copyTimer) clearTimeout(copyTimer);
+      copyTimer = setTimeout(() => (justCopied = false), 1500);
+    } catch (e) {
+      console.warn("clipboard write failed", e);
+    }
+  }
 </script>
 
-<aside class="border-border bg-card flex h-full w-full flex-col overflow-hidden rounded-lg border">
-  <div class="border-border bg-muted/30 flex items-center gap-2 border-b px-4 py-2.5">
+<aside class="bg-card flex h-full w-full flex-col overflow-hidden">
+  <div class="border-border bg-muted/30 flex min-h-10 items-center gap-2 border-b px-4 py-2.5">
     <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
       Result
     </span>
@@ -156,43 +180,58 @@
           <span class="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
             {payload.kind === "error" ? "Error" : "Output"}
           </span>
-          <div class="bg-muted flex items-center rounded-md p-0.5">
+          <div class="flex items-center gap-2">
             <button
               type="button"
-              class="rounded px-2 py-0.5 text-[11px] font-medium transition
-                {effectiveMode === 'raw'
-                  ? 'bg-background text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'}"
-              onclick={() => (preferredMode = "raw")}
+              onclick={copyResult}
+              title={justCopied ? "Copied!" : "Copy to clipboard"}
+              aria-label="Copy result"
+              class="text-muted-foreground hover:text-foreground hover:bg-muted flex h-6 w-6 items-center justify-center rounded transition-colors"
             >
-              Raw
+              {#if justCopied}
+                <Check class="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+              {:else}
+                <Copy class="h-3.5 w-3.5" />
+              {/if}
             </button>
-            <button
-              type="button"
-              disabled={payload.decoded === null}
-              class="rounded px-2 py-0.5 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40
-                {effectiveMode === 'decoded'
-                  ? 'bg-background text-foreground shadow-xs'
-                  : 'text-muted-foreground enabled:hover:text-foreground'}"
-              onclick={() => (preferredMode = "decoded")}
-              title={payload.decoded === null
-                ? "Server couldn't decode this payload — showing raw"
-                : "Decoded via server-side unpickler / JSON parser"}
-            >
-              Decoded
-            </button>
+            <div class="bg-muted flex items-center rounded-md p-0.5">
+              <button
+                type="button"
+                class="rounded px-2 py-0.5 text-[11px] font-medium transition
+                  {effectiveMode === 'raw'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'}"
+                onclick={() => (preferredMode = "raw")}
+              >
+                Raw
+              </button>
+              <button
+                type="button"
+                disabled={payload.decoded === null}
+                class="rounded px-2 py-0.5 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40
+                  {effectiveMode === 'decoded'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground enabled:hover:text-foreground'}"
+                onclick={() => (preferredMode = "decoded")}
+                title={payload.decoded === null
+                  ? "Server couldn't decode this payload — showing raw"
+                  : "Decoded via server-side unpickler / JSON parser"}
+              >
+                Decoded
+              </button>
+            </div>
           </div>
         </div>
         <div class="flex-1 overflow-auto px-4 pb-4">
           {#if payload.kind === "error"}
             <pre
-              class="border-destructive/30 bg-destructive/5 text-destructive overflow-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap break-words">{effectiveMode ===
+              class="border-destructive/30 bg-destructive/5 text-destructive overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{effectiveMode ===
               "decoded" && payload.decoded !== null
                 ? payload.decoded
                 : payload.raw}</pre>
           {:else}
             <pre
-              class="bg-muted/40 overflow-auto rounded-md p-3 font-mono text-xs whitespace-pre-wrap break-words">{effectiveMode ===
+              class="border-border bg-muted/40 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{effectiveMode ===
               "decoded" && payload.decoded !== null
                 ? payload.decoded
                 : payload.raw}</pre>
