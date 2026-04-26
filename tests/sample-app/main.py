@@ -131,9 +131,7 @@ CARRIER_CONFIRMATION_TOPIC = "carrier-confirmation"
 @DBOS.workflow()
 def dispatch_carrier(order_id: str) -> dict:
     log_event(f"carrier-dispatch:{order_id}")
-    DBOS.set_event(
-        "carrier", {"order_id": order_id, "carrier": "ACME-FREIGHT", "eta_hours": 48}
-    )
+    DBOS.set_event("carrier", {"order_id": order_id, "carrier": "ACME-FREIGHT", "eta_hours": 48})
     # Block on a notification from `main()` — demos DBOS.recv (notifications)
     # and shows the workflow resuming from PENDING once the message arrives.
     confirmation = DBOS.recv(topic=CARRIER_CONFIRMATION_TOPIC, timeout_seconds=300)
