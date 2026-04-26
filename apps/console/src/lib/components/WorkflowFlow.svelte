@@ -381,14 +381,22 @@
           selectable: true,
         });
       }
-      for (const edge of c.edges ?? []) {
+      let previousStepId: string | null = null;
+      for (const it of items) {
+        if (it.kind !== "step") continue;
+        const stepId = itemId(c.id!, it);
+        if (!previousStepId) {
+          previousStepId = stepId;
+          continue;
+        }
         nextEdges.push({
-          id: edge.id!,
-          source: edge.sources![0],
-          target: edge.targets![0],
+          id: `seq:${c.id}:${previousStepId}->${stepId}`,
+          source: previousStepId,
+          target: stepId,
           type: "smoothstep",
           style: "stroke: var(--color-border); stroke-width: 1px;",
         });
+        previousStepId = stepId;
       }
     }
 
