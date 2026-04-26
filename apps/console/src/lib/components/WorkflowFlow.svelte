@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, untrack } from "svelte";
+  import { onDestroy, onMount, untrack } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import {
     Background,
@@ -63,6 +63,7 @@
   const ELLIPSIS_HEIGHT = 22;
   const HEAD = 5;
   const TAIL = 5;
+  const LAYOUT_ANIMATION_MS = 240;
 
   const elk = new ELK();
   const nodeTypes: NodeTypes = {
@@ -75,6 +76,9 @@
   let edges = $state.raw<Edge[]>([]);
   let expanded = new SvelteSet<string>();
   let colorMode = $state<ColorMode>("light");
+  let layoutRun = 0;
+  let layoutAnimationRun = 0;
+  let layoutAnimationFrame: number | null = null;
 
   onMount(() => {
     const sync = () => {
@@ -86,9 +90,16 @@
     return () => obs.disconnect();
   });
 
+  onDestroy(() => {
+    if (layoutAnimationFrame !== null) {
+      cancelAnimationFrame(layoutAnimationFrame);
+    }
+  });
+
   type VisibleItem =
     | { kind: "step"; step: Step }
     | { kind: "ellipsis"; from: number; to: number; count: number };
+  type NodePose = Pick<Node, "position" | "width" | "height">;
 
   function ellipsisNodeId(wfId: string, from: number, to: number): string {
     return `${wfId}/ellipsis/${from}-${to}`;
@@ -164,12 +175,277 @@
     return `${workflowId}/${functionId}`;
   }
 
+  // Reflect external selection state onto the flow so the same node stays
+  // visually highlighted across re-layouts.
+  const selectedId = $derived.by(() => {
+    if (!selection) return null;
+    if (selection.kind === "workflow") return selection.workflow.workflow_id;
+    return `${selection.step.workflow_id}/${selection.step.function_id}`;
+  });
+
+  function withCurrentSelection(nextNodes: Node[]): Node[] {
+    const sid = selectedId;
+    return nextNodes.map((n) => {
+      const shouldSelect = n.id === sid;
+      if ((n.selected ?? false) === shouldSelect) return n;
+      return { ...n, selected: shouldSelect };
+    });
+  }
+
+  function shouldReduceMotion(): boolean {
+    return (
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    );
+  }
+
+  function easeOutCubic(t: number): number {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function lerp(from: number, to: number, t: number): number {
+    return from + (to - from) * t;
+  }
+
+  function nodeWidth(n: Node): number | undefined {
+    return typeof n.width === "number" ? n.width : undefined;
+  }
+
+  function nodeHeight(n: Node): number | undefined {
+    return typeof n.height === "number" ? n.height : undefined;
+  }
+
+  function nodeCenter(n: Node): { x: number; y: number } {
+    return {
+      x: n.position.x + (nodeWidth(n) ?? 0) / 2,
+      y: n.position.y + (nodeHeight(n) ?? 0) / 2,
+    };
+  }
+
+  function poseCenteredOn(source: Node, sizedLike: Node): NodePose {
+    const center = nodeCenter(source);
+    const width = nodeWidth(sizedLike);
+    const height = nodeHeight(sizedLike);
+    return {
+      position: {
+        x: center.x - (width ?? 0) / 2,
+        y: center.y - (height ?? 0) / 2,
+      },
+      width,
+      height,
+    };
+  }
+
+  function parseStepFunctionId(nodeId: string): number | null {
+    const slash = nodeId.lastIndexOf("/");
+    const raw = slash >= 0 ? nodeId.slice(slash + 1) : nodeId;
+    const id = Number(raw);
+    return Number.isFinite(id) ? id : null;
+  }
+
+  function parseEllipsisRange(nodeId: string): { from: number; to: number } | null {
+    const marker = "/ellipsis/";
+    const markerIndex = nodeId.lastIndexOf(marker);
+    if (markerIndex < 0) return null;
+    const [fromRaw, toRaw] = nodeId.slice(markerIndex + marker.length).split("-");
+    const from = Number(fromRaw);
+    const to = Number(toRaw);
+    if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+    return { from, to };
+  }
+
+  function findContainingEllipsis(step: Node, candidates: Node[]): Node | null {
+    const functionId = parseStepFunctionId(step.id);
+    if (functionId === null) return null;
+    return (
+      candidates.find((n) => {
+        if (n.type !== "ellipsis" || n.parentId !== step.parentId) return false;
+        const range = parseEllipsisRange(n.id);
+        return !!range && functionId >= range.from && functionId <= range.to;
+      }) ?? null
+    );
+  }
+
+  function collapsedRangePose(
+    ellipsis: Node,
+    candidates: Node[],
+  ): NodePose | null {
+    const range = parseEllipsisRange(ellipsis.id);
+    if (!range) return null;
+
+    const collapsedSteps = candidates.filter((n) => {
+      if (n.type !== "step" || n.parentId !== ellipsis.parentId) return false;
+      const functionId = parseStepFunctionId(n.id);
+      return functionId !== null && functionId >= range.from && functionId <= range.to;
+    });
+    if (collapsedSteps.length === 0) return null;
+
+    const center = collapsedSteps.reduce(
+      (acc, n) => {
+        const c = nodeCenter(n);
+        acc.x += c.x;
+        acc.y += c.y;
+        return acc;
+      },
+      { x: 0, y: 0 },
+    );
+    center.x /= collapsedSteps.length;
+    center.y /= collapsedSteps.length;
+
+    const width = nodeWidth(ellipsis);
+    const height = nodeHeight(ellipsis);
+    return {
+      position: {
+        x: center.x - (width ?? 0) / 2,
+        y: center.y - (height ?? 0) / 2,
+      },
+      width,
+      height,
+    };
+  }
+
+  function startPoseForEnteringNode(
+    target: Node,
+    currentNodes: Node[],
+  ): NodePose {
+    if (target.type === "step") {
+      const ellipsis = findContainingEllipsis(target, currentNodes);
+      if (ellipsis) return poseCenteredOn(ellipsis, target);
+    }
+    if (target.type === "ellipsis") {
+      const pose = collapsedRangePose(target, currentNodes);
+      if (pose) return pose;
+    }
+    return {
+      position: target.position,
+      width: target.width,
+      height: target.height,
+    };
+  }
+
+  function targetPoseForExitingNode(
+    exiting: Node,
+    targetNodes: Node[],
+  ): NodePose {
+    if (exiting.type === "step") {
+      const ellipsis = findContainingEllipsis(exiting, targetNodes);
+      if (ellipsis) return poseCenteredOn(ellipsis, exiting);
+    }
+    return {
+      position: exiting.position,
+      width: exiting.width,
+      height: exiting.height,
+    };
+  }
+
+  function withOpacity(node: Node, opacity: number): Node {
+    if (opacity >= 0.999) return node;
+    const baseStyle = typeof node.style === "string" ? node.style.trim() : "";
+    const separator = baseStyle && !baseStyle.endsWith(";") ? "; " : "";
+    return {
+      ...node,
+      selectable: false,
+      style: `${baseStyle}${separator}opacity: ${opacity.toFixed(3)}; pointer-events: none;`,
+    };
+  }
+
+  function interpolateNode(
+    target: Node,
+    start: NodePose,
+    t: number,
+    opacity = 1,
+  ): Node {
+    const width =
+      typeof start.width === "number" && typeof target.width === "number"
+        ? lerp(start.width, target.width, t)
+        : target.width;
+    const height =
+      typeof start.height === "number" && typeof target.height === "number"
+        ? lerp(start.height, target.height, t)
+        : target.height;
+
+    return withOpacity(
+      {
+        ...target,
+        position: {
+          x: lerp(start.position.x, target.position.x, t),
+          y: lerp(start.position.y, target.position.y, t),
+        },
+        width,
+        height,
+      },
+      opacity,
+    );
+  }
+
+  function animateToLayout(targetNodes: Node[], targetEdges: Edge[]) {
+    const currentNodes = nodes;
+
+    if (layoutAnimationFrame !== null) {
+      cancelAnimationFrame(layoutAnimationFrame);
+      layoutAnimationFrame = null;
+    }
+    const animationRun = ++layoutAnimationRun;
+
+    if (currentNodes.length === 0 || shouldReduceMotion()) {
+      nodes = withCurrentSelection(targetNodes);
+      edges = targetEdges;
+      return;
+    }
+
+    const currentById = new Map(currentNodes.map((n) => [n.id, n]));
+    const targetById = new Map(targetNodes.map((n) => [n.id, n]));
+    const exitingNodes = currentNodes.filter((n) => !targetById.has(n.id));
+    const startedAt = performance.now();
+    edges = targetEdges;
+
+    const tick = (now: number) => {
+      if (animationRun !== layoutAnimationRun) return;
+      const rawT = Math.min(1, (now - startedAt) / LAYOUT_ANIMATION_MS);
+      const t = easeOutCubic(rawT);
+
+      const animatedTargets = targetNodes.map((target) => {
+        const existing = currentById.get(target.id);
+        const start = existing ?? startPoseForEnteringNode(target, currentNodes);
+        return interpolateNode(target, start, t, existing ? 1 : rawT);
+      });
+
+      const animatedExits =
+        rawT < 1
+          ? exitingNodes.map((exiting) => {
+              const target = targetPoseForExitingNode(exiting, targetNodes);
+              const exitTarget = {
+                ...exiting,
+                position: target.position,
+                width: target.width,
+                height: target.height,
+              };
+              return interpolateNode(exitTarget, exiting, t, 1 - rawT);
+            })
+          : [];
+
+      nodes = withCurrentSelection([...animatedTargets, ...animatedExits]);
+
+      if (rawT < 1) {
+        layoutAnimationFrame = requestAnimationFrame(tick);
+        return;
+      }
+
+      nodes = withCurrentSelection(targetNodes);
+      edges = targetEdges;
+      layoutAnimationFrame = null;
+    };
+
+    tick(startedAt);
+  }
+
   async function layout(
     family: FamilyWorkflow[],
     steps: Step[],
     currentId: string,
     expandedSet: Set<string>,
   ) {
+    const run = ++layoutRun;
     const stepsByWf = new Map<string, Step[]>();
     for (const s of steps) {
       const list = stepsByWf.get(s.workflow_id) ?? [];
@@ -443,8 +719,8 @@
       });
     }
 
-    nodes = nextNodes;
-    edges = nextEdges;
+    if (run !== layoutRun) return;
+    animateToLayout(nextNodes, nextEdges);
   }
 
   $effect(() => {
@@ -482,14 +758,8 @@
     onSelect?.(null);
   }
 
-  // Reflect external selection state onto the flow so the same node stays
-  // visually highlighted across re-layouts. We untrack the nodes read so
-  // writing nodes inside the effect doesn't re-trigger it.
-  const selectedId = $derived.by(() => {
-    if (!selection) return null;
-    if (selection.kind === "workflow") return selection.workflow.workflow_id;
-    return `${selection.step.workflow_id}/${selection.step.function_id}`;
-  });
+  // We untrack the nodes read so writing nodes inside the effect doesn't
+  // re-trigger it.
   $effect(() => {
     const sid = selectedId;
     untrack(() => {
