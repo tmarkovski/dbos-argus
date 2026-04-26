@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-`dbos-argus` is a self-hosted, open-source management console for DBOS Transact applications — an MIT-licensed alternative to the proprietary DBOS Conductor. DBOS apps connect *outbound* over WebSocket to the Argus backend; Argus never opens connections into apps and never touches the app's database.
+`dbos-argus` is a self-hosted, open-source management console for DBOS Transact applications — an MIT-licensed alternative to the proprietary DBOS Conductor. Argus opens a read-only async Postgres connection to the same database the DBOS app uses, and renders what's in `dbos.workflow_status` (and friends) in a SvelteKit UI. No app-side wiring, no agents, no separate Argus-owned schema.
 
 See [README.md](./README.md) for the product framing and architecture diagram; see [docs/architecture.md](./docs/architecture.md) for invariants.
 
@@ -15,11 +15,9 @@ Mixed-language monorepo: **pnpm workspaces** for JS/TS, **uv workspaces** for Py
 | Path | Package | Role |
 |---|---|---|
 | `apps/console` | `console` (private) | SvelteKit web UI. Only client of the backend. |
-| `packages/server` | `dbos-argus` (PyPI) | FastAPI backend. The only service that touches the Argus DB. |
+| `packages/server` | `dbos-argus` (PyPI) | FastAPI backend. Reads the DBOS system tables directly. |
 | `packages/ui` | `@dbos-argus/ui` | Svelte 5 component stubs consumed by the console. |
-| `packages/client-ts` | `@dbos-argus/client` | TS WS client for DBOS TS apps. |
-| `examples/python-hello-workflow` | — | Standalone DBOS app scaffold. **Not** a uv workspace member — it has `dbos` as a dep and its own `pyproject.toml` so root `uv sync` isn't blocked on it. |
-| `scripts/gen_protocol.py` | — | Regenerates `packages/client-ts/src/protocol.ts` from the Pydantic models. |
+| `tests/sample-app` | — | Standalone DBOS app used as a dev fixture — runs a few workflows so the dashboard has data to render. **Not** a uv workspace member; has its own `pyproject.toml` so root `uv sync` isn't blocked on the `dbos` dep. |
 
 ## Common commands
 
@@ -44,9 +42,7 @@ Targeted tasks:
 
 ```bash
 pnpm --filter console dev              # SvelteKit dev on :5173
-pnpm --filter @dbos-argus/client test  # one package's tests
 uv run pytest packages/server/tests    # all server tests
-uv run pytest packages/server/tests/test_healthz.py::test_ws_apps_sends_hello  # single test
 uv run ruff check packages/server      # python lint
 uv run ruff format packages/server     # python format
 ```
@@ -62,27 +58,17 @@ docker compose logs -f argus
 Endpoints when up (single port):
 - Console SPA: http://localhost:8090/
 - API healthz: http://localhost:8090/healthz
-- WS: ws://localhost:8090/ws/apps?api_key=…
 - Postgres: localhost:5432 (user/pass/db = `argus/argus/argus`)
 
-Pure frontend dev (HMR): `pnpm --filter console dev` starts Vite on :5173 and proxies `/healthz`, `/version`, `/ws/*` to a locally running server on :8090 (set `ARGUS_BACKEND_URL` to override).
+Pure frontend dev (HMR): `pnpm --filter console dev` starts Vite on :5173 and proxies `/healthz`, `/version` to a locally running server on :8090 (set `ARGUS_BACKEND_URL` to override).
 
 Argus does not own a schema. It reads DBOS Transact's system tables (`dbos.workflow_status`, etc.) from the Postgres DB that the DBOS app also uses. No migrations to run.
 
-Regenerating the WS protocol TS types after editing `packages/server/dbos_argus/protocol.py`:
-
-```bash
-pnpm run gen:protocol
-```
-
-The generated `packages/client-ts/src/protocol.ts` is checked in.
-
 ## Architecture invariants (enforce in code review)
 
-1. **Argus is out-of-band.** No code path in this repo may require direct access to a DBOS app's database. `packages/server/pyproject.toml` must not depend on `dbos-transact`.
-2. **The console is a client of the Argus backend, never of DBOS apps directly.**
-3. **Typed WS contracts.** The Pydantic models in `packages/server/dbos_argus/protocol.py` are the single source of truth. Do not hand-edit `packages/client-ts/src/protocol.ts` — regenerate it.
-4. **Forward-compatible auth.** The `apps.api_key_hash` column exists; `# TODO(auth):` markers are where the verification logic will live. No real auth is implemented yet.
+1. **Argus is read-mostly today.** The server only reads from DBOS Transact's `dbos.*` system tables. When write actions land (cancel/resume/fork), they will go through DBOS Transact's own management APIs from inside the server process — not raw SQL — and `packages/server/pyproject.toml` will then take a runtime dep on `dbos`.
+2. **The console is a client of the Argus backend, never of Postgres directly.**
+3. **No app-side SDK.** All UI actions are server-mediated. There is no `@dbos-argus/client` package and no WS-app-registry protocol.
 
 ## Stack notes that matter
 
@@ -90,7 +76,6 @@ The generated `packages/client-ts/src/protocol.ts` is checked in.
 - **Tailwind v4** via `@tailwindcss/vite` plugin — no `tailwind.config.js`. Styles are imported with `@import "tailwindcss";` in `apps/console/src/app.css`.
 - **@xyflow/svelte** for workflow graphs; **elkjs** for layout (not dagre).
 - **SvelteKit adapter-static** with `fallback: 'index.html'` — the console builds to a static SPA and is served by FastAPI via a catch-all route in `packages/server/dbos_argus/main.py`. No Node process in production.
-- **FastAPI native WebSockets** (`@app.websocket(...)`), not a third-party lib.
 - **SQLAlchemy 2.x async** + asyncpg, reading directly from the DBOS system schema (`dbos.*`).
 
 ## CI

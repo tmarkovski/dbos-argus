@@ -5,14 +5,14 @@ on:
     branches: [main]
     paths:
       - "packages/server/**"
-      - "examples/python-hello-workflow/**"
+      - "tests/sample-app/**"
       - "pyproject.toml"
       - "uv.lock"
       - ".github/workflows/ci-python.yml"
   pull_request:
     paths:
       - "packages/server/**"
-      - "examples/python-hello-workflow/**"
+      - "tests/sample-app/**"
       - "pyproject.toml"
       - "uv.lock"
       - ".github/workflows/ci-python.yml"
@@ -37,10 +37,10 @@ jobs:
         run: uv sync --all-extras
 
       - name: Lint
-        run: uv run ruff check packages/server examples/python-hello-workflow
+        run: uv run ruff check packages/server tests/sample-app
 
       - name: Format check
-        run: uv run ruff format --check packages/server examples/python-hello-workflow
+        run: uv run ruff format --check packages/server tests/sample-app
 
       - name: Test
         run: uv run pytest packages/server

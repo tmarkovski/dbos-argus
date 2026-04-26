@@ -1,20 +1,18 @@
-"""Minimal DBOS Transact app that connects to Argus.
-
-This file is a scaffold. It imports `dbos`, declares a single durable workflow,
-and attempts to open a WebSocket to Argus at ws://localhost:8090/ws/apps.
-End-to-end integration (auth, event forwarding, intervention) is not wired up.
+"""Sample DBOS Transact app used to seed Argus's local Postgres with workflow data.
 
 Run manually:
 
-    cd examples/python-hello-workflow
+    cd tests/sample-app
     uv sync
     uv run python main.py
+
+The app writes workflow rows into `dbos.workflow_status` (and friends) in the
+Postgres specified by `DBOS_SYSTEM_DATABASE_URL`. Argus then reads from that
+same database to render the workflow graph.
 """
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
 import os
 import time
@@ -27,8 +25,6 @@ except ImportError as e:  # pragma: no cover - surfaces only when `dbos` isn't i
     ) from e
 
 LOG = logging.getLogger("argus-example")
-ARGUS_URL = os.environ.get("ARGUS_URL", "ws://localhost:8090/ws/apps")
-ARGUS_API_KEY = os.environ.get("ARGUS_API_KEY", "local-dev-key")
 
 DBOS_SYSTEM_DB = os.environ.get(
     "DBOS_SYSTEM_DATABASE_URL", "postgresql://argus:argus@localhost:5432/argus"
@@ -171,35 +167,12 @@ def fulfill_order(order_id: str) -> dict:
     }
 
 
-async def connect_to_argus() -> None:
-    try:
-        import websockets
-    except ImportError:
-        LOG.warning("`websockets` not installed — skipping Argus connection demo.")
-        return
-
-    async with websockets.connect(f"{ARGUS_URL}?api_key={ARGUS_API_KEY}") as ws:
-        hello = await ws.recv()
-        LOG.info("Argus greeted us: %s", hello)
-        await ws.send(
-            json.dumps(
-                {
-                    "type": "app.connect",
-                    "app_name": "hello-workflow",
-                    "sdk": "python",
-                    "sdk_version": "0.0.1",
-                }
-            )
-        )
-
-
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
     DBOS.launch()
     LOG.info("process_order result: %s", process_order("ord-1001"))
     LOG.info("send_campaign result: %s", send_campaign("spring-sale", 20))
     LOG.info("fulfill_order result: %s", fulfill_order("ord-1001"))
-    asyncio.run(connect_to_argus())
 
 
 if __name__ == "__main__":

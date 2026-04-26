@@ -11,13 +11,11 @@ WORKDIR /repo
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* turbo.json ./
 COPY apps/console/package.json ./apps/console/
 COPY packages/ui/package.json ./packages/ui/
-COPY packages/client-ts/package.json ./packages/client-ts/
 
 RUN pnpm install --no-frozen-lockfile
 
 COPY apps/console ./apps/console
 COPY packages/ui ./packages/ui
-COPY packages/client-ts ./packages/client-ts
 
 RUN pnpm --filter console build
 

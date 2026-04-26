@@ -17,9 +17,6 @@ importers:
 
   apps/console:
     dependencies:
-      '@dbos-argus/client':
-        specifier: workspace:*
-        version: link:../../packages/client-ts
       '@dbos-argus/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -87,15 +84,6 @@ importers:
       vite:
         specifier: ^5.4.0
         version: 5.4.21(lightningcss@1.32.0)
-      vitest:
-        specifier: ^2.1.0
-        version: 2.1.9(lightningcss@1.32.0)
-
-  packages/client-ts:
-    devDependencies:
-      typescript:
-        specifier: ^5.6.0
-        version: 5.9.3
       vitest:
         specifier: ^2.1.0
         version: 2.1.9(lightningcss@1.32.0)

@@ -10,8 +10,7 @@
     "dev": "pnpm dev:db && ARGUS_DATABASE_URL=postgresql+asyncpg://argus:argus@localhost:5432/argus turbo run dev --filter=*",
     "lint": "turbo run lint --filter=*",
     "test": "turbo run test --filter=*",
-    "check": "turbo run check --filter=*",
-    "gen:protocol": "uv run python scripts/gen_protocol.py"
+    "check": "turbo run check --filter=*"
   },
   "devDependencies": {
     "turbo": "^2.3.0",

@@ -36,8 +36,7 @@ docker compose up
 - `apps/console` — SvelteKit web UI
 - `packages/server` — FastAPI backend (`dbos-argus` on PyPI)
 - `packages/ui` — reusable Svelte 5 components (`@dbos-argus/ui`)
-- `packages/client-ts` — TypeScript WS client (`@dbos-argus/client`)
-- `examples/` — runnable DBOS apps that connect to Argus
+- `tests/sample-app` — standalone DBOS app run manually to seed workflow data into your local Postgres so the dashboard has something to render
 
 ## Common commands
 
@@ -55,16 +54,6 @@ uv run ruff check packages/server
 uv run pytest packages/server
 ```
 
-## Regenerating the WS protocol types
-
-The WebSocket message schema lives in `packages/server/dbos_argus/protocol.py`. After editing it, regenerate the matching TypeScript types:
-
-```bash
-pnpm run gen:protocol
-```
-
-The generated file (`packages/client-ts/src/protocol.ts`) is checked in.
-
 ## Code style
 
 - Python: `ruff` for both format and lint. Run `uv run ruff format` before pushing.
@@ -73,9 +62,8 @@ The generated file (`packages/client-ts/src/protocol.ts`) is checked in.
 
 ## Principles
 
-1. Argus is out-of-band. No code path in this repo may require direct access to a DBOS app's database.
-2. The console is a client. It talks only to the Argus backend, never to DBOS apps directly.
-3. Typed contracts. The Pydantic models in `protocol.py` are the single source of truth.
-4. Boring is good. Prefer standard, well-documented libraries.
+1. Argus is read-mostly. It only reads from DBOS Transact's `dbos.*` system tables. Future write actions (cancel, resume, fork) will go through DBOS Transact's own APIs from inside the Argus server process.
+2. The console is a client. It talks only to the Argus backend, never to Postgres directly.
+3. Boring is good. Prefer standard, well-documented libraries.
 
 See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for community expectations.
