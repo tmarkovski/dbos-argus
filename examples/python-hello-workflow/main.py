@@ -109,6 +109,12 @@ def hello_workflow(name: str) -> dict:
 
 
 @DBOS.workflow()
+def loop_workflow(name: str) -> dict:
+    greetings = [shout(f"{name}-{i}") for i in range(5)]
+    return {"name": name, "greetings": greetings}
+
+
+@DBOS.workflow()
 def greet_child(name: str, nested: bool = False) -> dict:
     template = fetch_template(name)
     if nested:
@@ -174,6 +180,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO)
     DBOS.launch()
     LOG.info("hello_workflow result: %s", hello_workflow("argus"))
+    LOG.info("loop_workflow result: %s", loop_workflow("argus"))
     LOG.info("greet_parent result: %s", greet_parent("argus"))
     asyncio.run(connect_to_argus())
 
