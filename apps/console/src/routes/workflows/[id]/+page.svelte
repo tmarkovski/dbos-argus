@@ -87,7 +87,7 @@
       cur = cur.parent_workflow_id ? byId.get(cur.parent_workflow_id) : undefined;
     }
     breadcrumb.items = [
-      { label: "Home", href: "/", icon: "home", tooltip: "Home" },
+      { label: "Workflows", href: "/workflows/", icon: "workflow", tooltip: "Workflows" },
       ...chain.map((w) => ({
         label: w.name ?? w.workflow_id,
         href: `/workflows/${w.workflow_id}`,

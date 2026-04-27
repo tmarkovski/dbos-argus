@@ -211,6 +211,8 @@
                 >
                   {#if item.icon === "home"}
                     <House class="size-3.5" />
+                  {:else if item.icon === "workflow"}
+                    <Workflow class="size-3.5" />
                   {:else}
                     {item.label}
                   {/if}
@@ -219,6 +221,8 @@
                 <Breadcrumb.Page title={item.tooltip} class="inline-flex items-center">
                   {#if item.icon === "home"}
                     <House class="size-3.5" />
+                  {:else if item.icon === "workflow"}
+                    <Workflow class="size-3.5" />
                   {:else}
                     {item.label}
                   {/if}

@@ -33,12 +33,12 @@
   const queueName = $derived(page.url.searchParams.get("queue_name") ?? "");
 
   $effect(() => {
-    breadcrumb.items = [
-      { label: "Home", href: "/", icon: "home" },
-      ...(queueName
-        ? [{ label: "Workflows", href: "/workflows/" }, { label: `Queue: ${queueName}` }]
-        : [{ label: "Workflows" }]),
-    ];
+    breadcrumb.items = queueName
+      ? [
+          { label: "Workflows", href: "/workflows/", icon: "workflow" },
+          { label: `Queue: ${queueName}` },
+        ]
+      : [{ label: "Workflows", icon: "workflow" }];
     return () => {
       breadcrumb.items = [];
     };
