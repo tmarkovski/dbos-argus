@@ -111,6 +111,27 @@
             {/snippet}
           </Sidebar.MenuButton>
         </Sidebar.MenuItem>
+        <Sidebar.MenuItem>
+          <Sidebar.MenuButton
+            tooltipContent={dbDetail || dbLabel}
+            class="cursor-default"
+          >
+            <span
+              aria-hidden="true"
+              class="inline-block size-2 shrink-0 rounded-full {dbConnected
+                ? 'bg-green-500'
+                : 'bg-red-500'}"
+            ></span>
+            <span class="flex flex-1 flex-col leading-tight">
+              <span class="text-foreground text-xs font-medium">{dbLabel}</span>
+              {#if dbDetail}
+                <span class="text-muted-foreground truncate font-mono text-[10px]">
+                  {dbDetail}
+                </span>
+              {/if}
+            </span>
+          </Sidebar.MenuButton>
+        </Sidebar.MenuItem>
       </Sidebar.Menu>
     </Sidebar.Header>
 
@@ -141,27 +162,6 @@
 
     <Sidebar.Footer>
       <Sidebar.Menu>
-        <Sidebar.MenuItem>
-          <Sidebar.MenuButton
-            tooltipContent={dbDetail || dbLabel}
-            class="cursor-default"
-          >
-            <span
-              aria-hidden="true"
-              class="inline-block size-2 shrink-0 rounded-full {dbConnected
-                ? 'bg-green-500'
-                : 'bg-red-500'}"
-            ></span>
-            <span class="flex flex-1 flex-col leading-tight">
-              <span class="text-foreground text-xs font-medium">{dbLabel}</span>
-              {#if dbDetail}
-                <span class="text-muted-foreground truncate font-mono text-[10px]">
-                  {dbDetail}
-                </span>
-              {/if}
-            </span>
-          </Sidebar.MenuButton>
-        </Sidebar.MenuItem>
         <Sidebar.MenuItem>
           <Sidebar.MenuButton
             onclick={toggleTheme}
