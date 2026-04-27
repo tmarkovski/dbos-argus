@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { FlowSelection } from "./WorkflowFlow.svelte";
   import { statusBadgeClass } from "$lib/workflow-tree";
+  import { Badge } from "$lib/components/ui/badge/index.js";
   import Copy from "@lucide/svelte/icons/copy";
   import Check from "@lucide/svelte/icons/check";
 
@@ -137,13 +138,9 @@
           {heading.title}
         </span>
         {#if heading.status}
-          <span
-            class="ml-auto inline-flex flex-none items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-inset {statusBadgeClass(
-              heading.status,
-            )}"
-          >
+          <Badge class="ml-auto {statusBadgeClass(heading.status)}">
             {heading.status}
-          </span>
+          </Badge>
         {/if}
       </div>
       <div class="text-muted-foreground truncate font-mono text-[10px]" title={heading.subtitle}>

@@ -12,11 +12,14 @@
   import { slide } from "svelte/transition";
   import DateRangePicker from "$lib/components/DateRangePicker.svelte";
   import { Button } from "$lib/components/ui/button";
-  import { Input } from "$lib/components/ui/input";
   import { Badge } from "$lib/components/ui/badge";
   import { Checkbox } from "$lib/components/ui/checkbox";
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
   import * as Popover from "$lib/components/ui/popover";
+  import * as Card from "$lib/components/ui/card/index.js";
+  import * as Table from "$lib/components/ui/table/index.js";
+  import * as InputGroup from "$lib/components/ui/input-group/index.js";
+  import * as ButtonGroup from "$lib/components/ui/button-group/index.js";
   import {
     computeLineage,
     statusBadgeClass,
@@ -41,7 +44,7 @@
     };
   });
 
-  type ColumnKey = "status" | "workflow_id" | "name" | "started" | "updated";
+  type ColumnKey = "name" | "status" | "workflow_id" | "started" | "executor_id";
 
   let workflows = $state<Workflow[] | null>(null);
   // ENQUEUED rows live in a pinned strip above the main list; the server
@@ -94,19 +97,19 @@
   let grouped = $state(true);
   let groupedInitFromQueue = false;
   let columns = $state<Record<ColumnKey, boolean>>({
+    name: true,
     status: true,
     workflow_id: true,
-    name: true,
     started: true,
-    updated: true,
+    executor_id: true,
   });
 
   const COLUMN_LABELS: Record<ColumnKey, string> = {
+    name: "Name",
     status: "Status",
     workflow_id: "Workflow ID",
-    name: "Name",
     started: "Started",
-    updated: "Updated",
+    executor_id: "Executor",
   };
 
   function toggleStatus(value: string) {
@@ -350,15 +353,15 @@
 
   <div class="flex flex-wrap items-center gap-2">
     {#if queueName}
-      <Badge variant="secondary" class="gap-1">
+      <Badge variant="secondary">
         Queue: <span class="font-mono">{queueName}</span>
         <button
           type="button"
           onclick={clearQueueFilter}
-          class="hover:text-foreground -mr-1 ml-0.5 inline-flex items-center"
+          class="hover:text-foreground"
           aria-label="Clear queue filter"
         >
-          <XIcon class="h-3 w-3" />
+          <XIcon />
         </button>
       </Badge>
     {/if}
@@ -369,9 +372,7 @@
             <FilterIcon />
             Status
             {#if statusNarrowed}
-              <Badge variant="secondary" class="ml-1 h-4 min-w-4 px-1 text-[10px]">
-                {selectedStatuses.size}
-              </Badge>
+              <Badge variant="secondary">{selectedStatuses.size}</Badge>
             {/if}
           </Button>
         {/snippet}
@@ -404,28 +405,26 @@
       </Popover.Content>
     </Popover.Root>
 
-    <div class="relative">
-      <SearchIcon
-        class="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2"
-      />
-      <Input
+    <InputGroup.Root class="w-52">
+      <InputGroup.Addon>
+        <SearchIcon />
+      </InputGroup.Addon>
+      <InputGroup.Input
         type="text"
         placeholder="Workflow ID"
         bind:value={filters.workflow_id}
-        class="w-52 pl-8"
       />
-    </div>
-    <div class="relative">
-      <TextIcon
-        class="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2"
-      />
-      <Input
+    </InputGroup.Root>
+    <InputGroup.Root class="w-52">
+      <InputGroup.Addon>
+        <TextIcon />
+      </InputGroup.Addon>
+      <InputGroup.Input
         type="text"
         placeholder="Name (wildcard)"
         bind:value={filters.name}
-        class="w-52 pl-8"
       />
-    </div>
+    </InputGroup.Root>
 
     <DateRangePicker bind:value={dateRange} placeholder="Started" />
 
@@ -441,7 +440,7 @@
       <Button variant="ghost" onclick={clearFilters}>Clear filters</Button>
     {/if}
 
-    <div class="ml-auto flex items-center gap-3">
+    <ButtonGroup.Root class="ml-auto">
       <ToggleGroup.Root
         type="single"
         variant="outline"
@@ -474,7 +473,7 @@
           {/each}
         </Popover.Content>
       </Popover.Root>
-    </div>
+    </ButtonGroup.Root>
   </div>
 
   {#if error}
@@ -494,20 +493,20 @@
           : "No workflows yet. Run a DBOS app pointed at this database to see data here."}
     </p>
   {:else}
-    <div class="border-border bg-card overflow-hidden rounded-lg border shadow-xs">
-      <table class="w-full text-left text-sm">
-        <thead class="bg-muted/50 text-muted-foreground text-xs tracking-wide uppercase">
-          <tr>
-            {#if columns.status}<th class="px-4 py-2 font-medium">Status</th>{/if}
-            {#if columns.workflow_id}<th class="px-4 py-2 font-medium">Workflow ID</th>{/if}
-            {#if columns.name}<th class="px-4 py-2 font-medium">Name</th>{/if}
-            {#if columns.started}<th class="px-4 py-2 font-medium">Started</th>{/if}
-            {#if columns.updated}<th class="px-4 py-2 font-medium">Updated</th>{/if}
-          </tr>
-        </thead>
-        <tbody>
+    <Card.Root class="gap-0 py-0 shadow-xs">
+      <Table.Root>
+        <Table.Header class="bg-muted/40">
+          <Table.Row class="hover:bg-muted/40">
+            {#if columns.name}<Table.Head class="px-4">Name</Table.Head>{/if}
+            {#if columns.status}<Table.Head class="px-4">Status</Table.Head>{/if}
+            {#if columns.workflow_id}<Table.Head class="px-4">Workflow ID</Table.Head>{/if}
+            {#if columns.started}<Table.Head class="px-4">Started</Table.Head>{/if}
+            {#if columns.executor_id}<Table.Head class="px-4">Executor</Table.Head>{/if}
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
           {#each rows as w (w.workflow_id)}
-            <tr
+            <Table.Row
               onclick={(e) => {
                 // Don't double-handle clicks on inner anchors — let the
                 // browser navigate them natively (preserves middle-click,
@@ -521,43 +520,14 @@
                   goto(`/workflows/${encodeURIComponent(w.workflow_id)}/`);
                 }
               }}
-              tabindex="0"
+              tabindex={0}
               role="link"
-              class="hover:bg-muted/50 focus:bg-muted/50 cursor-pointer outline-none {grouped &&
-              w.depth === 0
-                ? 'border-border border-t'
-                : !grouped
-                  ? 'border-border border-t'
-                  : ''}"
+              class="focus:bg-muted/50 cursor-pointer outline-none {grouped && w.depth > 0
+                ? 'border-b-0'
+                : ''}"
             >
-              {#if columns.status}
-                <td class="px-4 {!grouped || w.depth === 0 ? 'py-2' : 'py-1'}">
-                  <span
-                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset {statusBadgeClass(
-                      w.status,
-                    )}"
-                  >
-                    {w.status ?? "—"}
-                  </span>
-                </td>
-              {/if}
-              {#if columns.workflow_id}
-                <td
-                  class="text-muted-foreground px-4 font-mono text-xs {!grouped || w.depth === 0
-                    ? 'py-2'
-                    : 'py-1'}"
-                >
-                  <a
-                    href="/workflows/{encodeURIComponent(w.workflow_id)}/"
-                    title={w.workflow_id}
-                    class="hover:text-foreground hover:underline"
-                  >
-                    {w.workflow_id}
-                  </a>
-                </td>
-              {/if}
               {#if columns.name}
-                <td class="px-4 py-0 font-mono">
+                <Table.Cell class="px-4 py-0 font-mono">
                   <div class="flex items-stretch">
                     {#each w.lineage as hasNext, i}
                       {@const isConnector = i === w.lineage.length - 1}
@@ -594,32 +564,54 @@
                       {w.name ?? "—"}
                     </a>
                   </div>
-                </td>
+                </Table.Cell>
+              {/if}
+              {#if columns.status}
+                <Table.Cell class="px-4 {!grouped || w.depth === 0 ? 'py-2' : 'py-1'}">
+                  <Badge class={statusBadgeClass(w.status)}>{w.status ?? "—"}</Badge>
+                </Table.Cell>
+              {/if}
+              {#if columns.workflow_id}
+                <Table.Cell
+                  class="text-muted-foreground px-4 font-mono text-xs {!grouped ||
+                  w.depth === 0
+                    ? 'py-2'
+                    : 'py-1'}"
+                >
+                  <a
+                    href="/workflows/{encodeURIComponent(w.workflow_id)}/"
+                    title={w.workflow_id}
+                    class="hover:text-foreground hover:underline"
+                  >
+                    {w.workflow_id}
+                  </a>
+                </Table.Cell>
               {/if}
               {#if columns.started}
-                <td
+                <Table.Cell
                   class="text-muted-foreground px-4 {!grouped || w.depth === 0
                     ? 'py-2'
                     : 'py-1'}"
                   title={w.started_at}
                 >
                   {formatRelative(w.started_at)}
-                </td>
+                </Table.Cell>
               {/if}
-              {#if columns.updated}
-                <td
-                  class="text-muted-foreground px-4 {!grouped || w.depth === 0
+              {#if columns.executor_id}
+                <Table.Cell
+                  class="text-muted-foreground px-4 font-mono text-xs {!grouped ||
+                  w.depth === 0
                     ? 'py-2'
                     : 'py-1'}"
-                  title={w.updated_at}
+                  title={w.executor_id ?? ""}
                 >
-                  {formatRelative(w.updated_at)}
-                </td>
+                  {w.executor_id ?? "—"}
+                </Table.Cell>
               {/if}
-            </tr>
+            </Table.Row>
           {/each}
-        </tbody>
-      </table>
-    </div>
+        </Table.Body>
+      </Table.Root>
+    </Card.Root>
   {/if}
 </div>

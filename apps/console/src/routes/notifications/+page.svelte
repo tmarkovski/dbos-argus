@@ -2,6 +2,9 @@
   import { onDestroy, onMount } from "svelte";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
+  import * as Card from "$lib/components/ui/card/index.js";
+  import * as Table from "$lib/components/ui/table/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
   import { formatRelative } from "$lib/format";
 
   type Notification = {
@@ -96,35 +99,31 @@
         : "No notifications recorded."}
     </p>
   {:else}
-    <div class="border-border bg-card overflow-hidden rounded-lg border shadow-xs">
-      <table class="w-full text-left text-sm">
-        <thead class="bg-muted/50 text-muted-foreground text-xs tracking-wide uppercase">
-          <tr>
-            <th class="px-4 py-2 font-medium">State</th>
-            <th class="px-4 py-2 font-medium">Destination workflow</th>
-            <th class="px-4 py-2 font-medium">Topic</th>
-            <th class="px-4 py-2 font-medium">Sent</th>
-          </tr>
-        </thead>
-        <tbody>
+    <Card.Root class="gap-0 py-0 shadow-xs">
+      <Table.Root>
+        <Table.Header class="bg-muted/40">
+          <Table.Row class="hover:bg-muted/40">
+            <Table.Head class="px-4">State</Table.Head>
+            <Table.Head class="px-4">Destination workflow</Table.Head>
+            <Table.Head class="px-4">Topic</Table.Head>
+            <Table.Head class="px-4">Sent</Table.Head>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
           {#each items as n (n.message_uuid)}
-            <tr class="hover:bg-muted/50 border-border border-t">
-              <td class="px-4 py-2">
+            <Table.Row>
+              <Table.Cell class="px-4 py-2">
                 {#if n.consumed}
-                  <span
-                    class="bg-muted text-muted-foreground ring-border inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset"
-                  >
-                    Consumed
-                  </span>
+                  <Badge variant="secondary">Consumed</Badge>
                 {:else}
-                  <span
-                    class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 ring-1 ring-inset ring-blue-600/20 dark:bg-blue-500/10 dark:text-blue-400"
+                  <Badge
+                    class="bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-400"
                   >
                     Pending
-                  </span>
+                  </Badge>
                 {/if}
-              </td>
-              <td
+              </Table.Cell>
+              <Table.Cell
                 class="text-muted-foreground px-4 py-2 font-mono text-xs"
                 title={n.destination_uuid}
               >
@@ -134,17 +133,17 @@
                 >
                   {n.destination_uuid}
                 </a>
-              </td>
-              <td class="px-4 py-2 font-mono text-xs">
+              </Table.Cell>
+              <Table.Cell class="px-4 py-2 font-mono text-xs">
                 {n.topic ?? "—"}
-              </td>
-              <td class="text-muted-foreground px-4 py-2" title={n.created_at}>
+              </Table.Cell>
+              <Table.Cell class="text-muted-foreground px-4 py-2" title={n.created_at}>
                 {formatRelative(n.created_at)}
-              </td>
-            </tr>
+              </Table.Cell>
+            </Table.Row>
           {/each}
-        </tbody>
-      </table>
-    </div>
+        </Table.Body>
+      </Table.Root>
+    </Card.Root>
   {/if}
 </div>

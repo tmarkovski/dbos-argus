@@ -69,6 +69,7 @@ class WorkflowListItem(BaseModel):
     name: str | None
     status: str | None
     queue_name: str | None
+    executor_id: str | None
     started_at: datetime
     updated_at: datetime
     depth: int
@@ -134,6 +135,7 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
                         ws.name,
                         ws.status,
                         ws.queue_name,
+                        ws.executor_id,
                         COALESCE(ws.started_at_epoch_ms, ws.created_at) AS started_ms,
                         ws.updated_at AS updated_ms,
                         0 AS depth,
@@ -150,6 +152,7 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
                         c.name,
                         c.status,
                         c.queue_name,
+                        c.executor_id,
                         COALESCE(c.started_at_epoch_ms, c.created_at),
                         c.updated_at,
                         t.depth + 1,
@@ -159,7 +162,7 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
                     JOIN tree t ON c.parent_workflow_id = t.workflow_uuid
                 )
             SELECT
-                workflow_uuid, parent_workflow_id, name, status, queue_name,
+                workflow_uuid, parent_workflow_id, name, status, queue_name, executor_id,
                 started_ms, updated_ms, depth
             FROM tree
             ORDER BY root_updated_at DESC, sort_path ASC
@@ -173,6 +176,7 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
                 name,
                 status,
                 queue_name,
+                executor_id,
                 COALESCE(started_at_epoch_ms, created_at) AS started_ms,
                 updated_at AS updated_ms,
                 0 AS depth
@@ -221,6 +225,7 @@ async def list_workflows(
             name=r.name,
             status=r.status,
             queue_name=r.queue_name,
+            executor_id=r.executor_id,
             started_at=datetime.fromtimestamp(r.started_ms / 1000, tz=UTC),
             updated_at=datetime.fromtimestamp(r.updated_ms / 1000, tz=UTC),
             depth=r.depth,
@@ -315,6 +320,7 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
                     ws.name,
                     ws.status,
                     ws.queue_name,
+                    ws.executor_id,
                     ws.output,
                     ws.error,
                     ws.serialization,
@@ -333,6 +339,7 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
                     c.name,
                     c.status,
                     c.queue_name,
+                    c.executor_id,
                     c.output,
                     c.error,
                     c.serialization,
@@ -344,8 +351,8 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
                 JOIN tree t ON c.parent_workflow_id = t.workflow_uuid
             )
         SELECT
-            workflow_uuid, parent_workflow_id, name, status, queue_name, output, error,
-            serialization, started_ms, updated_ms, depth
+            workflow_uuid, parent_workflow_id, name, status, queue_name, executor_id,
+            output, error, serialization, started_ms, updated_ms, depth
         FROM tree
         ORDER BY sort_path ASC
     """
@@ -390,6 +397,7 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
             name=r.name,
             status=r.status,
             queue_name=r.queue_name,
+            executor_id=r.executor_id,
             output=r.output,
             error=r.error,
             serialization=r.serialization,

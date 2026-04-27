@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
+  import * as Card from "$lib/components/ui/card/index.js";
+  import * as Table from "$lib/components/ui/table/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
 
   type WorkflowSchedule = {
     schedule_id: string;
@@ -52,8 +55,8 @@
 
   function statusClass(status: string): string {
     if (status === "ACTIVE")
-      return "bg-green-100 text-green-800 ring-green-600/20 dark:bg-green-500/10 dark:text-green-400";
-    return "bg-muted text-muted-foreground ring-border";
+      return "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-400";
+    return "bg-muted text-muted-foreground";
   }
 </script>
 
@@ -78,42 +81,39 @@
       No scheduled workflows registered.
     </p>
   {:else}
-    <div class="border-border bg-card overflow-hidden rounded-lg border shadow-xs">
-      <table class="w-full text-left text-sm">
-        <thead class="bg-muted/50 text-muted-foreground text-xs tracking-wide uppercase">
-          <tr>
-            <th class="px-4 py-2 font-medium">Status</th>
-            <th class="px-4 py-2 font-medium">Name</th>
-            <th class="px-4 py-2 font-medium">Workflow</th>
-            <th class="px-4 py-2 font-medium">Schedule</th>
-            <th class="px-4 py-2 font-medium">Timezone</th>
-            <th class="px-4 py-2 font-medium">Queue</th>
-            <th class="px-4 py-2 font-medium">Last fired</th>
-          </tr>
-        </thead>
-        <tbody>
+    <Card.Root class="gap-0 py-0 shadow-xs">
+      <Table.Root>
+        <Table.Header class="bg-muted/40">
+          <Table.Row class="hover:bg-muted/40">
+            <Table.Head class="px-4">Status</Table.Head>
+            <Table.Head class="px-4">Name</Table.Head>
+            <Table.Head class="px-4">Workflow</Table.Head>
+            <Table.Head class="px-4">Schedule</Table.Head>
+            <Table.Head class="px-4">Timezone</Table.Head>
+            <Table.Head class="px-4">Queue</Table.Head>
+            <Table.Head class="px-4">Last fired</Table.Head>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
           {#each schedules as s (s.schedule_id)}
-            <tr class="hover:bg-muted/50 border-border border-t">
-              <td class="px-4 py-2">
-                <span
-                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset {statusClass(
-                    s.status,
-                  )}"
-                >
-                  {s.status}
-                </span>
-              </td>
-              <td class="px-4 py-2 font-mono">{s.schedule_name}</td>
-              <td class="px-4 py-2 font-mono text-xs" title={s.workflow_class_name ?? ""}>
+            <Table.Row>
+              <Table.Cell class="px-4 py-2">
+                <Badge class={statusClass(s.status)}>{s.status}</Badge>
+              </Table.Cell>
+              <Table.Cell class="px-4 py-2 font-mono">{s.schedule_name}</Table.Cell>
+              <Table.Cell
+                class="px-4 py-2 font-mono text-xs"
+                title={s.workflow_class_name ?? ""}
+              >
                 {#if s.workflow_class_name}
                   <span class="text-muted-foreground">{s.workflow_class_name}.</span>
                 {/if}{s.workflow_name}
-              </td>
-              <td class="px-4 py-2 font-mono text-xs">{s.schedule}</td>
-              <td class="text-muted-foreground px-4 py-2 text-xs">
+              </Table.Cell>
+              <Table.Cell class="px-4 py-2 font-mono text-xs">{s.schedule}</Table.Cell>
+              <Table.Cell class="text-muted-foreground px-4 py-2 text-xs">
                 {s.cron_timezone ?? "UTC"}
-              </td>
-              <td class="text-muted-foreground px-4 py-2 font-mono text-xs">
+              </Table.Cell>
+              <Table.Cell class="text-muted-foreground px-4 py-2 font-mono text-xs">
                 {#if s.queue_name}
                   <a
                     href="/workflows/?queue_name={encodeURIComponent(s.queue_name)}"
@@ -124,14 +124,17 @@
                 {:else}
                   —
                 {/if}
-              </td>
-              <td class="text-muted-foreground px-4 py-2 text-xs" title={s.last_fired_at ?? ""}>
+              </Table.Cell>
+              <Table.Cell
+                class="text-muted-foreground px-4 py-2 text-xs"
+                title={s.last_fired_at ?? ""}
+              >
                 {s.last_fired_at ?? "—"}
-              </td>
-            </tr>
+              </Table.Cell>
+            </Table.Row>
           {/each}
-        </tbody>
-      </table>
-    </div>
+        </Table.Body>
+      </Table.Root>
+    </Card.Root>
   {/if}
 </div>

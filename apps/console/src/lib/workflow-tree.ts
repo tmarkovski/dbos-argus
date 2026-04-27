@@ -4,6 +4,7 @@ export type Workflow = {
   name: string | null;
   status: string | null;
   queue_name: string | null;
+  executor_id: string | null;
   started_at: string;
   updated_at: string;
   depth: number;
@@ -59,19 +60,21 @@ export function computeLineage(workflows: Workflow[]): TreeRow[] {
 // Status colors. Inputs are the literal strings from the API — see
 // `./workflow-status.ts` for the canonical set (`WorkflowStatus`). Unknown
 // values fall through to a neutral muted style.
+// Soft-tinted status pills used inside the shadcn `<Badge>` component.
+// Just background + text — Badge keeps its default transparent border slot.
 export function statusBadgeClass(status: string | null): string {
   const s = (status ?? "").toUpperCase();
   if (s === "SUCCESS")
-    return "bg-green-100 text-green-800 ring-green-600/20 dark:bg-green-500/10 dark:text-green-400";
+    return "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-400";
   if (s === "ENQUEUED")
-    return "bg-violet-100 text-violet-800 ring-violet-600/20 dark:bg-violet-500/10 dark:text-violet-400";
+    return "bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-400";
   if (s === "PENDING" || s === "DELAYED")
-    return "bg-blue-100 text-blue-800 ring-blue-600/20 dark:bg-blue-500/10 dark:text-blue-400";
+    return "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-400";
   if (s === "CANCELLED")
-    return "bg-amber-100 text-amber-800 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400";
+    return "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-400";
   if (s === "ERROR" || s === "MAX_RECOVERY_ATTEMPTS_EXCEEDED")
-    return "bg-red-100 text-red-800 ring-red-600/20 dark:bg-red-500/10 dark:text-red-400";
-  return "bg-muted text-muted-foreground ring-border";
+    return "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-400";
+  return "bg-muted text-muted-foreground";
 }
 
 export function statusDotClass(status: string | null): string {
