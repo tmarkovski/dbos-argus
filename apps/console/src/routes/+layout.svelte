@@ -184,7 +184,7 @@
 
   <Sidebar.Inset>
     <header
-      class="bg-background sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b px-4"
+      class="bg-background sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b px-4 md:rounded-t-xl"
     >
       <Sidebar.Trigger class="-ml-1" />
       <Separator orientation="vertical" class="mr-2 !h-4" />
