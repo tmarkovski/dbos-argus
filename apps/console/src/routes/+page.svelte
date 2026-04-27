@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import ActivityIcon from "@lucide/svelte/icons/activity";
-  import LayersIcon from "@lucide/svelte/icons/layers";
   import AlertTriangleIcon from "@lucide/svelte/icons/triangle-alert";
   import ListIcon from "@lucide/svelte/icons/list";
   import BellIcon from "@lucide/svelte/icons/bell";
@@ -15,25 +14,12 @@
     total: number;
     in_flight: number;
     failed_recent: number;
-    active_queues: number;
     pending_notifications: number;
     active_schedules: number;
   };
 
-  type QueueSummary = {
-    name: string;
-    pending: number;
-    enqueued: number;
-    success: number;
-    error: number;
-    cancelled: number;
-    total: number;
-    last_activity: string | null;
-  };
-
   let stats = $state<Stats | null>(null);
   let recents = $state<Workflow[] | null>(null);
-  let queues = $state<QueueSummary[] | null>(null);
   let error = $state<string | null>(null);
   let timer: ReturnType<typeof setInterval> | undefined;
 
@@ -46,7 +32,7 @@
 
   async function refresh() {
     try {
-      const [s, w, q] = await Promise.all([
+      const [s, w] = await Promise.all([
         fetch("/api/stats").then((r) => {
           if (!r.ok) throw new Error(`stats HTTP ${r.status}`);
           return r.json() as Promise<Stats>;
@@ -55,14 +41,9 @@
           if (!r.ok) throw new Error(`workflows HTTP ${r.status}`);
           return r.json() as Promise<Workflow[]>;
         }),
-        fetch("/api/queues").then((r) => {
-          if (!r.ok) throw new Error(`queues HTTP ${r.status}`);
-          return r.json() as Promise<QueueSummary[]>;
-        }),
       ]);
       stats = s;
       recents = w;
-      queues = q;
       error = null;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
@@ -89,14 +70,6 @@
 
   const tiles = $derived<Tile[]>([
     {
-      label: "Active queues",
-      value: stats?.active_queues,
-      href: "/queues/",
-      icon: LayersIcon,
-      accent: "text-foreground",
-      sub: "With workflows in flight",
-    },
-    {
       label: "Pending notifications",
       value: stats?.pending_notifications,
       href: "/notifications/",
@@ -116,10 +89,6 @@
 
   const inFlightHref = "/workflows/?status=PENDING&status=ENQUEUED&status=DELAYED";
   const failedHref = "/workflows/?status=ERROR&status=MAX_RECOVERY_ATTEMPTS_EXCEEDED";
-
-  const activeQueues = $derived(
-    (queues ?? []).filter((q) => q.pending > 0 || q.enqueued > 0).slice(0, 6),
-  );
 </script>
 
 <div class="flex flex-col gap-6 p-6">
@@ -193,8 +162,8 @@
     {/each}
   </section>
 
-  <section class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-    <div class="border-border bg-card flex flex-col rounded-lg border shadow-xs lg:col-span-2">
+  <section>
+    <div class="border-border bg-card flex flex-col rounded-lg border shadow-xs">
       <header class="border-border flex items-center justify-between border-b px-4 py-3">
         <h2 class="text-sm font-semibold">Recent workflows</h2>
         <a
@@ -259,59 +228,6 @@
             {/each}
           </tbody>
         </table>
-      {/if}
-    </div>
-
-    <div class="border-border bg-card flex flex-col rounded-lg border shadow-xs">
-      <header class="border-border flex items-center justify-between border-b px-4 py-3">
-        <h2 class="text-sm font-semibold">Active queues</h2>
-        <a
-          href="/queues/"
-          class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs"
-        >
-          View all
-          <ArrowRightIcon class="h-3 w-3" />
-        </a>
-      </header>
-      {#if queues === null}
-        <p class="text-muted-foreground p-4 text-sm">Loading…</p>
-      {:else if activeQueues.length === 0}
-        <p class="text-muted-foreground p-4 text-sm">
-          No queues with workflows in flight.
-        </p>
-      {:else}
-        <ul class="divide-border divide-y">
-          {#each activeQueues as q (q.name)}
-            <li>
-              <a
-                href="/workflows/?queue_name={encodeURIComponent(q.name)}"
-                class="hover:bg-muted/40 flex items-center justify-between px-4 py-2.5 transition-colors"
-              >
-                <span class="truncate font-mono text-sm" title={q.name}>{q.name}</span>
-                <span class="text-muted-foreground flex items-center gap-3 text-xs tabular-nums">
-                  {#if q.enqueued > 0}
-                    <span title="Enqueued">
-                      <span
-                        class="inline-block h-1.5 w-1.5 -translate-y-px rounded-full bg-blue-500"
-                        aria-hidden="true"
-                      ></span>
-                      {q.enqueued}
-                    </span>
-                  {/if}
-                  {#if q.pending > 0}
-                    <span title="Pending">
-                      <span
-                        class="inline-block h-1.5 w-1.5 -translate-y-px rounded-full bg-blue-400"
-                        aria-hidden="true"
-                      ></span>
-                      {q.pending}
-                    </span>
-                  {/if}
-                </span>
-              </a>
-            </li>
-          {/each}
-        </ul>
       {/if}
     </div>
   </section>

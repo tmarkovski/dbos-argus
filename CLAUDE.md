@@ -17,7 +17,7 @@ Mixed-language monorepo: **pnpm workspaces** for JS/TS, **uv workspaces** for Py
 | `apps/console` | `console` (private) | SvelteKit web UI. Only client of the backend. |
 | `packages/server` | `dbos-argus` (PyPI) | FastAPI backend. Reads the DBOS system tables directly. |
 | `packages/ui` | `@dbos-argus/ui` | Svelte 5 component stubs consumed by the console. |
-| `tests/sample-app` | — | Standalone DBOS app used as a dev fixture — runs a few workflows so the dashboard has data to render. **Not** a uv workspace member; has its own `pyproject.toml` so root `uv sync` isn't blocked on the `dbos` dep. |
+| `tests/sample-app` | `argus-sample-app` | DBOS dev fixture. Provides two CLI scripts (`argus-runner`, `argus-ops`) installed into the root `.venv` — runner hosts the example workflows, ops drives them (send/cancel/list). Workspace member; root `uv sync` resolves `dbos` for the whole repo. |
 
 ## Common commands
 

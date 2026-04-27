@@ -15,6 +15,10 @@ from . import __version__
 from .db import engine
 from .decoding import decode_dbos_value
 from .settings import settings
+from .workflow_status import (
+    ACTIVE_STATUSES_SQL,
+    ERROR_STATUSES_SQL,
+)
 
 logging.basicConfig(level=settings.log_level)
 logger = logging.getLogger("dbos_argus")
@@ -64,6 +68,7 @@ class WorkflowListItem(BaseModel):
     parent_workflow_id: str | None
     name: str | None
     status: str | None
+    queue_name: str | None
     started_at: datetime
     updated_at: datetime
     depth: int
@@ -95,9 +100,20 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
     if filters.get("statuses"):
         conditions.append("status = ANY(:statuses)")
         params["statuses"] = filters["statuses"]
+    else:
+        # ENQUEUED runs are surfaced in the workflow-list page's pinned strip,
+        # so the main list defaults to hiding them. An explicit `status` filter
+        # opts back in (the strip uses ?status=ENQUEUED).
+        conditions.append("status <> 'ENQUEUED'")
     if filters.get("queue_name"):
         conditions.append("queue_name = :queue_name")
         params["queue_name"] = filters["queue_name"]
+    # Scheduled workflow runs use the deterministic id `sched-<schedule_name>-<isoformat>`
+    # (or `sched-<func_name>-<isoformat>` from the deprecated decorator path). DBOS does
+    # not record an explicit "is scheduled" flag on workflow_status, so filtering by id
+    # prefix is the canonical detection — see dbos/_scheduler.py:171.
+    if filters.get("hide_scheduled"):
+        conditions.append("workflow_uuid NOT LIKE 'sched-%'")
 
     where_extra = (" AND " + " AND ".join(conditions)) if conditions else ""
 
@@ -117,6 +133,7 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
                         ws.parent_workflow_id,
                         ws.name,
                         ws.status,
+                        ws.queue_name,
                         COALESCE(ws.started_at_epoch_ms, ws.created_at) AS started_ms,
                         ws.updated_at AS updated_ms,
                         0 AS depth,
@@ -132,6 +149,7 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
                         c.parent_workflow_id,
                         c.name,
                         c.status,
+                        c.queue_name,
                         COALESCE(c.started_at_epoch_ms, c.created_at),
                         c.updated_at,
                         t.depth + 1,
@@ -140,7 +158,9 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
                     FROM dbos.workflow_status c
                     JOIN tree t ON c.parent_workflow_id = t.workflow_uuid
                 )
-            SELECT workflow_uuid, parent_workflow_id, name, status, started_ms, updated_ms, depth
+            SELECT
+                workflow_uuid, parent_workflow_id, name, status, queue_name,
+                started_ms, updated_ms, depth
             FROM tree
             ORDER BY root_updated_at DESC, sort_path ASC
         """
@@ -152,6 +172,7 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
                 parent_workflow_id,
                 name,
                 status,
+                queue_name,
                 COALESCE(started_at_epoch_ms, created_at) AS started_ms,
                 updated_at AS updated_ms,
                 0 AS depth
@@ -173,6 +194,7 @@ async def list_workflows(
     status: Annotated[list[str] | None, Query()] = None,
     queue_name: str | None = None,
     grouped: bool = True,
+    hide_scheduled: bool = False,
 ) -> list[WorkflowListItem]:
     filters: dict[str, object] = {
         "limit": limit,
@@ -182,6 +204,7 @@ async def list_workflows(
         "started_before": int(started_before.timestamp() * 1000) if started_before else None,
         "statuses": status if status else None,
         "queue_name": queue_name,
+        "hide_scheduled": hide_scheduled,
     }
     sql, params = _build_workflow_sql(grouped, filters)
     try:
@@ -197,6 +220,7 @@ async def list_workflows(
             parent_workflow_id=r.parent_workflow_id,
             name=r.name,
             status=r.status,
+            queue_name=r.queue_name,
             started_at=datetime.fromtimestamp(r.started_ms / 1000, tz=UTC),
             updated_at=datetime.fromtimestamp(r.updated_ms / 1000, tz=UTC),
             depth=r.depth,
@@ -290,6 +314,7 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
                     ws.parent_workflow_id,
                     ws.name,
                     ws.status,
+                    ws.queue_name,
                     ws.output,
                     ws.error,
                     ws.serialization,
@@ -307,6 +332,7 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
                     c.parent_workflow_id,
                     c.name,
                     c.status,
+                    c.queue_name,
                     c.output,
                     c.error,
                     c.serialization,
@@ -318,7 +344,7 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
                 JOIN tree t ON c.parent_workflow_id = t.workflow_uuid
             )
         SELECT
-            workflow_uuid, parent_workflow_id, name, status, output, error,
+            workflow_uuid, parent_workflow_id, name, status, queue_name, output, error,
             serialization, started_ms, updated_ms, depth
         FROM tree
         ORDER BY sort_path ASC
@@ -363,6 +389,7 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
             parent_workflow_id=r.parent_workflow_id,
             name=r.name,
             status=r.status,
+            queue_name=r.queue_name,
             output=r.output,
             error=r.error,
             serialization=r.serialization,
@@ -416,7 +443,6 @@ class DashboardStats(BaseModel):
     total: int
     in_flight: int
     failed_recent: int
-    active_queues: int
     pending_notifications: int
     active_schedules: int
 
@@ -427,7 +453,6 @@ _EMPTY_STATS = DashboardStats(
     total=0,
     in_flight=0,
     failed_recent=0,
-    active_queues=0,
     pending_notifications=0,
     active_schedules=0,
 )
@@ -435,17 +460,16 @@ _EMPTY_STATS = DashboardStats(
 
 @app.get("/api/stats")
 async def get_stats() -> DashboardStats:
-    sql = """
+    # Status literals come from `workflow_status.py` — single source of truth
+    # mirroring `dbos.WorkflowStatusString`.
+    sql = f"""
         SELECT
             (SELECT COUNT(*) FROM dbos.workflow_status) AS total,
             (SELECT COUNT(*) FROM dbos.workflow_status
-                WHERE status IN ('PENDING','ENQUEUED','DELAYED')) AS in_flight,
+                WHERE status IN {ACTIVE_STATUSES_SQL}) AS in_flight,
             (SELECT COUNT(*) FROM dbos.workflow_status
-                WHERE status IN ('ERROR','MAX_RECOVERY_ATTEMPTS_EXCEEDED')
+                WHERE status IN {ERROR_STATUSES_SQL}
                 AND COALESCE(started_at_epoch_ms, created_at) >= :since_ms) AS failed_recent,
-            (SELECT COUNT(DISTINCT queue_name) FROM dbos.workflow_status
-                WHERE queue_name IS NOT NULL
-                AND status IN ('PENDING','ENQUEUED','DELAYED')) AS active_queues,
             (SELECT COUNT(*) FROM dbos.notifications
                 WHERE consumed = false) AS pending_notifications,
             (SELECT COUNT(*) FROM dbos.workflow_schedules
@@ -463,66 +487,9 @@ async def get_stats() -> DashboardStats:
         total=row.total,
         in_flight=row.in_flight,
         failed_recent=row.failed_recent,
-        active_queues=row.active_queues,
         pending_notifications=row.pending_notifications,
         active_schedules=row.active_schedules,
     )
-
-
-class QueueSummary(BaseModel):
-    name: str
-    pending: int
-    enqueued: int
-    success: int
-    error: int
-    cancelled: int
-    total: int
-    last_activity: datetime | None
-
-
-@app.get("/api/queues")
-async def list_queues() -> list[QueueSummary]:
-    # `queue_name` lives only on `dbos.workflow_status` — DBOS doesn't persist
-    # queue *definitions* (concurrency limits, rate limits, priority flags
-    # only exist in the running app's code). So a "queue" here is just an
-    # observed name with workflow counts grouped by status.
-    sql = """
-        SELECT
-            queue_name,
-            COUNT(*) AS total,
-            COUNT(*) FILTER (WHERE status = 'PENDING') AS pending,
-            COUNT(*) FILTER (WHERE status = 'ENQUEUED') AS enqueued,
-            COUNT(*) FILTER (WHERE status = 'SUCCESS') AS success,
-            COUNT(*) FILTER (WHERE status IN ('ERROR','MAX_RECOVERY_ATTEMPTS_EXCEEDED')) AS error,
-            COUNT(*) FILTER (WHERE status = 'CANCELLED') AS cancelled,
-            MAX(updated_at) AS last_activity_ms
-        FROM dbos.workflow_status
-        WHERE queue_name IS NOT NULL
-        GROUP BY queue_name
-        ORDER BY last_activity_ms DESC NULLS LAST
-    """
-    try:
-        async with engine.connect() as conn:
-            rows = (await conn.execute(text(sql))).fetchall()
-    except ProgrammingError:
-        return []
-    return [
-        QueueSummary(
-            name=r.queue_name,
-            pending=r.pending,
-            enqueued=r.enqueued,
-            success=r.success,
-            error=r.error,
-            cancelled=r.cancelled,
-            total=r.total,
-            last_activity=(
-                datetime.fromtimestamp(r.last_activity_ms / 1000, tz=UTC)
-                if r.last_activity_ms is not None
-                else None
-            ),
-        )
-        for r in rows
-    ]
 
 
 class WorkflowSchedule(BaseModel):

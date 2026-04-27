@@ -8,6 +8,8 @@
   import TextIcon from "@lucide/svelte/icons/text";
   import ColumnsIcon from "@lucide/svelte/icons/columns-3";
   import XIcon from "@lucide/svelte/icons/x";
+  import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
+  import { slide } from "svelte/transition";
   import DateRangePicker from "$lib/components/DateRangePicker.svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
@@ -22,6 +24,7 @@
     type TreeRow,
     type Workflow,
   } from "$lib/workflow-tree";
+  import { STATUS_LABELS, WORKFLOW_STATUSES } from "$lib/workflow-status";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
 
   const queueName = $derived(page.url.searchParams.get("queue_name") ?? "");
@@ -30,7 +33,7 @@
     breadcrumb.items = [
       { label: "Home", href: "/", icon: "home" },
       ...(queueName
-        ? [{ label: "Queues", href: "/queues/" }, { label: queueName }]
+        ? [{ label: "Workflows", href: "/workflows/" }, { label: `Queue: ${queueName}` }]
         : [{ label: "Workflows" }]),
     ];
     return () => {
@@ -41,6 +44,14 @@
   type ColumnKey = "status" | "workflow_id" | "name" | "started" | "updated";
 
   let workflows = $state<Workflow[] | null>(null);
+  // ENQUEUED rows live in a pinned strip above the main list; the server
+  // hides them from /api/workflows by default, and the strip fetches them
+  // explicitly via ?status=ENQUEUED.
+  let enqueued = $state<Workflow[]>([]);
+  // Collapse state survives reloads/navigation; SSR has no window so the
+  // initial value defaults to expanded and gets corrected on hydrate.
+  const ENQUEUED_COLLAPSED_KEY = "argus.workflows.enqueuedCollapsed";
+  let enqueuedCollapsed = $state(false);
   let error = $state<string | null>(null);
   let timer: ReturnType<typeof setInterval> | undefined;
 
@@ -52,18 +63,31 @@
     start: undefined,
     end: undefined,
   });
-  const STATUS_OPTIONS: { value: string; label: string }[] = [
-    { value: "PENDING", label: "Pending" },
-    { value: "ENQUEUED", label: "Enqueued" },
-    { value: "DELAYED", label: "Delayed" },
-    { value: "SUCCESS", label: "Success" },
-    { value: "ERROR", label: "Error" },
-    { value: "CANCELLED", label: "Cancelled" },
-    { value: "MAX_RECOVERY_ATTEMPTS_EXCEEDED", label: "Max retries" },
-  ];
+  // Filter options derived from the canonical status list — adding a new DBOS
+  // workflow status only requires editing `$lib/workflow-status.ts`. ENQUEUED
+  // is intentionally omitted: those rows live in the pinned strip above the
+  // main list, not as a filterable status here.
+  const STATUS_OPTIONS = WORKFLOW_STATUSES.filter((s) => s !== "ENQUEUED").map((value) => ({
+    value,
+    label: STATUS_LABELS[value],
+  }));
   const allStatuses = () => new Set(STATUS_OPTIONS.map((o) => o.value));
 
   let selectedStatuses = $state<Set<string>>(allStatuses());
+  // Scheduled workflows (id prefix `sched-`) are shown by default; users hide
+  // them when scheduler ticks would dominate the list. Preference persists
+  // across reloads/navigation, hydrated in onMount.
+  const HIDE_SCHEDULED_KEY = "argus.workflows.hideScheduled";
+  let hideScheduled = $state(false);
+  function setHideScheduled(value: boolean) {
+    hideScheduled = value;
+    try {
+      localStorage.setItem(HIDE_SCHEDULED_KEY, value ? "1" : "0");
+    } catch {
+      // localStorage may be unavailable (private mode, sandboxed) —
+      // silently fall back to in-memory state.
+    }
+  }
   // Default to flat when filtering by queue — queue membership lives on
   // workflow_status, not on roots, so grouped mode would hide nested
   // queue members under un-filtered roots.
@@ -109,19 +133,39 @@
     if (selectedStatuses.size > 0 && selectedStatuses.size < STATUS_OPTIONS.length) {
       for (const s of selectedStatuses) params.append("status", s);
     }
+    if (hideScheduled) params.set("hide_scheduled", "true");
     params.set("grouped", grouped ? "true" : "false");
+    return params.toString();
+  }
+
+  function buildEnqueuedQuery(): string {
+    // The strip is a top-of-page "what's currently waiting to run" pin and is
+    // intentionally independent of the toolbar filters below it. The only
+    // input it honors is the URL `queue_name` route scope — when the page is
+    // scoped to a single queue, the strip is too.
+    const params = new URLSearchParams();
+    if (queueName) params.set("queue_name", queueName);
+    params.set("status", "ENQUEUED");
+    params.set("grouped", "false");
+    params.set("limit", "50");
     return params.toString();
   }
 
   async function refresh() {
     try {
-      const res = await fetch("/api/workflows?" + buildQuery());
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      workflows = (await res.json()) as Workflow[];
+      const [listRes, enqRes] = await Promise.all([
+        fetch("/api/workflows?" + buildQuery()),
+        fetch("/api/workflows?" + buildEnqueuedQuery()),
+      ]);
+      if (!listRes.ok) throw new Error(`HTTP ${listRes.status}`);
+      if (!enqRes.ok) throw new Error(`HTTP ${enqRes.status}`);
+      workflows = (await listRes.json()) as Workflow[];
+      enqueued = (await enqRes.json()) as Workflow[];
       error = null;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
       workflows = null;
+      enqueued = [];
     }
   }
 
@@ -138,6 +182,7 @@
     dateRange.start;
     dateRange.end;
     selectedStatuses;
+    hideScheduled;
     grouped;
     queueName;
     scheduleRefresh();
@@ -152,9 +197,25 @@
   });
 
   onMount(() => {
+    try {
+      enqueuedCollapsed = localStorage.getItem(ENQUEUED_COLLAPSED_KEY) === "1";
+      hideScheduled = localStorage.getItem(HIDE_SCHEDULED_KEY) === "1";
+    } catch {
+      // localStorage may be unavailable (private mode, sandboxed) — fall back
+      // to defaults.
+    }
     refresh();
     timer = setInterval(refresh, 5000);
   });
+
+  function toggleEnqueuedCollapsed() {
+    enqueuedCollapsed = !enqueuedCollapsed;
+    try {
+      localStorage.setItem(ENQUEUED_COLLAPSED_KEY, enqueuedCollapsed ? "1" : "0");
+    } catch {
+      // see onMount note
+    }
+  }
 
   onDestroy(() => {
     if (timer) clearInterval(timer);
@@ -166,6 +227,7 @@
     filters.name = "";
     dateRange = { start: undefined, end: undefined };
     selectedStatuses = allStatuses();
+    setHideScheduled(false);
   }
 
   function clearQueueFilter() {
@@ -182,7 +244,8 @@
       filters.name.trim() ||
       dateRange.start ||
       dateRange.end ||
-      statusNarrowed
+      statusNarrowed ||
+      hideScheduled
     ),
   );
 
@@ -208,6 +271,83 @@
 </script>
 
 <div class="flex flex-col gap-4 p-6">
+  {#if enqueued.length > 0}
+    <div
+      class="border-violet-200 bg-violet-50/60 dark:border-violet-500/20 dark:bg-violet-500/5 overflow-hidden rounded-lg border"
+    >
+      <button
+        type="button"
+        onclick={toggleEnqueuedCollapsed}
+        aria-expanded={!enqueuedCollapsed}
+        aria-controls="enqueued-list"
+        class="hover:bg-violet-100/40 dark:hover:bg-violet-500/10 flex w-full items-center gap-2 px-4 py-2 text-xs font-medium tracking-wide uppercase text-violet-700 transition-colors dark:text-violet-300 {enqueuedCollapsed
+          ? ''
+          : 'border-violet-200 dark:border-violet-500/20 border-b'}"
+      >
+        <span class="inline-block h-2 w-2 animate-pulse rounded-full bg-violet-500"></span>
+        Enqueued
+        <span class="text-violet-600/70 dark:text-violet-400/70 normal-case tracking-normal">
+          {enqueued.length} waiting to run
+        </span>
+        <ChevronDownIcon
+          class="ml-auto h-4 w-4 transition-transform duration-200 {enqueuedCollapsed
+            ? '-rotate-90'
+            : ''}"
+        />
+      </button>
+      {#if !enqueuedCollapsed}
+        <div id="enqueued-list" transition:slide={{ duration: 200 }}>
+          <table class="w-full text-left text-sm">
+            <tbody>
+              {#each enqueued as w (w.workflow_id)}
+                <tr
+                  class="hover:bg-violet-100/40 dark:hover:bg-violet-500/10 border-violet-200/60 dark:border-violet-500/10 border-t first:border-t-0"
+                >
+                  <td class="w-1 px-4 py-1.5 whitespace-nowrap">
+                    {#if w.queue_name}
+                      <a
+                        href="/workflows/?queue_name={encodeURIComponent(w.queue_name)}"
+                        class="font-mono text-xs text-violet-700 hover:underline dark:text-violet-300"
+                        title="Filter by queue {w.queue_name}"
+                      >
+                        {w.queue_name}
+                      </a>
+                    {:else}
+                      <span class="text-muted-foreground text-xs">—</span>
+                    {/if}
+                  </td>
+                  <td class="px-4 py-1.5 font-mono">
+                    <a
+                      href="/workflows/{encodeURIComponent(w.workflow_id)}/"
+                      class="hover:underline"
+                    >
+                      {w.name ?? "—"}
+                    </a>
+                  </td>
+                  <td class="text-muted-foreground px-4 py-1.5 font-mono text-xs">
+                    <a
+                      href="/workflows/{encodeURIComponent(w.workflow_id)}/"
+                      class="hover:text-foreground hover:underline"
+                      title={w.workflow_id}
+                    >
+                      {w.workflow_id}
+                    </a>
+                  </td>
+                  <td
+                    class="text-muted-foreground px-4 py-1.5 text-right text-xs"
+                    title={w.started_at}
+                  >
+                    {formatRelative(w.started_at)}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
+    </div>
+  {/if}
+
   <div class="flex flex-wrap items-center gap-2">
     {#if queueName}
       <Badge variant="secondary" class="gap-1">
@@ -289,6 +429,14 @@
 
     <DateRangePicker bind:value={dateRange} placeholder="Started" />
 
+    <label
+      class="hover:bg-muted text-foreground flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-sm select-none"
+      title="Hide scheduled-workflow runs (workflow IDs starting with 'sched-')"
+    >
+      <Checkbox checked={hideScheduled} onCheckedChange={(v) => setHideScheduled(!!v)} />
+      Hide scheduled
+    </label>
+
     {#if hasActiveFilters}
       <Button variant="ghost" onclick={clearFilters}>Clear filters</Button>
     {/if}
@@ -341,7 +489,9 @@
     <p class="text-muted-foreground text-sm">
       {hasActiveFilters || queueName
         ? "No workflows match the current filters."
-        : "No workflows yet. Run a DBOS app pointed at this database to see data here."}
+        : enqueued.length > 0
+          ? "No completed runs yet — only the enqueued workflows above."
+          : "No workflows yet. Run a DBOS app pointed at this database to see data here."}
     </p>
   {:else}
     <div class="border-border bg-card overflow-hidden rounded-lg border shadow-xs">
@@ -358,7 +508,23 @@
         <tbody>
           {#each rows as w (w.workflow_id)}
             <tr
-              class="hover:bg-muted/50 {grouped && w.depth === 0
+              onclick={(e) => {
+                // Don't double-handle clicks on inner anchors — let the
+                // browser navigate them natively (preserves middle-click,
+                // ctrl/cmd-click, "open in new tab").
+                if ((e.target as HTMLElement).closest("a")) return;
+                goto(`/workflows/${encodeURIComponent(w.workflow_id)}/`);
+              }}
+              onkeydown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  goto(`/workflows/${encodeURIComponent(w.workflow_id)}/`);
+                }
+              }}
+              tabindex="0"
+              role="link"
+              class="hover:bg-muted/50 focus:bg-muted/50 cursor-pointer outline-none {grouped &&
+              w.depth === 0
                 ? 'border-border border-t'
                 : !grouped
                   ? 'border-border border-t'
@@ -380,10 +546,10 @@
                   class="text-muted-foreground px-4 font-mono text-xs {!grouped || w.depth === 0
                     ? 'py-2'
                     : 'py-1'}"
-                  title={w.workflow_id}
                 >
                   <a
                     href="/workflows/{encodeURIComponent(w.workflow_id)}/"
+                    title={w.workflow_id}
                     class="hover:text-foreground hover:underline"
                   >
                     {w.workflow_id}

@@ -5,6 +5,7 @@ description = "uv workspace root for dbos-argus"
 requires-python = ">=3.12"
 dependencies = [
   "dbos-argus",
+  "argus-sample-app",
 ]
 
 [dependency-groups]
@@ -21,12 +22,10 @@ package = false
 
 [tool.uv.sources]
 dbos-argus = { workspace = true }
+argus-sample-app = { workspace = true }
 
 [tool.uv.workspace]
-# Examples are intentionally NOT workspace members — they have their own
-# pyproject.toml and dependency set so third-party deps like `dbos` don't
-# block `uv sync` at the root.
-members = ["packages/server"]
+members = ["packages/server", "tests/sample-app"]
 
 [tool.ruff]
 line-length = 100

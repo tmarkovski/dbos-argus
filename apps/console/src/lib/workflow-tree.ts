@@ -3,6 +3,7 @@ export type Workflow = {
   parent_workflow_id: string | null;
   name: string | null;
   status: string | null;
+  queue_name: string | null;
   started_at: string;
   updated_at: string;
   depth: number;
@@ -55,11 +56,16 @@ export function computeLineage(workflows: Workflow[]): TreeRow[] {
   });
 }
 
+// Status colors. Inputs are the literal strings from the API — see
+// `./workflow-status.ts` for the canonical set (`WorkflowStatus`). Unknown
+// values fall through to a neutral muted style.
 export function statusBadgeClass(status: string | null): string {
   const s = (status ?? "").toUpperCase();
   if (s === "SUCCESS")
     return "bg-green-100 text-green-800 ring-green-600/20 dark:bg-green-500/10 dark:text-green-400";
-  if (s === "PENDING" || s === "ENQUEUED" || s === "DELAYED")
+  if (s === "ENQUEUED")
+    return "bg-violet-100 text-violet-800 ring-violet-600/20 dark:bg-violet-500/10 dark:text-violet-400";
+  if (s === "PENDING" || s === "DELAYED")
     return "bg-blue-100 text-blue-800 ring-blue-600/20 dark:bg-blue-500/10 dark:text-blue-400";
   if (s === "CANCELLED")
     return "bg-amber-100 text-amber-800 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400";
@@ -71,7 +77,8 @@ export function statusBadgeClass(status: string | null): string {
 export function statusDotClass(status: string | null): string {
   const s = (status ?? "").toUpperCase();
   if (s === "SUCCESS") return "bg-green-500";
-  if (s === "PENDING" || s === "ENQUEUED" || s === "DELAYED") return "bg-blue-500";
+  if (s === "ENQUEUED") return "bg-violet-500";
+  if (s === "PENDING" || s === "DELAYED") return "bg-blue-500";
   if (s === "CANCELLED") return "bg-amber-500";
   if (s === "ERROR" || s === "MAX_RECOVERY_ATTEMPTS_EXCEEDED") return "bg-red-500";
   return "bg-muted-foreground/40";
