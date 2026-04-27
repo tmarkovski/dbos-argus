@@ -6,6 +6,7 @@
   import House from "@lucide/svelte/icons/house";
   import Eye from "@lucide/svelte/icons/eye";
   import Workflow from "@lucide/svelte/icons/workflow";
+  import Database from "@lucide/svelte/icons/database";
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
   import Bell from "@lucide/svelte/icons/bell";
   import { page } from "$app/state";
@@ -13,6 +14,7 @@
   import { statusDotClass } from "$lib/workflow-tree";
   import * as Sidebar from "$lib/components/ui/sidebar/index.js";
   import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
+  import * as Popover from "$lib/components/ui/popover/index.js";
   import { Separator } from "$lib/components/ui/separator/index.js";
 
   let { children } = $props();
@@ -93,7 +95,7 @@
     <Sidebar.Header>
       <Sidebar.Menu>
         <Sidebar.MenuItem>
-          <Sidebar.MenuButton size="lg" class="data-[slot=sidebar-menu-button]:!p-1.5">
+          <Sidebar.MenuButton size="lg">
             {#snippet child({ props })}
               <a href="/" {...props}>
                 <div
@@ -112,25 +114,31 @@
           </Sidebar.MenuButton>
         </Sidebar.MenuItem>
         <Sidebar.MenuItem>
-          <Sidebar.MenuButton
-            tooltipContent={dbDetail || dbLabel}
-            class="cursor-default"
-          >
-            <span
-              aria-hidden="true"
-              class="inline-block size-2 shrink-0 rounded-full {dbConnected
-                ? 'bg-green-500'
-                : 'bg-red-500'}"
-            ></span>
-            <span class="flex flex-1 flex-col leading-tight">
-              <span class="text-foreground text-xs font-medium">{dbLabel}</span>
-              {#if dbDetail}
-                <span class="text-muted-foreground truncate font-mono text-[10px]">
-                  {dbDetail}
-                </span>
-              {/if}
-            </span>
-          </Sidebar.MenuButton>
+          <Popover.Root>
+            <Popover.Trigger>
+              {#snippet child({ props })}
+                <Sidebar.MenuButton {...props}>
+                  <Database class={dbConnected ? "text-green-500" : "text-red-500"} />
+                  <span>{dbLabel}</span>
+                </Sidebar.MenuButton>
+              {/snippet}
+            </Popover.Trigger>
+            <Popover.Content side="right" align="start" class="w-80">
+              <div class="flex flex-col gap-2">
+                <div class="flex items-center gap-2 text-sm font-medium">
+                  <Database
+                    class="size-4 {dbConnected ? 'text-green-500' : 'text-red-500'}"
+                  />
+                  {dbLabel}
+                </div>
+                {#if dbDetail}
+                  <p class="text-muted-foreground font-mono text-xs break-all">
+                    {dbDetail}
+                  </p>
+                {/if}
+              </div>
+            </Popover.Content>
+          </Popover.Root>
         </Sidebar.MenuItem>
       </Sidebar.Menu>
     </Sidebar.Header>
