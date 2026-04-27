@@ -3,23 +3,34 @@
   import { onDestroy, onMount } from "svelte";
   import Sun from "@lucide/svelte/icons/sun";
   import Moon from "@lucide/svelte/icons/moon";
-  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import House from "@lucide/svelte/icons/house";
+  import Eye from "@lucide/svelte/icons/eye";
+  import Workflow from "@lucide/svelte/icons/workflow";
+  import CalendarClock from "@lucide/svelte/icons/calendar-clock";
+  import Bell from "@lucide/svelte/icons/bell";
   import { page } from "$app/state";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
   import { statusDotClass } from "$lib/workflow-tree";
+  import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+  import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
+  import { Separator } from "$lib/components/ui/separator/index.js";
 
   let { children } = $props();
 
-  const NAV: { href: string; label: string }[] = [
-    { href: "/workflows/", label: "Workflows" },
-    { href: "/schedules/", label: "Schedules" },
-    { href: "/notifications/", label: "Notifications" },
+  type NavItem = {
+    href: string;
+    label: string;
+    icon: typeof Workflow;
+  };
+
+  const NAV: NavItem[] = [
+    { href: "/workflows/", label: "Workflows", icon: Workflow },
+    { href: "/schedules/", label: "Schedules", icon: CalendarClock },
+    { href: "/notifications/", label: "Notifications", icon: Bell },
   ];
 
   const pathname = $derived(page.url.pathname);
   function isActive(href: string): boolean {
-    // Strip trailing slash for comparison; route trailingSlash is "always".
     const base = href.replace(/\/$/, "");
     return pathname === href || pathname === base || pathname.startsWith(base + "/");
   }
@@ -69,112 +80,157 @@
   }
 
   const dbConnected = $derived(!fetchError && health?.database === "up");
-  const label = $derived(dbConnected ? "Connected" : "Disconnected");
-  const detail = $derived(
+  const dbLabel = $derived(dbConnected ? "Connected" : "Disconnected");
+  const dbDetail = $derived(
     dbConnected
       ? (health?.database_url ?? "")
       : (fetchError ?? health?.database_error ?? ""),
   );
 </script>
 
-<div class="bg-background text-foreground flex min-h-screen flex-col">
-  <nav
-    class="border-border bg-background flex items-center justify-between border-b px-6 py-3"
-  >
-    <div class="flex flex-col items-start gap-1">
-      <div class="flex items-center gap-4">
-        <a href="/" class="text-foreground hover:text-muted-foreground text-lg font-semibold">
-          Argus for DBOS Workflows
-        </a>
-        <nav class="flex items-center gap-1 text-sm">
-          {#each NAV as item (item.href)}
-            <a
-              href={item.href}
-              class="rounded-md px-2.5 py-1 transition-colors {isActive(item.href)
-                ? 'bg-muted text-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'}"
-            >
-              {item.label}
-            </a>
-          {/each}
-        </nav>
-        <button
-          type="button"
-          onclick={toggleTheme}
-          title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-          aria-label="Toggle color theme"
-          class="text-muted-foreground hover:text-foreground hover:bg-muted flex h-8 w-8 items-center justify-center rounded-md transition-colors"
-        >
-          {#if isDark}
-            <Sun class="h-4 w-4" />
-          {:else}
-            <Moon class="h-4 w-4" />
-          {/if}
-        </button>
-      </div>
-      {#if breadcrumb.items.length > 0}
-        <nav
-          aria-label="Breadcrumb"
-          class="text-muted-foreground flex items-center gap-1 font-mono text-xs"
-        >
+<Sidebar.Provider>
+  <Sidebar.Root collapsible="icon" variant="inset">
+    <Sidebar.Header>
+      <Sidebar.Menu>
+        <Sidebar.MenuItem>
+          <Sidebar.MenuButton size="lg" class="data-[slot=sidebar-menu-button]:!p-1.5">
+            {#snippet child({ props })}
+              <a href="/" {...props}>
+                <div
+                  class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"
+                >
+                  <Eye class="size-4" />
+                </div>
+                <div class="grid flex-1 text-left text-sm leading-tight">
+                  <span class="truncate font-semibold">Argus</span>
+                  <span class="text-muted-foreground truncate text-xs">
+                    DBOS Workflow Viewer
+                  </span>
+                </div>
+              </a>
+            {/snippet}
+          </Sidebar.MenuButton>
+        </Sidebar.MenuItem>
+      </Sidebar.Menu>
+    </Sidebar.Header>
+
+    <Sidebar.Content>
+      <Sidebar.Group>
+        <Sidebar.GroupLabel>Navigation</Sidebar.GroupLabel>
+        <Sidebar.GroupContent>
+          <Sidebar.Menu>
+            {#each NAV as item (item.href)}
+              <Sidebar.MenuItem>
+                <Sidebar.MenuButton
+                  isActive={isActive(item.href)}
+                  tooltipContent={item.label}
+                >
+                  {#snippet child({ props })}
+                    <a href={item.href} {...props}>
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </a>
+                  {/snippet}
+                </Sidebar.MenuButton>
+              </Sidebar.MenuItem>
+            {/each}
+          </Sidebar.Menu>
+        </Sidebar.GroupContent>
+      </Sidebar.Group>
+    </Sidebar.Content>
+
+    <Sidebar.Footer>
+      <Sidebar.Menu>
+        <Sidebar.MenuItem>
+          <Sidebar.MenuButton
+            tooltipContent={dbDetail || dbLabel}
+            class="cursor-default"
+          >
+            <span
+              aria-hidden="true"
+              class="inline-block size-2 shrink-0 rounded-full {dbConnected
+                ? 'bg-green-500'
+                : 'bg-red-500'}"
+            ></span>
+            <span class="flex flex-1 flex-col leading-tight">
+              <span class="text-foreground text-xs font-medium">{dbLabel}</span>
+              {#if dbDetail}
+                <span class="text-muted-foreground truncate font-mono text-[10px]">
+                  {dbDetail}
+                </span>
+              {/if}
+            </span>
+          </Sidebar.MenuButton>
+        </Sidebar.MenuItem>
+        <Sidebar.MenuItem>
+          <Sidebar.MenuButton
+            onclick={toggleTheme}
+            tooltipContent={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {#if isDark}
+              <Sun />
+              <span>Light mode</span>
+            {:else}
+              <Moon />
+              <span>Dark mode</span>
+            {/if}
+          </Sidebar.MenuButton>
+        </Sidebar.MenuItem>
+      </Sidebar.Menu>
+    </Sidebar.Footer>
+
+    <Sidebar.Rail />
+  </Sidebar.Root>
+
+  <Sidebar.Inset>
+    <header
+      class="bg-background sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b px-4"
+    >
+      <Sidebar.Trigger class="-ml-1" />
+      <Separator orientation="vertical" class="mr-2 !h-4" />
+      <Breadcrumb.Root>
+        <Breadcrumb.List>
           {#each breadcrumb.items as item, i (i)}
             {#if i > 0}
-              <ChevronRight class="h-3 w-3 flex-none opacity-60" aria-hidden="true" />
+              <Breadcrumb.Separator />
             {/if}
-            <span class="inline-flex items-center gap-1.5">
+            <Breadcrumb.Item class="inline-flex items-center gap-1.5">
               {#if item.status !== undefined}
                 <span
                   aria-hidden="true"
                   title={item.status ?? "unknown"}
-                  class="inline-block h-2 w-2 flex-none rounded-full {statusDotClass(item.status)}"
+                  class="inline-block size-2 flex-none rounded-full {statusDotClass(item.status)}"
                 ></span>
               {/if}
               {#if item.href && i !== breadcrumb.items.length - 1}
-                <a
+                <Breadcrumb.Link
                   href={item.href}
-                  class="hover:text-foreground inline-flex items-center transition-colors"
                   title={item.tooltip}
                   aria-label={item.icon ? item.label : undefined}
+                  class="inline-flex items-center"
                 >
                   {#if item.icon === "home"}
-                    <House class="h-3.5 w-3.5" />
+                    <House class="size-3.5" />
                   {:else}
                     {item.label}
                   {/if}
-                </a>
+                </Breadcrumb.Link>
               {:else}
-                <span class="text-foreground inline-flex items-center" title={item.tooltip}>
+                <Breadcrumb.Page title={item.tooltip} class="inline-flex items-center">
                   {#if item.icon === "home"}
-                    <House class="h-3.5 w-3.5" />
+                    <House class="size-3.5" />
                   {:else}
                     {item.label}
                   {/if}
-                </span>
+                </Breadcrumb.Page>
               {/if}
-            </span>
+            </Breadcrumb.Item>
           {/each}
-        </nav>
-      {/if}
+        </Breadcrumb.List>
+      </Breadcrumb.Root>
+    </header>
+    <div class="flex flex-1 flex-col">
+      {@render children()}
     </div>
-    <span class="flex flex-col items-end text-sm leading-tight">
-      <span class="flex items-center gap-2">
-        <span
-          aria-hidden="true"
-          class="inline-block h-2.5 w-2.5 rounded-full {dbConnected
-            ? 'bg-green-500'
-            : 'bg-red-500'}"
-        ></span>
-        <span class="text-foreground">{label}</span>
-      </span>
-      {#if detail}
-        <span
-          class="text-muted-foreground mt-0.5 max-w-md truncate font-mono text-xs"
-          title={detail}>{detail}</span
-        >
-      {/if}
-    </span>
-  </nav>
-  <main class="flex-1">
-    {@render children()}
-  </main>
-</div>
+  </Sidebar.Inset>
+</Sidebar.Provider>
