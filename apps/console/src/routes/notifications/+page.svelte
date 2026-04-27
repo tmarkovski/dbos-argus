@@ -1,0 +1,150 @@
+<script lang="ts">
+  import { onDestroy, onMount } from "svelte";
+  import { breadcrumb } from "$lib/breadcrumb.svelte";
+  import * as ToggleGroup from "$lib/components/ui/toggle-group";
+  import { formatRelative } from "$lib/format";
+
+  type Notification = {
+    message_uuid: string;
+    destination_uuid: string;
+    topic: string | null;
+    consumed: boolean;
+    created_at: string;
+  };
+
+  type View = "pending" | "all";
+
+  let view = $state<View>("pending");
+  let items = $state<Notification[] | null>(null);
+  let error = $state<string | null>(null);
+  let timer: ReturnType<typeof setInterval> | undefined;
+
+  $effect(() => {
+    breadcrumb.items = [
+      { label: "Home", href: "/", icon: "home" },
+      { label: "Notifications" },
+    ];
+    return () => {
+      breadcrumb.items = [];
+    };
+  });
+
+  async function refresh() {
+    try {
+      const url =
+        view === "pending"
+          ? "/api/notifications?consumed=false"
+          : "/api/notifications";
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      items = (await res.json()) as Notification[];
+      error = null;
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+      items = null;
+    }
+  }
+
+  $effect(() => {
+    view;
+    refresh();
+  });
+
+  onMount(() => {
+    timer = setInterval(refresh, 5000);
+  });
+
+  onDestroy(() => {
+    if (timer) clearInterval(timer);
+  });
+</script>
+
+<div class="flex flex-col gap-4 p-6">
+  <header class="flex flex-wrap items-baseline justify-between gap-3">
+    <h1 class="text-lg font-semibold">Notifications</h1>
+    <div class="flex items-center gap-3">
+      <p class="text-muted-foreground text-xs">
+        Messages from <code class="font-mono">DBOS.send</code>; pending ones are waiting on a
+        <code class="font-mono">DBOS.recv</code>.
+      </p>
+      <ToggleGroup.Root
+        type="single"
+        variant="outline"
+        value={view}
+        onValueChange={(v) => {
+          if (v) view = v as View;
+        }}
+      >
+        <ToggleGroup.Item value="pending">Pending</ToggleGroup.Item>
+        <ToggleGroup.Item value="all">All</ToggleGroup.Item>
+      </ToggleGroup.Root>
+    </div>
+  </header>
+
+  {#if error}
+    <div
+      class="border-destructive/30 bg-destructive/5 text-destructive rounded-md border p-3 text-sm"
+    >
+      {error}
+    </div>
+  {:else if items === null}
+    <p class="text-muted-foreground text-sm">Loading…</p>
+  {:else if items.length === 0}
+    <p class="text-muted-foreground text-sm">
+      {view === "pending"
+        ? "No pending notifications. Every message has been received."
+        : "No notifications recorded."}
+    </p>
+  {:else}
+    <div class="border-border bg-card overflow-hidden rounded-lg border shadow-xs">
+      <table class="w-full text-left text-sm">
+        <thead class="bg-muted/50 text-muted-foreground text-xs tracking-wide uppercase">
+          <tr>
+            <th class="px-4 py-2 font-medium">State</th>
+            <th class="px-4 py-2 font-medium">Destination workflow</th>
+            <th class="px-4 py-2 font-medium">Topic</th>
+            <th class="px-4 py-2 font-medium">Sent</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each items as n (n.message_uuid)}
+            <tr class="hover:bg-muted/50 border-border border-t">
+              <td class="px-4 py-2">
+                {#if n.consumed}
+                  <span
+                    class="bg-muted text-muted-foreground ring-border inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset"
+                  >
+                    Consumed
+                  </span>
+                {:else}
+                  <span
+                    class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 ring-1 ring-inset ring-blue-600/20 dark:bg-blue-500/10 dark:text-blue-400"
+                  >
+                    Pending
+                  </span>
+                {/if}
+              </td>
+              <td
+                class="text-muted-foreground px-4 py-2 font-mono text-xs"
+                title={n.destination_uuid}
+              >
+                <a
+                  href="/workflows/{encodeURIComponent(n.destination_uuid)}/"
+                  class="hover:text-foreground hover:underline"
+                >
+                  {n.destination_uuid}
+                </a>
+              </td>
+              <td class="px-4 py-2 font-mono text-xs">
+                {n.topic ?? "—"}
+              </td>
+              <td class="text-muted-foreground px-4 py-2" title={n.created_at}>
+                {formatRelative(n.created_at)}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {/if}
+</div>

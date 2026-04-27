@@ -5,10 +5,25 @@
   import Moon from "@lucide/svelte/icons/moon";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import House from "@lucide/svelte/icons/house";
+  import { page } from "$app/state";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
   import { statusDotClass } from "$lib/workflow-tree";
 
   let { children } = $props();
+
+  const NAV: { href: string; label: string }[] = [
+    { href: "/workflows/", label: "Workflows" },
+    { href: "/queues/", label: "Queues" },
+    { href: "/schedules/", label: "Schedules" },
+    { href: "/notifications/", label: "Notifications" },
+  ];
+
+  const pathname = $derived(page.url.pathname);
+  function isActive(href: string): boolean {
+    // Strip trailing slash for comparison; route trailingSlash is "always".
+    const base = href.replace(/\/$/, "");
+    return pathname === href || pathname === base || pathname.startsWith(base + "/");
+  }
 
   type Health = {
     status: string;
@@ -72,6 +87,18 @@
         <a href="/" class="text-foreground hover:text-muted-foreground text-lg font-semibold">
           Argus for DBOS Workflows
         </a>
+        <nav class="flex items-center gap-1 text-sm">
+          {#each NAV as item (item.href)}
+            <a
+              href={item.href}
+              class="rounded-md px-2.5 py-1 transition-colors {isActive(item.href)
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'}"
+            >
+              {item.label}
+            </a>
+          {/each}
+        </nav>
         <button
           type="button"
           onclick={toggleTheme}
