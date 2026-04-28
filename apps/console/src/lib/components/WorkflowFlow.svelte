@@ -16,27 +16,26 @@
   import StepNode from "./StepNode.svelte";
   import EllipsisNode from "./EllipsisNode.svelte";
 
-  export type FamilyWorkflow = Workflow & {
-    output: string | null;
-    error: string | null;
-    serialization: string | null;
-    output_decoded: string | null;
-    error_decoded: string | null;
+  // Family-row shape from /api/workflows/{id}. Drops `operation_count` (the
+  // detail endpoint inlines steps directly) and replaces output/error
+  // payloads with presence flags — the actual content is fetched lazily
+  // via /api/workflows/{id}/result on click.
+  export type FamilyWorkflow = Omit<Workflow, "operation_count"> & {
+    has_output: boolean;
+    has_error: boolean;
   };
 
   export type Step = {
     workflow_id: string;
     function_id: number;
     function_name: string;
-    output: string | null;
-    error: string | null;
+    has_output: boolean;
+    has_error: boolean;
     child_workflow_id: string | null;
     started_at: string | null;
     completed_at: string | null;
-    serialization: string | null;
-    output_decoded: string | null;
-    error_decoded: string | null;
     event_key: string | null;
+    sleep_requested_ms: number | null;
   };
 
   export type FlowSelection =
@@ -152,20 +151,8 @@
     return null;
   }
 
-  // For `DBOS.sleep`, the row stores the wakeup time as a unix-seconds float
-  // in `output`. Subtracting `started_at` gives the originally requested
-  // duration (independent of how long the sleep actually elapsed in wall time).
-  function sleepRequestedMs(s: Step): number | null {
-    if (s.function_name !== "DBOS.sleep" || !s.output || !s.started_at) return null;
-    const wakeMs = parseFloat(s.output) * 1000;
-    if (!Number.isFinite(wakeMs)) return null;
-    const startedMs = new Date(s.started_at).getTime();
-    const requested = Math.round(wakeMs - startedMs);
-    return requested >= 0 ? requested : null;
-  }
-
   function stepStatus(s: Step): "error" | "running" | "success" | null {
-    if (s.error) return "error";
+    if (s.has_error) return "error";
     if (s.started_at && !s.completed_at) return "running";
     if (s.completed_at) return "success";
     return null;
@@ -646,7 +633,7 @@
             awaitedWorkflowName: awaitedName(s),
             eventDirection: eventDirection(s),
             eventKey: s.event_key,
-            sleepRequestedMs: sleepRequestedMs(s),
+            sleepRequestedMs: s.sleep_requested_ms,
             isFirst: childNode.id === firstStepNodeId,
             isLast: childNode.id === lastStepNodeId,
           },

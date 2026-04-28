@@ -5,7 +5,26 @@
   import Copy from "@lucide/svelte/icons/copy";
   import Check from "@lucide/svelte/icons/check";
 
-  let { selection }: { selection: FlowSelection } = $props();
+  // Result data is loaded lazily by the parent page (cached for the lifetime
+  // of the page) so we never drag potentially-large output blobs through
+  // the workflow detail response.
+  export type ResultData = {
+    output: string | null;
+    error: string | null;
+    serialization: string | null;
+    output_decoded: string | null;
+    error_decoded: string | null;
+  };
+
+  let {
+    selection,
+    result,
+    loading = false,
+  }: {
+    selection: FlowSelection;
+    result: ResultData | null;
+    loading?: boolean;
+  } = $props();
 
   type ViewMode = "raw" | "decoded";
 
@@ -58,22 +77,21 @@
     | { kind: "output"; raw: string; decoded: string | null; serialization: string | null };
 
   const payload = $derived.by<Payload>(() => {
-    if (!selection) return { kind: "none" };
-    const src = selection.kind === "workflow" ? selection.workflow : selection.step;
-    if (src.error) {
+    if (!selection || !result) return { kind: "none" };
+    if (result.error) {
       return {
         kind: "error",
-        raw: src.error,
-        decoded: src.error_decoded,
-        serialization: src.serialization,
+        raw: result.error,
+        decoded: result.error_decoded,
+        serialization: result.serialization,
       };
     }
-    if (src.output !== null) {
+    if (result.output !== null) {
       return {
         kind: "output",
-        raw: src.output,
-        decoded: src.output_decoded,
-        serialization: src.serialization,
+        raw: result.output,
+        decoded: result.output_decoded,
+        serialization: result.serialization,
       };
     }
     return { kind: "none" };
@@ -168,7 +186,11 @@
     </div>
 
     <div class="flex flex-1 flex-col overflow-hidden">
-      {#if payload.kind === "none"}
+      {#if loading}
+        <div class="text-muted-foreground flex flex-1 items-center justify-center p-6 text-sm">
+          Loading…
+        </div>
+      {:else if payload.kind === "none"}
         <div class="text-muted-foreground flex flex-1 items-center justify-center p-6 text-sm">
           No result recorded.
         </div>

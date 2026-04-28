@@ -8,6 +8,7 @@ export type Workflow = {
   started_at: string;
   updated_at: string;
   depth: number;
+  operation_count: number;
 };
 
 // For each row, a `lineage` array of booleans of length == depth.

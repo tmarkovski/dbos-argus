@@ -20,9 +20,6 @@ importers:
       '@dbos-argus/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@fontsource-variable/inter':
-        specifier: ^5.2.8
-        version: 5.2.8
       '@internationalized/date':
         specifier: ^3.12.1
         version: 3.12.1
@@ -32,28 +29,19 @@ importers:
       bits-ui:
         specifier: ^2.18.0
         version: 2.18.0(@internationalized/date@3.12.1)(@sveltejs/kit@2.57.1(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.55.4)(vite@5.4.21(lightningcss@1.32.0)))(svelte@5.55.4)(typescript@5.9.3)(vite@5.4.21(lightningcss@1.32.0)))(svelte@5.55.4)
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
       elkjs:
         specifier: ^0.9.3
         version: 0.9.3
       pretty-ms:
         specifier: ^9.3.0
         version: 9.3.0
-      shadcn-svelte:
-        specifier: ^1.2.7
-        version: 1.2.7(svelte@5.55.4)
-      tailwind-merge:
-        specifier: ^3.5.0
-        version: 3.5.0
-      tailwind-variants:
-        specifier: ^3.2.2
-        version: 3.2.2(tailwind-merge@3.5.0)(tailwindcss@4.2.4)
-      tw-animate-css:
-        specifier: ^1.4.0
-        version: 1.4.0
     devDependencies:
+      '@fontsource-variable/inter':
+        specifier: ^5.2.8
+        version: 5.2.8
+      '@fontsource-variable/roboto-slab':
+        specifier: ^5.2.8
+        version: 5.2.8
       '@lucide/svelte':
         specifier: ^1.11.0
         version: 1.11.0(svelte@5.55.4)
@@ -69,18 +57,36 @@ importers:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^4.0.0
         version: 4.0.4(svelte@5.55.4)(vite@5.4.21(lightningcss@1.32.0))
+      '@tabler/icons-svelte':
+        specifier: ^3.41.1
+        version: 3.41.1(svelte@5.55.4)
       '@tailwindcss/vite':
         specifier: ^4.0.0-beta.3
         version: 4.2.4(vite@5.4.21(lightningcss@1.32.0))
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      shadcn-svelte:
+        specifier: ^1.2.7
+        version: 1.2.7(svelte@5.55.4)
       svelte:
         specifier: ^5.1.0
         version: 5.55.4
       svelte-check:
         specifier: ^4.0.0
         version: 4.4.6(picomatch@4.0.4)(svelte@5.55.4)(typescript@5.9.3)
+      tailwind-merge:
+        specifier: ^3.5.0
+        version: 3.5.0
+      tailwind-variants:
+        specifier: ^3.2.2
+        version: 3.2.2(tailwind-merge@3.5.0)(tailwindcss@4.2.4)
       tailwindcss:
         specifier: ^4.0.0-beta.3
         version: 4.2.4
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
       typescript:
         specifier: ^5.6.0
         version: 5.9.3
@@ -259,6 +265,9 @@ packages:
 
   '@fontsource-variable/inter@5.2.8':
     resolution: {integrity: sha512-kOfP2D+ykbcX/P3IFnokOhVRNoTozo5/JxhAIVYLpea/UBmCQ/YWPBfWIDuBImXX/15KH+eKh4xpEUyS2sQQGQ==}
+
+  '@fontsource-variable/roboto-slab@5.2.8':
+    resolution: {integrity: sha512-cdvOSwocP50xS01gXqnGxw7uFcCZQgn1IDlqiAmNuZP4uEVScYAKMDC+aWsbP1grn9QdMJ2frhcuVBNXniBVGA==}
 
   '@internationalized/date@3.12.1':
     resolution: {integrity: sha512-6IedsVWXyq4P9Tj+TxuU8WGWM70hYLl12nbYU8jkikVpa6WXapFazPUcHUMDMoWftIDE2ILDkFFte6W2nFCkRQ==}
@@ -468,6 +477,14 @@ packages:
 
   '@swc/helpers@0.5.21':
     resolution: {integrity: sha512-jI/VAmtdjB/RnI8GTnokyX7Ug8c+g+ffD6QRLa6XQewtnGyukKkKSk3wLTM3b5cjt1jNh9x0jfVlagdN2gDKQg==}
+
+  '@tabler/icons-svelte@3.41.1':
+    resolution: {integrity: sha512-VVWMTFxp7Hm2s1ev7i7mnQiP/v38YmFWXrNT1E1Z601sDeaotDN0HoVUAALKTwLMcoUQbtR07Mn2nHKKkQDR7Q==}
+    peerDependencies:
+      svelte: '>=3 <6 || >=5.0.0-next.0'
+
+  '@tabler/icons@3.41.1':
+    resolution: {integrity: sha512-OaRnVbRmH2nHtFeg+RmMJ/7m2oBIF9XCJAUD5gQnMrpK9f05ydj8MZrAf3NZQqOXyxGN1UBL0D5IKLLEUfr74Q==}
 
   '@tailwindcss/node@4.2.4':
     resolution: {integrity: sha512-Ai7+yQPxz3ddrDQzFfBKdHEVBg0w3Zl83jnjuwxnZOsnH9pGn93QHQtpU0p/8rYWxvbFZHneni6p1BSLK4DkGA==}
@@ -1268,6 +1285,8 @@ snapshots:
 
   '@fontsource-variable/inter@5.2.8': {}
 
+  '@fontsource-variable/roboto-slab@5.2.8': {}
+
   '@internationalized/date@3.12.1':
     dependencies:
       '@swc/helpers': 0.5.21
@@ -1435,6 +1454,13 @@ snapshots:
   '@swc/helpers@0.5.21':
     dependencies:
       tslib: 2.8.1
+
+  '@tabler/icons-svelte@3.41.1(svelte@5.55.4)':
+    dependencies:
+      '@tabler/icons': 3.41.1
+      svelte: 5.55.4
+
+  '@tabler/icons@3.41.1': {}
 
   '@tailwindcss/node@4.2.4':
     dependencies:

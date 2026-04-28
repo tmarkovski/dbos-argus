@@ -8,18 +8,19 @@
   import TextIcon from "@lucide/svelte/icons/text";
   import ColumnsIcon from "@lucide/svelte/icons/columns-3";
   import XIcon from "@lucide/svelte/icons/x";
+  import CheckIcon from "@lucide/svelte/icons/check";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import { slide } from "svelte/transition";
   import DateRangePicker from "$lib/components/DateRangePicker.svelte";
   import { Button } from "$lib/components/ui/button";
   import { Badge } from "$lib/components/ui/badge";
   import { Checkbox } from "$lib/components/ui/checkbox";
+  import { Separator } from "$lib/components/ui/separator";
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
   import * as Popover from "$lib/components/ui/popover";
   import * as Card from "$lib/components/ui/card/index.js";
   import * as Table from "$lib/components/ui/table/index.js";
   import * as InputGroup from "$lib/components/ui/input-group/index.js";
-  import * as ButtonGroup from "$lib/components/ui/button-group/index.js";
   import {
     computeLineage,
     statusBadgeClass,
@@ -258,6 +259,19 @@
     return computeLineage(workflows);
   });
 
+  // Parallel array: groupIndex per row. In grouped mode every row sharing
+  // a root (depth === 0 boundary) gets the same index, so zebra striping
+  // alternates between groups instead of between sibling rows.
+  const groupIndexes = $derived.by<number[]>(() => {
+    const out: number[] = [];
+    let g = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if (!grouped || rows[i].depth === 0) g++;
+      out.push(g);
+    }
+    return out;
+  });
+
   function formatRelative(iso: string): string {
     const then = new Date(iso).getTime();
     const diff = Date.now() - then;
@@ -377,18 +391,20 @@
           </Button>
         {/snippet}
       </Popover.Trigger>
-      <Popover.Content align="start" class="w-52 p-1">
+      <Popover.Content align="start" class="w-52 gap-0.5 p-1">
         {#each STATUS_OPTIONS as opt (opt.value)}
           {@const checked = selectedStatuses.has(opt.value)}
-          <label
-            class="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm"
+          <button
+            type="button"
+            onclick={() => toggleStatus(opt.value)}
+            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-2xl px-2 py-1.5 text-left text-sm"
           >
-            <Checkbox {checked} onCheckedChange={() => toggleStatus(opt.value)} />
+            <CheckIcon class="size-4 {checked ? 'opacity-100' : 'opacity-0'}" />
             <span class="flex items-center gap-1.5">
               <span class="inline-block h-2 w-2 rounded-full {statusDotClass(opt.value)}"></span>
               {opt.label}
             </span>
-          </label>
+          </button>
         {/each}
         {#if selectedStatuses.size !== STATUS_OPTIONS.length}
           <div class="border-border mt-1 border-t pt-1">
@@ -437,43 +453,47 @@
     </label>
 
     {#if hasActiveFilters}
+      <Separator orientation="vertical" class="!h-6" />
       <Button variant="ghost" onclick={clearFilters}>Clear filters</Button>
     {/if}
 
-    <ButtonGroup.Root class="ml-auto">
-      <ToggleGroup.Root
-        type="single"
-        variant="outline"
-        value={grouped ? "grouped" : "flat"}
-        onValueChange={(v) => {
-          if (v) grouped = v === "grouped";
-        }}
-      >
-        <ToggleGroup.Item value="grouped">Grouped</ToggleGroup.Item>
-        <ToggleGroup.Item value="flat">Flat</ToggleGroup.Item>
-      </ToggleGroup.Root>
+    <ToggleGroup.Root
+      class="ml-auto"
+      type="single"
+      variant="outline"
+      value={grouped ? "grouped" : "flat"}
+      onValueChange={(v) => {
+        if (v) grouped = v === "grouped";
+      }}
+    >
+      <ToggleGroup.Item value="grouped">Grouped</ToggleGroup.Item>
+      <ToggleGroup.Item value="flat">Flat</ToggleGroup.Item>
+    </ToggleGroup.Root>
 
-      <Popover.Root>
-        <Popover.Trigger>
-          {#snippet child({ props })}
-            <Button variant="outline" {...props}>
-              <ColumnsIcon />
-              Columns
-            </Button>
-          {/snippet}
-        </Popover.Trigger>
-        <Popover.Content align="end" class="w-48 p-1">
-          {#each Object.keys(COLUMN_LABELS) as key (key)}
-            <label
-              class="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm"
-            >
-              <Checkbox bind:checked={columns[key as ColumnKey]} />
-              {COLUMN_LABELS[key as ColumnKey]}
-            </label>
-          {/each}
-        </Popover.Content>
-      </Popover.Root>
-    </ButtonGroup.Root>
+    <Popover.Root>
+      <Popover.Trigger>
+        {#snippet child({ props })}
+          <Button variant="outline" {...props}>
+            <ColumnsIcon />
+            Columns
+          </Button>
+        {/snippet}
+      </Popover.Trigger>
+      <Popover.Content align="end" class="w-48 gap-0.5 p-1">
+        {#each Object.keys(COLUMN_LABELS) as key (key)}
+          {@const k = key as ColumnKey}
+          {@const checked = columns[k]}
+          <button
+            type="button"
+            onclick={() => (columns[k] = !columns[k])}
+            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-2xl px-2 py-1.5 text-left text-sm"
+          >
+            <CheckIcon class="size-4 {checked ? 'opacity-100' : 'opacity-0'}" />
+            {COLUMN_LABELS[k]}
+          </button>
+        {/each}
+      </Popover.Content>
+    </Popover.Root>
   </div>
 
   {#if error}
@@ -505,7 +525,10 @@
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {#each rows as w (w.workflow_id)}
+          {#each rows as w, i (w.workflow_id)}
+            {@const nextRow = rows[i + 1]}
+            {@const continuesGroup = grouped && nextRow !== undefined && nextRow.depth > 0}
+            {@const altRow = groupIndexes[i] % 2 === 1}
             <Table.Row
               onclick={(e) => {
                 // Don't double-handle clicks on inner anchors — let the
@@ -522,9 +545,9 @@
               }}
               tabindex={0}
               role="link"
-              class="focus:bg-muted/50 cursor-pointer outline-none {grouped && w.depth > 0
-                ? 'border-b-0'
-                : ''}"
+              class="focus:bg-muted/50 cursor-pointer outline-none {altRow
+                ? 'bg-muted/30'
+                : ''} {continuesGroup ? 'border-b-0' : ''}"
             >
               {#if columns.name}
                 <Table.Cell class="px-4 py-0 font-mono">

@@ -14,8 +14,9 @@
   import { statusDotClass } from "$lib/workflow-tree";
   import * as Sidebar from "$lib/components/ui/sidebar/index.js";
   import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-  import * as Popover from "$lib/components/ui/popover/index.js";
+  import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Separator } from "$lib/components/ui/separator/index.js";
+  import { Button } from "$lib/components/ui/button/index.js";
 
   let { children } = $props();
 
@@ -48,6 +49,12 @@
   let fetchError = $state<string | null>(null);
   let timer: ReturnType<typeof setInterval> | undefined;
   let isDark = $state(false);
+  // Sidebar collapsed/expanded state survives reloads. SSR has no window, so
+  // we default to expanded and correct on hydrate. The shadcn provider also
+  // writes a cookie, but localStorage is what we read on the client to avoid
+  // a flash of mismatched state on slow first paint.
+  const SIDEBAR_OPEN_KEY = "argus.sidebar.open";
+  let sidebarOpen = $state(true);
 
   async function refresh() {
     try {
@@ -63,9 +70,24 @@
 
   onMount(() => {
     isDark = document.documentElement.classList.contains("dark");
+    try {
+      const saved = localStorage.getItem(SIDEBAR_OPEN_KEY);
+      if (saved !== null) sidebarOpen = saved === "1";
+    } catch {
+      // localStorage may be unavailable (private mode, sandboxed) — fall
+      // back to the default expanded state.
+    }
     refresh();
     timer = setInterval(refresh, 5000);
   });
+
+  function persistSidebarOpen(value: boolean) {
+    try {
+      localStorage.setItem(SIDEBAR_OPEN_KEY, value ? "1" : "0");
+    } catch {
+      // see onMount note
+    }
+  }
 
   onDestroy(() => {
     if (timer) clearInterval(timer);
@@ -90,7 +112,7 @@
   );
 </script>
 
-<Sidebar.Provider>
+<Sidebar.Provider bind:open={sidebarOpen} onOpenChange={persistSidebarOpen}>
   <Sidebar.Root collapsible="icon" variant="inset">
     <Sidebar.Header>
       <Sidebar.Menu>
@@ -103,8 +125,8 @@
                 >
                   <Eye class="size-4" />
                 </div>
-                <div class="grid flex-1 text-left text-sm leading-tight">
-                  <span class="truncate font-semibold">Argus</span>
+                <div class="flex flex-1 flex-col gap-0.5 text-left text-sm leading-snug">
+                  <span class="truncate font-medium">Argus</span>
                   <span class="text-muted-foreground truncate text-xs">
                     DBOS Workflow Viewer
                   </span>
@@ -113,33 +135,6 @@
             {/snippet}
           </Sidebar.MenuButton>
         </Sidebar.MenuItem>
-        <Sidebar.MenuItem>
-          <Popover.Root>
-            <Popover.Trigger>
-              {#snippet child({ props })}
-                <Sidebar.MenuButton {...props}>
-                  <Database class={dbConnected ? "text-green-500" : "text-red-500"} />
-                  <span>{dbLabel}</span>
-                </Sidebar.MenuButton>
-              {/snippet}
-            </Popover.Trigger>
-            <Popover.Content side="right" align="start" class="w-80">
-              <div class="flex flex-col gap-2">
-                <div class="flex items-center gap-2 text-sm font-medium">
-                  <Database
-                    class="size-4 {dbConnected ? 'text-green-500' : 'text-red-500'}"
-                  />
-                  {dbLabel}
-                </div>
-                {#if dbDetail}
-                  <p class="text-muted-foreground font-mono text-xs break-all">
-                    {dbDetail}
-                  </p>
-                {/if}
-              </div>
-            </Popover.Content>
-          </Popover.Root>
-        </Sidebar.MenuItem>
       </Sidebar.Menu>
     </Sidebar.Header>
 
@@ -147,7 +142,7 @@
       <Sidebar.Group>
         <Sidebar.GroupLabel>Navigation</Sidebar.GroupLabel>
         <Sidebar.GroupContent>
-          <Sidebar.Menu>
+          <Sidebar.Menu class="gap-1">
             {#each NAV as item (item.href)}
               <Sidebar.MenuItem>
                 <Sidebar.MenuButton
@@ -171,23 +166,44 @@
     <Sidebar.Footer>
       <Sidebar.Menu>
         <Sidebar.MenuItem>
-          <Sidebar.MenuButton
-            onclick={toggleTheme}
-            tooltipContent={isDark ? "Switch to light mode" : "Switch to dark mode"}
-          >
-            {#if isDark}
-              <Sun />
-              <span>Light mode</span>
-            {:else}
-              <Moon />
-              <span>Dark mode</span>
-            {/if}
-          </Sidebar.MenuButton>
+          <Dialog.Root>
+            <Dialog.Trigger>
+              {#snippet child({ props })}
+                <Sidebar.MenuButton size="lg" tooltipContent="Connection details" {...props}>
+                  <Database class={dbConnected ? "text-green-500" : "text-red-500"} />
+                  <div
+                    class="flex flex-1 flex-col gap-0.5 text-left text-sm leading-snug group-data-[collapsible=icon]:hidden"
+                  >
+                    <span class="truncate font-medium">{dbLabel}</span>
+                    <span class="text-muted-foreground truncate text-xs">
+                      Click for details
+                    </span>
+                  </div>
+                </Sidebar.MenuButton>
+              {/snippet}
+            </Dialog.Trigger>
+            <Dialog.Content class="sm:max-w-lg">
+              <Dialog.Header>
+                <Dialog.Title class="flex items-center gap-2">
+                  <Database
+                    class="size-4 {dbConnected ? 'text-green-500' : 'text-red-500'}"
+                  />
+                  {dbLabel}
+                </Dialog.Title>
+                <Dialog.Description>
+                  Read-only connection to the DBOS Postgres database.
+                </Dialog.Description>
+              </Dialog.Header>
+              {#if dbDetail}
+                <p class="text-muted-foreground font-mono text-xs break-all">
+                  {dbDetail}
+                </p>
+              {/if}
+            </Dialog.Content>
+          </Dialog.Root>
         </Sidebar.MenuItem>
       </Sidebar.Menu>
     </Sidebar.Footer>
-
-    <Sidebar.Rail />
   </Sidebar.Root>
 
   <Sidebar.Inset>
@@ -240,6 +256,20 @@
           {/each}
         </Breadcrumb.List>
       </Breadcrumb.Root>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        class="ml-auto"
+        onclick={toggleTheme}
+        title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      >
+        {#if isDark}
+          <Sun />
+        {:else}
+          <Moon />
+        {/if}
+      </Button>
     </header>
     <div class="flex flex-1 flex-col">
       {@render children()}

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { page } from "$app/state";
-  import ResultPane from "$lib/components/ResultPane.svelte";
+  import ResultPane, { type ResultData } from "$lib/components/ResultPane.svelte";
   import WorkflowFlow, {
     type FamilyWorkflow,
     type FlowSelection,
@@ -23,6 +23,25 @@
   let detail = $state<WorkflowDetail | null>(null);
   let error = $state<string | null>(null);
   let selection = $state<FlowSelection>(null);
+
+  // Result payloads are loaded lazily on selection and cached for the lifetime
+  // of this page so navigating between previously-viewed workflows / steps
+  // doesn't re-hit the server. Map keys: `wf:<id>` and `step:<wf>:<fnId>`.
+  // The empty-result sentinel ({output:null,error:null,...}) is also cached
+  // so we don't refetch rows known to have no payload. Plain Map (not $state)
+  // because we read it inside an effect and don't want it triggering itself.
+  const resultCache = new Map<string, ResultData>();
+  const EMPTY_RESULT: ResultData = {
+    output: null,
+    error: null,
+    serialization: null,
+    output_decoded: null,
+    error_decoded: null,
+  };
+  let result = $state<ResultData | null>(null);
+  let resultLoading = $state(false);
+  // Token guards against stale fetches landing after a faster, newer click.
+  let resultFetchToken = 0;
 
   const workflowId = $derived(page.params.id ?? "");
 
@@ -57,6 +76,12 @@
     detail = null;
     error = null;
     selection = null;
+    // Different workflow → wipe cache; a stale entry from a previous
+    // workflow's family would never be hit anyway, but cleanup keeps memory
+    // bounded across navigations.
+    resultCache.clear();
+    result = null;
+    resultLoading = false;
     if (!id) return;
     fetch(`/api/workflows/${encodeURIComponent(id)}`)
       .then(async (res) => {
@@ -68,6 +93,63 @@
         selection = self ? { kind: "workflow", workflow: self } : null;
       })
       .catch((e) => {
+        error = e instanceof Error ? e.message : String(e);
+      });
+  });
+
+  $effect(() => {
+    const sel = selection;
+    if (!sel) {
+      result = null;
+      resultLoading = false;
+      return;
+    }
+    let key: string;
+    let url: string;
+    let hasAny: boolean;
+    if (sel.kind === "workflow") {
+      key = `wf:${sel.workflow.workflow_id}`;
+      url = `/api/workflows/${encodeURIComponent(sel.workflow.workflow_id)}/result`;
+      hasAny = sel.workflow.has_output || sel.workflow.has_error;
+    } else {
+      key = `step:${sel.step.workflow_id}:${sel.step.function_id}`;
+      url =
+        `/api/workflows/${encodeURIComponent(sel.step.workflow_id)}` +
+        `/steps/${sel.step.function_id}/result`;
+      hasAny = sel.step.has_output || sel.step.has_error;
+    }
+
+    const cached = resultCache.get(key);
+    if (cached) {
+      result = cached;
+      resultLoading = false;
+      return;
+    }
+
+    // No payload to load — short-circuit with the empty sentinel and cache it
+    // so toggling selection doesn't kick off a useless round-trip.
+    if (!hasAny) {
+      resultCache.set(key, EMPTY_RESULT);
+      result = EMPTY_RESULT;
+      resultLoading = false;
+      return;
+    }
+
+    const myToken = ++resultFetchToken;
+    result = null;
+    resultLoading = true;
+    fetch(url)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const body = (await res.json()) as ResultData;
+        if (myToken !== resultFetchToken) return;
+        resultCache.set(key, body);
+        result = body;
+        resultLoading = false;
+      })
+      .catch((e) => {
+        if (myToken !== resultFetchToken) return;
+        resultLoading = false;
         error = e instanceof Error ? e.message : String(e);
       });
   });
@@ -142,7 +224,7 @@
       </button>
     </div>
     <div class="flex-none" style="width: {rightWidth}px">
-      <ResultPane {selection} />
+      <ResultPane {selection} {result} loading={resultLoading} />
     </div>
   </div>
 {/if}

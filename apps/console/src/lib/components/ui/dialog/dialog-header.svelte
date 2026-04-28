@@ -12,8 +12,8 @@
 
 <div
 	bind:this={ref}
-	data-slot="card-content"
-	class={cn("px-6 group-data-[size=sm]/card:px-4", className)}
+	data-slot="dialog-header"
+	class={cn("gap-1.5 flex flex-col", className)}
 	{...restProps}
 >
 	{@render children?.()}

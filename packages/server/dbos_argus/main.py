@@ -73,6 +73,9 @@ class WorkflowListItem(BaseModel):
     started_at: datetime
     updated_at: datetime
     depth: int
+    # Number of dbos.operation_outputs rows for this workflow. Computed via
+    # SQL COUNT — the list endpoint never materialises individual operations.
+    operation_count: int
 
 
 # In grouped mode, filters apply to the `roots` CTE only — matching roots come
@@ -118,6 +121,9 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
 
     where_extra = (" AND " + " AND ".join(conditions)) if conditions else ""
 
+    # Operation counts come from a single GROUP BY scoped to the workflow_uuids
+    # we're returning — much cheaper than N+1 correlated subqueries on large
+    # operation_outputs tables.
     if grouped:
         sql = f"""
             WITH RECURSIVE
@@ -160,30 +166,48 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
                         t.sort_path || COALESCE(c.started_at_epoch_ms, c.created_at)
                     FROM dbos.workflow_status c
                     JOIN tree t ON c.parent_workflow_id = t.workflow_uuid
+                ),
+                op_counts AS (
+                    SELECT workflow_uuid, COUNT(*)::bigint AS op_count
+                    FROM dbos.operation_outputs
+                    WHERE workflow_uuid IN (SELECT workflow_uuid FROM tree)
+                    GROUP BY workflow_uuid
                 )
             SELECT
-                workflow_uuid, parent_workflow_id, name, status, queue_name, executor_id,
-                started_ms, updated_ms, depth
-            FROM tree
-            ORDER BY root_updated_at DESC, sort_path ASC
+                t.workflow_uuid, t.parent_workflow_id, t.name, t.status,
+                t.queue_name, t.executor_id, t.started_ms, t.updated_ms, t.depth,
+                COALESCE(oc.op_count, 0)::bigint AS op_count
+            FROM tree t
+            LEFT JOIN op_counts oc ON oc.workflow_uuid = t.workflow_uuid
+            ORDER BY t.root_updated_at DESC, t.sort_path ASC
         """
     else:
         flat_where = f"WHERE 1=1{where_extra}" if where_extra else ""
         sql = f"""
+            WITH chosen AS (
+                SELECT
+                    workflow_uuid, parent_workflow_id, name, status, queue_name, executor_id,
+                    COALESCE(started_at_epoch_ms, created_at) AS started_ms,
+                    updated_at AS updated_ms
+                FROM dbos.workflow_status
+                {flat_where}
+                ORDER BY COALESCE(started_at_epoch_ms, created_at) DESC
+                LIMIT :limit
+            ),
+            op_counts AS (
+                SELECT workflow_uuid, COUNT(*)::bigint AS op_count
+                FROM dbos.operation_outputs
+                WHERE workflow_uuid IN (SELECT workflow_uuid FROM chosen)
+                GROUP BY workflow_uuid
+            )
             SELECT
-                workflow_uuid,
-                parent_workflow_id,
-                name,
-                status,
-                queue_name,
-                executor_id,
-                COALESCE(started_at_epoch_ms, created_at) AS started_ms,
-                updated_at AS updated_ms,
-                0 AS depth
-            FROM dbos.workflow_status
-            {flat_where}
-            ORDER BY COALESCE(started_at_epoch_ms, created_at) DESC
-            LIMIT :limit
+                c.workflow_uuid, c.parent_workflow_id, c.name, c.status,
+                c.queue_name, c.executor_id, c.started_ms, c.updated_ms,
+                0 AS depth,
+                COALESCE(oc.op_count, 0)::bigint AS op_count
+            FROM chosen c
+            LEFT JOIN op_counts oc ON oc.workflow_uuid = c.workflow_uuid
+            ORDER BY c.started_ms DESC
         """
     return sql, params
 
@@ -229,6 +253,7 @@ async def list_workflows(
             started_at=datetime.fromtimestamp(r.started_ms / 1000, tz=UTC),
             updated_at=datetime.fromtimestamp(r.updated_ms / 1000, tz=UTC),
             depth=r.depth,
+            operation_count=r.op_count,
         )
         for r in rows
     ]
@@ -239,37 +264,43 @@ class WorkflowStep(BaseModel):
     workflow_id: str
     function_id: int
     function_name: str
-    output: str | None
-    error: str | None
+    # Whether the row stored an output / error payload. The actual content
+    # is fetched lazily via /api/workflows/{id}/steps/{function_id}/result —
+    # outputs can be large pickled blobs we don't want on every list render.
+    has_output: bool
+    has_error: bool
     child_workflow_id: str | None
     started_at: datetime | None
     completed_at: datetime | None
-    # Serialization format of `output` / `error`. DBOS stores "pickle" by
-    # default (base64-encoded pickle bytes); apps can opt into "json".
-    serialization: str | None
-    # Best-effort pretty-printed JSON of the decoded output/error. None when
-    # the payload wasn't decodable — e.g. pickled custom classes which our
-    # restricted unpickler refuses to instantiate. See decoding.py.
-    output_decoded: str | None
-    error_decoded: str | None
     # For `DBOS.setEvent` rows, the event key — joined from
     # `dbos.workflow_events_history` on `(workflow_uuid, function_id)`. Always
     # null for `DBOS.getEvent` because DBOS doesn't persist the call's input
     # args (target workflow id + key) anywhere queryable, and we refuse to
-    # guess. The getEvent's deserialized value is in `output_decoded`.
+    # guess. The getEvent's deserialized value is in the lazy result endpoint.
     event_key: str | None
+    # For `DBOS.sleep` rows only. The originally-requested duration in ms,
+    # derived from `output` (unix wakeup seconds) - `started_at`. Computed
+    # server-side so we don't have to ship the raw output column.
+    sleep_requested_ms: int | None
 
 
-# Richer version of WorkflowListItem used by the detail endpoint — includes
-# output/error so clients can display workflow results. Kept separate from
-# WorkflowListItem to avoid sending potentially-large output payloads on the
-# workflows-list endpoint.
-class WorkflowFamilyItem(WorkflowListItem):
-    output: str | None
-    error: str | None
-    serialization: str | None
-    output_decoded: str | None
-    error_decoded: str | None
+# Detail-page version of a workflow row. Drops the inheritance from
+# WorkflowListItem because the detail endpoint doesn't compute operation_count
+# (steps are returned alongside, clients count from the steps array if they
+# need it). Carries flags instead of payloads — the result endpoint serves
+# the actual output/error.
+class WorkflowFamilyItem(BaseModel):
+    workflow_id: str
+    parent_workflow_id: str | None
+    name: str | None
+    status: str | None
+    queue_name: str | None
+    executor_id: str | None
+    started_at: datetime
+    updated_at: datetime
+    depth: int
+    has_output: bool
+    has_error: bool
 
 
 class WorkflowDetail(BaseModel):
@@ -287,6 +318,48 @@ class WorkflowDetail(BaseModel):
     # ordered by (workflow_id, function_id ASC). Clients group by
     # workflow_id to build per-workflow timelines.
     steps: list[WorkflowStep]
+
+
+class WorkflowResult(BaseModel):
+    workflow_id: str
+    output: str | None
+    error: str | None
+    serialization: str | None
+    # Best-effort pretty-printed JSON of the decoded output/error. None when
+    # the payload wasn't decodable — e.g. pickled custom classes which our
+    # restricted unpickler refuses to instantiate. See decoding.py.
+    output_decoded: str | None
+    error_decoded: str | None
+
+
+class StepResult(BaseModel):
+    workflow_id: str
+    function_id: int
+    output: str | None
+    error: str | None
+    serialization: str | None
+    output_decoded: str | None
+    error_decoded: str | None
+
+
+# DBOS.sleep rows store their wakeup time as a numeric string in `output`
+# (unix seconds, JSON-encoded even under py_pickle serialization). Subtracting
+# the row's `started_at` gives the originally requested duration in ms,
+# independent of how long the sleep actually elapsed in wall time. Returns
+# None for non-sleep rows or when the value isn't parseable as a float.
+def _sleep_requested_ms(
+    function_name: str | None,
+    sleep_output_raw: str | None,
+    started_at_epoch_ms: int | None,
+) -> int | None:
+    if function_name != "DBOS.sleep" or not sleep_output_raw or started_at_epoch_ms is None:
+        return None
+    try:
+        wake_ms = float(sleep_output_raw) * 1000
+    except (TypeError, ValueError):
+        return None
+    requested = round(wake_ms - started_at_epoch_ms)
+    return int(requested) if requested >= 0 else None
 
 
 # Walks up parent_workflow_id to find the topmost ancestor (or the workflow
@@ -321,9 +394,8 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
                     ws.status,
                     ws.queue_name,
                     ws.executor_id,
-                    ws.output,
-                    ws.error,
-                    ws.serialization,
+                    ws.output IS NOT NULL AS has_output,
+                    ws.error IS NOT NULL AS has_error,
                     COALESCE(ws.started_at_epoch_ms, ws.created_at) AS started_ms,
                     ws.updated_at AS updated_ms,
                     0 AS depth,
@@ -340,9 +412,8 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
                     c.status,
                     c.queue_name,
                     c.executor_id,
-                    c.output,
-                    c.error,
-                    c.serialization,
+                    c.output IS NOT NULL,
+                    c.error IS NOT NULL,
                     COALESCE(c.started_at_epoch_ms, c.created_at),
                     c.updated_at,
                     t.depth + 1,
@@ -352,22 +423,25 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
             )
         SELECT
             workflow_uuid, parent_workflow_id, name, status, queue_name, executor_id,
-            output, error, serialization, started_ms, updated_ms, depth
+            has_output, has_error, started_ms, updated_ms, depth
         FROM tree
         ORDER BY sort_path ASC
     """
+    # Sleep rows store the raw wakeup-time string in `output`. We carry it
+    # through under a dedicated alias so we can compute sleep_requested_ms
+    # in Python without shipping every step's payload to the client.
     steps_sql = """
         SELECT
             o.workflow_uuid,
             o.function_id,
             o.function_name,
-            o.output,
-            o.error,
+            o.output IS NOT NULL AS has_output,
+            o.error IS NOT NULL AS has_error,
             o.child_workflow_id,
             o.started_at_epoch_ms,
             o.completed_at_epoch_ms,
-            o.serialization,
-            seh.key AS event_key
+            seh.key AS event_key,
+            CASE WHEN o.function_name = 'DBOS.sleep' THEN o.output END AS sleep_output_raw
         FROM dbos.operation_outputs o
         LEFT JOIN dbos.workflow_events_history seh
             ON o.function_name = 'DBOS.setEvent'
@@ -398,11 +472,8 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
             status=r.status,
             queue_name=r.queue_name,
             executor_id=r.executor_id,
-            output=r.output,
-            error=r.error,
-            serialization=r.serialization,
-            output_decoded=decode_dbos_value(r.output, r.serialization),
-            error_decoded=decode_dbos_value(r.error, r.serialization),
+            has_output=r.has_output,
+            has_error=r.has_error,
             started_at=datetime.fromtimestamp(r.started_ms / 1000, tz=UTC),
             updated_at=datetime.fromtimestamp(r.updated_ms / 1000, tz=UTC),
             depth=r.depth,
@@ -414,11 +485,8 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
             workflow_id=s.workflow_uuid,
             function_id=s.function_id,
             function_name=s.function_name,
-            output=s.output,
-            error=s.error,
-            serialization=s.serialization,
-            output_decoded=decode_dbos_value(s.output, s.serialization),
-            error_decoded=decode_dbos_value(s.error, s.serialization),
+            has_output=s.has_output,
+            has_error=s.has_error,
             child_workflow_id=s.child_workflow_id,
             started_at=(
                 datetime.fromtimestamp(s.started_at_epoch_ms / 1000, tz=UTC)
@@ -431,6 +499,9 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
                 else None
             ),
             event_key=s.event_key,
+            sleep_requested_ms=_sleep_requested_ms(
+                s.function_name, s.sleep_output_raw, s.started_at_epoch_ms
+            ),
         )
         for s in step_rows
     ]
@@ -444,6 +515,65 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
         updated_at=self_item.updated_at,
         family=family,
         steps=steps,
+    )
+
+
+# Lazily fetches the output/error payload for a single workflow row. Split out
+# from the detail endpoint so workflow detail page loads stay small even when
+# a family contains many workflows with multi-MB pickled outputs.
+@app.get("/api/workflows/{workflow_id}/result")
+async def get_workflow_result(workflow_id: str) -> WorkflowResult:
+    sql = """
+        SELECT output, error, serialization
+        FROM dbos.workflow_status
+        WHERE workflow_uuid = :workflow_id
+    """
+    try:
+        async with engine.connect() as conn:
+            row = (await conn.execute(text(sql), {"workflow_id": workflow_id})).fetchone()
+    except ProgrammingError as e:
+        raise HTTPException(status_code=404, detail="workflow not found") from e
+    if row is None:
+        raise HTTPException(status_code=404, detail="workflow not found")
+    return WorkflowResult(
+        workflow_id=workflow_id,
+        output=row.output,
+        error=row.error,
+        serialization=row.serialization,
+        output_decoded=decode_dbos_value(row.output, row.serialization),
+        error_decoded=decode_dbos_value(row.error, row.serialization),
+    )
+
+
+# Lazily fetches a single step row's output/error. Companion to the workflow
+# result endpoint — same lazy-load pattern, indexed by (workflow_uuid, function_id).
+@app.get("/api/workflows/{workflow_id}/steps/{function_id}/result")
+async def get_step_result(workflow_id: str, function_id: int) -> StepResult:
+    sql = """
+        SELECT output, error, serialization
+        FROM dbos.operation_outputs
+        WHERE workflow_uuid = :workflow_id AND function_id = :function_id
+    """
+    try:
+        async with engine.connect() as conn:
+            row = (
+                await conn.execute(
+                    text(sql),
+                    {"workflow_id": workflow_id, "function_id": function_id},
+                )
+            ).fetchone()
+    except ProgrammingError as e:
+        raise HTTPException(status_code=404, detail="step not found") from e
+    if row is None:
+        raise HTTPException(status_code=404, detail="step not found")
+    return StepResult(
+        workflow_id=workflow_id,
+        function_id=function_id,
+        output=row.output,
+        error=row.error,
+        serialization=row.serialization,
+        output_decoded=decode_dbos_value(row.output, row.serialization),
+        error_decoded=decode_dbos_value(row.error, row.serialization),
     )
 
 
