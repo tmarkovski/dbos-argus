@@ -80,6 +80,11 @@ Argus does not own a schema. It reads DBOS Transact's system tables (`dbos.workf
 
 ## CI
 
-Two GitHub Actions workflows trigger only on changes to their respective trees:
+Three GitHub Actions workflows:
 - `.github/workflows/ci-python.yml` — uv + ruff + pytest for `packages/server` and the example.
 - `.github/workflows/ci-node.yml` — pnpm + turbo lint/test/build for `apps/**` and the TS packages.
+- `.github/workflows/release.yml` — fires on `v*` tags. Three sequenced jobs: `pypi` (OIDC trusted publishing) → `docker` (multi-arch push to `tmarkovski/dbos-argus`) → `release` (GitHub Release with CHANGELOG body). See **Releasing** in `CONTRIBUTING.md`.
+
+## Releasing
+
+Tag-driven. Bump `CHANGELOG.md` (move `[Unreleased]` → dated `[X.Y.Z]`), commit, then `git tag vX.Y.Z && git push origin vX.Y.Z`. Version comes from `hatch-vcs` reading the tag — nothing to bump in `pyproject.toml` or `__init__.py`. PyPI rejects re-uploading the same version, so each release must bump.
