@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-04-29
+
+### Fixed
+- Docker Hub `tmarkovski/dbos-argus:latest` image — pre-existing `uv sync` workspace
+  resolution bug in the old multi-stage build had been silently failing on tag
+  pushes. New single-stage `pip install dbos-argus` Dockerfile sidesteps it.
+
+### Changed
+- Release pipeline merged into one workflow with sequenced jobs
+  (PyPI → Docker → GitHub Release). Docker waits for PyPI, no propagation race.
+- `:edge` Docker tag retired in favor of `:latest`.
+
 ## [0.0.1] - 2026-04-29
 
 ### Added
@@ -17,5 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.1...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.2...HEAD
+[0.0.2]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.2
 [0.0.1]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.1
