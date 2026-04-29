@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-04-29
+
+### Added
+- `/api/sql-diagnostics` inspects the live `dbos` schema for the tables,
+  columns, and column types Argus currently depends on, and reports missing
+  objects and type mismatches directly to the console.
+- The connection sidebar item now loads SQL diagnostics on app mount, caches
+  the report in page state, and surfaces green/yellow/red connection states
+  so legacy DBOS schema mismatches are visible without opening the sheet.
+
+### Fixed
+- Azure Database for PostgreSQL hosts now default to `sslmode=require` when no
+  explicit `sslmode` is supplied, so pasted Azure connection strings work
+  without adding TLS flags by hand.
+
 ## [0.0.5] - 2026-04-29
 
 ### Fixed
@@ -63,7 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.5...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.6...HEAD
+[0.0.6]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.6
 [0.0.5]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.5
 [0.0.4]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.4
 [0.0.3]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.3
