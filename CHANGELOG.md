@@ -9,9 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
-## [0.0.7] - 2026-04-29
+## [0.0.8] - 2026-04-29
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+> **Note:** v0.0.7 was tagged but never published — the release pipeline failed
+> before reaching PyPI because `astral-sh/setup-uv@v8` is not a moving major
+> tag (setup-uv stopped publishing those for supply-chain reasons in 8.0.0).
+> v0.0.8 carries the same intended changes plus the workflow fix.
 
 ### Added
 - Schema snapshot at `dbos_argus/data/dbos_schema.json` is now the *full*
@@ -108,8 +113,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.7...HEAD
-[0.0.7]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.7
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.8...HEAD
+[0.0.8]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.8
 [0.0.6]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.6
 [0.0.5]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.5
 [0.0.4]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.4
