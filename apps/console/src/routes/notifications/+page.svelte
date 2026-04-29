@@ -268,7 +268,9 @@
     if (!open) selected = null;
   }}
 >
-  <Sheet.Content class="flex w-full flex-col gap-0 p-0 sm:max-w-2xl">
+  <Sheet.Content
+    class="flex w-full flex-col gap-0 p-0 data-[side=right]:sm:max-w-2xl"
+  >
     {#if selected}
       <Sheet.Header class="border-border border-b px-6 py-4">
         <Sheet.Title class="flex items-center gap-2 text-base">
@@ -288,28 +290,90 @@
         </Sheet.Description>
       </Sheet.Header>
 
-      <div class="flex flex-1 flex-col gap-4 overflow-auto px-6 py-4">
-        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-          <dt class="text-muted-foreground text-xs uppercase tracking-wide">Topic</dt>
-          <dd class="font-mono text-xs">{selected.topic ?? "—"}</dd>
-
-          <dt class="text-muted-foreground text-xs uppercase tracking-wide">Destination</dt>
-          <dd>
-            <a
-              href="/workflows/{encodeURIComponent(selected.destination_uuid)}/"
-              class="hover:text-foreground hover:underline font-mono text-xs break-all"
+      <div class="flex flex-1 flex-col gap-6 overflow-auto px-6 py-5">
+        <dl class="flex flex-col gap-5">
+          <div class="flex flex-col gap-1.5">
+            <dt
+              class="text-muted-foreground text-[11px] font-medium uppercase tracking-wide"
             >
-              {selected.destination_uuid}
-            </a>
-          </dd>
+              Topic
+            </dt>
+            <dd class="font-mono text-sm">
+              {#if selected.topic}
+                {selected.topic}
+              {:else}
+                <span class="text-muted-foreground">—</span>
+              {/if}
+            </dd>
+          </div>
 
-          <dt class="text-muted-foreground text-xs uppercase tracking-wide">Sent</dt>
-          <dd class="text-xs" title={selected.created_at}>
-            {new Date(selected.created_at).toLocaleString()}
-            <span class="text-muted-foreground">
-              ({formatRelative(selected.created_at)})
-            </span>
-          </dd>
+          <div class="flex flex-col gap-1.5">
+            <dt
+              class="text-muted-foreground text-[11px] font-medium uppercase tracking-wide"
+            >
+              Sent
+            </dt>
+            <dd class="text-sm" title={selected.created_at}>
+              {new Date(selected.created_at).toLocaleString()}
+              <span class="text-muted-foreground">
+                · {formatRelative(selected.created_at)}
+              </span>
+            </dd>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <dt
+              class="text-muted-foreground text-[11px] font-medium uppercase tracking-wide"
+            >
+              Destination
+            </dt>
+            <dd>
+              {#if selected.destination_ancestors.length > 0}
+                <ol
+                  class="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1"
+                  title={selected.destination_uuid}
+                >
+                  {#each selected.destination_ancestors as a, i (a.workflow_id)}
+                    {@const isLast = i === selected.destination_ancestors.length - 1}
+                    <li class="inline-flex items-center gap-1.5">
+                      <span
+                        aria-hidden="true"
+                        title={a.status ?? "unknown"}
+                        class="inline-block size-1.5 flex-none rounded-full {statusDotClass(a.status)}"
+                      ></span>
+                      <a
+                        href="/workflows/{encodeURIComponent(a.workflow_id)}/"
+                        title={a.workflow_id}
+                        class="hover:underline {isLast
+                          ? 'text-foreground font-medium'
+                          : 'text-muted-foreground hover:text-foreground'} text-sm"
+                      >
+                        {a.name ?? a.workflow_id}
+                      </a>
+                    </li>
+                    {#if !isLast}
+                      <li aria-hidden="true" class="text-muted-foreground/60 inline-flex">
+                        <ChevronRight class="size-3.5" />
+                      </li>
+                    {/if}
+                  {/each}
+                </ol>
+                <p
+                  class="text-muted-foreground mt-1 font-mono text-xs break-all"
+                  title={selected.destination_uuid}
+                >
+                  {selected.destination_uuid}
+                </p>
+              {:else}
+                <a
+                  href="/workflows/{encodeURIComponent(selected.destination_uuid)}/"
+                  class="hover:text-foreground hover:underline font-mono text-sm break-all"
+                >
+                  {selected.destination_uuid}
+                </a>
+              {/if}
+            </dd>
+          </div>
         </dl>
 
         <div class="flex flex-1 flex-col gap-2">

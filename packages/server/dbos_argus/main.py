@@ -24,6 +24,26 @@ from .workflow_status import (
 logging.basicConfig(level=settings.log_level)
 logger = logging.getLogger("dbos_argus")
 
+
+class _HealthzAccessFilter(logging.Filter):
+    """Drop uvicorn access-log lines for /healthz.
+
+    The console polls /healthz every 5s for the DB connection indicator —
+    without this the access log is mostly healthz spam. Real failures still
+    surface via the response body (`database: down`) and any uncaught error
+    is logged separately by uvicorn's error logger.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if not isinstance(args, tuple) or len(args) < 3:
+            return True
+        path = args[2]
+        return not (isinstance(path, str) and path.startswith("/healthz"))
+
+
+logging.getLogger("uvicorn.access").addFilter(_HealthzAccessFilter())
+
 app = FastAPI(
     title="dbos-argus",
     version=__version__,

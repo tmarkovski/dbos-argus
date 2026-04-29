@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-04-29
+
+### Changed
+- Console body uses the sidebar surface as its background so Safari 26 picks
+  it up for the tinted toolbar at first paint.
+- Notification details pane: stacked label-on-top/value-below fields,
+  destination rendered as the parent→child workflow chain, sheet widened.
+- App shell header rounding (`rounded-t-2xl`) aligns with the inset's outer
+  corners — no more bottom-border showing through the curve.
+
+### Fixed
+- Sheet `max-width` overrides now actually apply: matched the base sheet's
+  `data-[side=right]:sm:` variant so `tailwind-merge` dedupes the conflict.
+- `/healthz` access-log spam silenced via a uvicorn access-log filter — the
+  console polls it every 5s for the connection indicator.
+
 ## [0.0.2] - 2026-04-29
 
 ### Fixed
@@ -29,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.2...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.3
 [0.0.2]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.2
 [0.0.1]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.1

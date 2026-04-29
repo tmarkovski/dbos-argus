@@ -14,7 +14,7 @@
   import { statusDotClass } from "$lib/workflow-tree";
   import * as Sidebar from "$lib/components/ui/sidebar/index.js";
   import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-  import * as Dialog from "$lib/components/ui/dialog/index.js";
+  import * as Sheet from "$lib/components/ui/sheet/index.js";
   import { Separator } from "$lib/components/ui/separator/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
 
@@ -166,8 +166,8 @@
     <Sidebar.Footer>
       <Sidebar.Menu>
         <Sidebar.MenuItem>
-          <Dialog.Root>
-            <Dialog.Trigger>
+          <Sheet.Root>
+            <Sheet.Trigger>
               {#snippet child({ props })}
                 <Sidebar.MenuButton size="lg" tooltipContent="Connection details" {...props}>
                   <Database class={dbConnected ? "text-green-500" : "text-red-500"} />
@@ -181,26 +181,35 @@
                   </div>
                 </Sidebar.MenuButton>
               {/snippet}
-            </Dialog.Trigger>
-            <Dialog.Content class="sm:max-w-lg">
-              <Dialog.Header>
-                <Dialog.Title class="flex items-center gap-2">
+            </Sheet.Trigger>
+            <Sheet.Content
+              class="flex w-full flex-col gap-0 p-0 data-[side=right]:sm:max-w-2xl"
+            >
+              <Sheet.Header class="border-border border-b px-6 py-4">
+                <Sheet.Title class="flex items-center gap-2 text-base">
                   <Database
                     class="size-4 {dbConnected ? 'text-green-500' : 'text-red-500'}"
                   />
                   {dbLabel}
-                </Dialog.Title>
-                <Dialog.Description>
+                </Sheet.Title>
+                <Sheet.Description>
                   Read-only connection to the DBOS Postgres database.
-                </Dialog.Description>
-              </Dialog.Header>
-              {#if dbDetail}
-                <p class="text-muted-foreground font-mono text-xs break-all">
-                  {dbDetail}
-                </p>
-              {/if}
-            </Dialog.Content>
-          </Dialog.Root>
+                </Sheet.Description>
+              </Sheet.Header>
+              <div class="flex flex-1 flex-col gap-4 overflow-auto px-6 py-4">
+                {#if dbDetail}
+                  <div class="flex flex-col gap-1.5">
+                    <span class="text-muted-foreground text-xs uppercase tracking-wide">
+                      {dbConnected ? "URL" : "Error"}
+                    </span>
+                    <p class="text-muted-foreground font-mono text-xs break-all">
+                      {dbDetail}
+                    </p>
+                  </div>
+                {/if}
+              </div>
+            </Sheet.Content>
+          </Sheet.Root>
         </Sidebar.MenuItem>
       </Sidebar.Menu>
     </Sidebar.Footer>
@@ -208,7 +217,7 @@
 
   <Sidebar.Inset>
     <header
-      class="bg-background sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b px-4 md:rounded-t-xl"
+      class="bg-background sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b px-4 md:rounded-t-2xl"
     >
       <Sidebar.Trigger class="-ml-1" />
       <Separator orientation="vertical" class="mr-2 !h-4" />
