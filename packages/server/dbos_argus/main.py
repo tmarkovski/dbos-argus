@@ -49,7 +49,7 @@ logging.getLogger("uvicorn.access").addFilter(_HealthzAccessFilter())
 app = FastAPI(
     title="dbos-argus",
     version=__version__,
-    description="Self-hosted management console for DBOS Transact.",
+    description="Self-hosted, read-only workflow viewer for DBOS Transact.",
 )
 
 app.add_middleware(

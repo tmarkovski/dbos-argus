@@ -91,7 +91,7 @@ def main(
     dump_schema: bool,
     dump_schema_name: str,
 ) -> None:
-    """Run the dbos-argus management console (FastAPI + bundled SPA)."""
+    """Run the dbos-argus workflow viewer (FastAPI + bundled SPA)."""
     if db_url:
         os.environ["ARGUS_DATABASE_URL"] = db_url
     if cors_origins:

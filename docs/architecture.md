@@ -6,7 +6,7 @@ This is a stub. The authoritative architecture overview lives in the project [RE
 
 - **DBOS application** (customer code) — a Python or TypeScript service using `dbos-transact`. Writes its workflow state to a Postgres database. Argus does not touch the application process at all.
 - **Postgres** — the same database the DBOS application uses. Argus opens its own read-only async connection and queries the `dbos.*` system schema.
-- **Argus backend** (`packages/server`) — FastAPI service. Reads `dbos.workflow_status` and related tables; serves the management API consumed by the console.
+- **Argus backend** (`packages/server`) — FastAPI service. Reads `dbos.workflow_status` and related tables; serves the read API consumed by the console.
 - **Argus console** (`apps/console`) — SvelteKit UI built as a static SPA and served by the FastAPI process on the same port. The only client of the Argus backend.
 
 ## Invariants
@@ -17,7 +17,7 @@ This is a stub. The authoritative architecture overview lives in the project [RE
 
 ## Future topics (not yet documented)
 
-- Workflow intervention API (cancel / resume / restart / fork) — implemented by the server invoking DBOS Transact's management APIs against the same database.
+- Read-only queue views where DBOS exposes enough state in Postgres.
 - Live updates from server to console (likely via SSE or WebSocket) to replace polling.
 - Authentication and RBAC.
-- Multi-instance / high-availability deployment.
+- Deployment notes for shared dev/internal use.

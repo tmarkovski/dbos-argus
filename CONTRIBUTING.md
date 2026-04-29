@@ -36,7 +36,7 @@ docker compose up
 - `apps/console` — SvelteKit web UI
 - `packages/server` — FastAPI backend (`dbos-argus` on PyPI)
 - `packages/ui` — reusable Svelte 5 components (`@dbos-argus/ui`)
-- `tests/sample-app` — standalone DBOS app run manually to seed workflow data into your local Postgres so the dashboard has something to render
+- `tests/sample-app` — standalone DBOS app run manually to seed workflow data into your local Postgres so the viewer has something to render
 
 ## Common commands
 
@@ -124,7 +124,7 @@ PyPI rejects re-uploading the same version, so each release must bump the versio
 
 ## Principles
 
-1. Argus is read-mostly. It only reads from DBOS Transact's `dbos.*` system tables. Future write actions (cancel, resume, fork) will go through DBOS Transact's own APIs from inside the Argus server process.
+1. Argus is read-only. It only reads from DBOS Transact's `dbos.*` system tables. New features should stay on the read path unless the project scope explicitly changes.
 2. The console is a client. It talks only to the Argus backend, never to Postgres directly.
 3. Boring is good. Prefer standard, well-documented libraries.
 

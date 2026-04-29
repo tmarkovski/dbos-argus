@@ -1,4 +1,4 @@
-"""dbos-argus — FastAPI backend for the Argus management console."""
+"""dbos-argus - FastAPI backend for the Argus workflow viewer."""
 
 from importlib.metadata import PackageNotFoundError, version
 

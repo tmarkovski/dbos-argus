@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.9] - 2026-04-29
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+### Changed
+- Reframe project positioning as a self-hosted, read-only **workflow viewer**
+  for DBOS Transact rather than a "management console". Explicit guidance
+  added pointing at DBOS Conductor for production workflow operations
+  (recovery, retention, alerting, etc.). Updated package descriptions,
+  READMEs, FastAPI app metadata, and architecture docs accordingly.
+- Architecture invariant #1 changed from "Argus is read-mostly today" to
+  "Argus is read-only" — reflecting the scope decision rather than a
+  not-yet-implemented intervention API.
+
 ## [0.0.8] - 2026-04-29
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
@@ -113,7 +127,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.8...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.9...HEAD
+[0.0.9]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.9
 [0.0.8]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.8
 [0.0.6]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.6
 [0.0.5]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.5

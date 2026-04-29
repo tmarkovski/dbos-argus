@@ -2,7 +2,7 @@
   "name": "dbos-argus",
   "version": "0.0.1",
   "private": true,
-  "description": "Self-hosted management console for DBOS Transact — monorepo root.",
+  "description": "Self-hosted, read-only workflow viewer for DBOS Transact — monorepo root.",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "build": "turbo run build --filter=*",

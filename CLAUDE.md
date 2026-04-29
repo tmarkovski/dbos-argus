@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-`dbos-argus` is a self-hosted, open-source management console for DBOS Transact applications — an MIT-licensed alternative to the proprietary DBOS Conductor. Argus opens a read-only async Postgres connection to the same database the DBOS app uses, and renders what's in `dbos.workflow_status` (and friends) in a SvelteKit UI. No app-side wiring, no agents, no separate Argus-owned schema.
+`dbos-argus` is a self-hosted, open-source, read-only workflow viewer for DBOS Transact applications. It is a dev-focused companion for quickly inspecting workflow state in a running DBOS Postgres database; production workflow operations belong in DBOS Conductor. Argus opens a read-only async Postgres connection to the same database the DBOS app uses, and renders what's in `dbos.workflow_status` (and friends) in a SvelteKit UI. No app-side wiring, no agents, no separate Argus-owned schema.
 
 See [README.md](./README.md) for the product framing and architecture diagram; see [docs/architecture.md](./docs/architecture.md) for invariants.
 
@@ -68,7 +68,7 @@ The `/api/sql-diagnostics` endpoint diffs the live schema against `packages/serv
 
 ## Architecture invariants (enforce in code review)
 
-1. **Argus is read-mostly today.** The server only reads from DBOS Transact's `dbos.*` system tables. When write actions land (cancel/resume/fork), they will go through DBOS Transact's own management APIs from inside the server process — not raw SQL — and `packages/server/pyproject.toml` will then take a runtime dep on `dbos`.
+1. **Argus is read-only.** The server only reads from DBOS Transact's `dbos.*` system tables. New features should stay on the read path unless the project scope explicitly changes.
 2. **The console is a client of the Argus backend, never of Postgres directly.**
 3. **No app-side SDK.** All UI actions are server-mediated. There is no `@dbos-argus/client` package and no WS-app-registry protocol.
 

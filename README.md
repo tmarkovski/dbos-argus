@@ -1,12 +1,12 @@
 # Argus
 
-**A self-hosted, open-source management console for DBOS Transact applications.**
+**A self-hosted, open-source, read-only workflow viewer for DBOS Transact applications.**
 
-Argus is a web dashboard for observing the durable workflows your [DBOS Transact](https://github.com/dbos-inc/dbos-transact-py) apps are already running. It points at the Postgres database your DBOS app uses, reads its workflow tables directly, and gives you a UI on top. No agents, no app-side wiring, no schema of its own.
+Argus is a web dashboard for visualizing the durable workflows your [DBOS Transact](https://github.com/dbos-inc/dbos-transact-py) apps are already running. It points at the Postgres database your DBOS app uses, opens a read-only connection, and renders the workflow state DBOS already stores there. No agents, no app-side wiring, no schema of its own, no write path.
 
 ![Argus workflow detail view](docs/images/workflow-detail.png)
 
-> **Status:** Pre-alpha. Everything will change. Not production-ready. If you're here early, welcome — the issue tracker and Discussions are the best place to have a say in where this goes.
+> **Status:** Pre-alpha. Everything will change. Not production-ready. Argus is built for development and quick inspection of a running DBOS database.
 
 > **DBOS compatibility.** Each release is validated against a specific DBOS version — see the "Tested against DBOS …" line in [CHANGELOG.md](./CHANGELOG.md) (and in the release notes on the [Releases page](https://github.com/tmarkovski/dbos-argus/releases)), or call `GET /version` (`tested_dbos_version`) on a running instance. Older / newer DBOS versions usually still work; the connection sidebar in the UI flags any schema mismatches it finds.
 
@@ -41,7 +41,7 @@ docker run --rm -p 8090:8090 \
 
 In every case, open http://localhost:8090.
 
-That's it. Argus is read-only against `dbos.workflow_status` and the related DBOS system tables, so it can't break anything. Nothing to install in your app.
+That's it. Argus connects read-only to `dbos.workflow_status` and the related DBOS system tables. Nothing to install in your app.
 
 A few gotchas:
 
@@ -81,29 +81,31 @@ We built this because we like [DBOS](https://www.dbos.dev/). A lot.
 
 DBOS Transact takes durable execution — historically the territory of heavy infrastructure like Temporal — and packages it as a library that lives inside your app and persists workflow state to a Postgres database you already have. The core is MIT-licensed, the design has serious academic pedigree ([MIT, Stanford, CMU](https://en.wikipedia.org/wiki/DBOS)), and the API is one of the cleaner ones in this category. It mostly gets out of your way and lets you keep writing normal code that happens to be crash-safe.
 
-Once you're running real workflows, you eventually want a window into them — what's running, what failed, what's stuck — and a friendly way to nudge things along. Argus is that window. MIT, self-hosted, no telemetry, no upsell. Just a UI for the workflows DBOS is already managing for you.
+When you're building with DBOS, especially in development, you sometimes want a quick local window into the workflows already sitting in Postgres: what ran, what failed, what's waiting, and how parent/child workflows fit together. Argus is that window. MIT, self-hosted, no telemetry, no upsell. Just a read-only viewer for workflow state DBOS is already managing for you.
 
-If you're already using DBOS and nodding along, you're our audience. Welcome.
+For production workflow operations, use [DBOS Conductor](https://docs.dbos.dev/production/conductor). Conductor is DBOS's supported management service for production DBOS applications, including distributed workflow recovery, workflow and queue observability, workflow and queue management, managed retention policies, alerting, and hosted or self-hosted deployment options. Argus was made with love for DBOS as a dev-focused companion: something you can point at a running DBOS database to quickly inspect what is happening. It is not production-tested for robust operations, scaling, managed recovery, retention, alerting, or team-wide controls.
+
+If you're experimenting with DBOS or debugging local/dev workflows, you're our audience. Welcome.
 
 Argus is not affiliated with, endorsed by, or sponsored by DBOS Inc.
 
 ## What Argus does (and doesn't)
 
 **Does:**
-- Live and historical view of every durable workflow, its steps, inputs, outputs, and status
+- Read-only live and historical view of every durable workflow, its steps, inputs, outputs, and status
 - Visual step-by-step workflow graphs with parent/child workflow lineage, powered by [Svelte Flow](https://svelteflow.dev)
 - Filter, search, and group workflow runs by status, name, ID, and time range
 - Light and dark mode (because of course)
 
 **Planned:**
-- Cancel, resume, restart, and fork workflows from the dashboard
-- Inspect and manage DBOS distributed queues
-- Alerts for failed workflows and queue backlogs
+- Read-only queue views where DBOS exposes enough state in Postgres
+- Better schema compatibility diagnostics as DBOS evolves
+- Optional auth for shared dev/internal deployments
 
 **Doesn't:**
-- Does not execute your workflows. Argus is strictly observability.
+- Does not execute, cancel, resume, fork, or recover your workflows. Argus is strictly observability.
 - Does not write to your database. Reads only — only from DBOS Transact's `dbos.*` system tables.
-- Does not replace DBOS Transact. You install the library in your app the normal way; Argus is a separate process that happens to look at the same Postgres.
+- Does not provide Conductor's production operations layer. Use DBOS Conductor when you need managed workflow operations, recovery, scaling, retention, alerting, or team controls.
 
 ## How it works
 
@@ -137,11 +139,11 @@ This is a pnpm + uv monorepo orchestrated with Turborepo.
 
 ## Contributing
 
-Early contributors very welcome — especially people already running DBOS Transact in production who have opinions on what this console should look like. Before starting work on anything non-trivial, please file an issue or drop by Discussions so we can coordinate.
+Early contributors very welcome — especially people already running real DBOS Transact apps who have opinions on what this viewer should show. Before starting work on anything non-trivial, please file an issue or drop by Discussions so we can coordinate.
 
 Principles that will guide code review:
 
-1. **Argus is read-mostly.** It only reads from DBOS Transact's `dbos.*` system tables. Future write actions (cancel, resume, fork) will go through DBOS Transact's own APIs, not raw SQL.
+1. **Argus is read-only.** It only reads from DBOS Transact's `dbos.*` system tables. New features should stay on the read path unless the project scope explicitly changes.
 2. **The console is a client.** It talks only to the Argus backend, never to Postgres directly.
 3. **Boring is good.** FastAPI, Postgres, SvelteKit, Svelte Flow. No clever infrastructure until there is a concrete need.
 4. **Typed contracts.** Backend ↔ frontend messages have a single source of truth.

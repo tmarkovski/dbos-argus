@@ -1,7 +1,7 @@
 [project]
 name = "dbos-argus"
 dynamic = ["version"]
-description = "Self-hosted management console for DBOS Transact — FastAPI backend."
+description = "Self-hosted, read-only workflow viewer for DBOS Transact — FastAPI backend."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "The dbos-argus contributors" }]
