@@ -1,6 +1,6 @@
 [project]
 name = "dbos-argus"
-version = "0.0.1"
+dynamic = ["version"]
 description = "Self-hosted management console for DBOS Transact — FastAPI backend."
 readme = "README.md"
 license = { text = "MIT" }
@@ -14,15 +14,32 @@ dependencies = [
   "pydantic>=2.9.0",
   "pydantic-settings>=2.6.0",
   "bcrypt>=4.2.0",
+  "click>=8.1.0",
 ]
+
+[project.scripts]
+dbos-argus = "dbos_argus.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/tmarkovski/dbos-argus"
 Issues = "https://github.com/tmarkovski/dbos-argus/issues"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+# Version is sourced from git tags (vX.Y.Z). `root = "../.."` points at the
+# monorepo's git root since this pyproject sits in packages/server/.
+# `fallback-version` keeps untagged builds (and shallow CI clones) working.
+[tool.hatch.version]
+source = "vcs"
+raw-options = { root = "../..", fallback_version = "0.0.0.dev0" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["dbos_argus"]
+# _console/** is gitignored — populated by scripts/build-pypi.sh before `uv build`.
+artifacts = ["dbos_argus/_console/**"]
+
+[tool.hatch.build.targets.sdist]
+include = ["dbos_argus", "README.md", "pyproject.toml"]
+artifacts = ["dbos_argus/_console/**"]

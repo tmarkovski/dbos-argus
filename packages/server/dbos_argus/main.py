@@ -1,6 +1,7 @@
 import logging
 import os
 from datetime import UTC, datetime
+from importlib.resources import files
 from pathlib import Path
 from typing import Annotated
 
@@ -726,7 +727,11 @@ async def list_notifications(
     ]
 
 
-CONSOLE_DIR = Path(os.environ.get("ARGUS_CONSOLE_DIR", "/app/console"))
+# Default to the SPA bundled inside the wheel at dbos_argus/_console/. Override
+# with ARGUS_CONSOLE_DIR for dev (point at apps/console/build) or for the
+# Docker image which copies the build to /app/console.
+_BUNDLED_CONSOLE_DIR = Path(str(files("dbos_argus") / "_console"))
+CONSOLE_DIR = Path(os.environ.get("ARGUS_CONSOLE_DIR") or _BUNDLED_CONSOLE_DIR)
 
 if CONSOLE_DIR.is_dir() and (CONSOLE_DIR / "index.html").is_file():
     logger.info("serving console from %s", CONSOLE_DIR)

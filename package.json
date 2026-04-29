@@ -6,6 +6,7 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "build": "turbo run build --filter=*",
+    "build:pypi": "bash scripts/build-pypi.sh",
     "dev:db": "docker compose up -d postgres && docker compose stop argus >/dev/null 2>&1 || true",
     "dev": "pnpm dev:db && ARGUS_DATABASE_URL=postgresql+asyncpg://argus:argus@localhost:5432/argus turbo run dev --filter=*",
     "lint": "turbo run lint --filter=*",

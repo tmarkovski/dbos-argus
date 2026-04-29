@@ -21,6 +21,10 @@ __pycache__/
 .mypy_cache/
 *.egg-info/
 
+# PyPI build artifacts — console SPA is staged into the wheel by
+# scripts/build-pypi.sh and never committed. dist/ is already covered above.
+packages/server/dbos_argus/_console/
+
 # Editors / OS
 .DS_Store
 .idea/
