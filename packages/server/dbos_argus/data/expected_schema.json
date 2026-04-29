@@ -1,0 +1,71 @@
+{
+  "schema": "dbos",
+  "tables": [
+    {
+      "name": "notifications",
+      "columns": [
+        {"name": "message_uuid", "data_type": "text"},
+        {"name": "destination_uuid", "data_type": "text"},
+        {"name": "topic", "data_type": "text"},
+        {"name": "consumed", "data_type": "boolean"},
+        {"name": "created_at_epoch_ms", "data_type": "bigint"},
+        {"name": "message", "data_type": "text"},
+        {"name": "serialization", "data_type": "text"}
+      ]
+    },
+    {
+      "name": "operation_outputs",
+      "columns": [
+        {"name": "workflow_uuid", "data_type": "text"},
+        {"name": "function_id", "data_type": "integer"},
+        {"name": "function_name", "data_type": "text"},
+        {"name": "output", "data_type": "text"},
+        {"name": "error", "data_type": "text"},
+        {"name": "child_workflow_id", "data_type": "text"},
+        {"name": "started_at_epoch_ms", "data_type": "bigint"},
+        {"name": "completed_at_epoch_ms", "data_type": "bigint"},
+        {"name": "serialization", "data_type": "text"}
+      ]
+    },
+    {
+      "name": "workflow_events_history",
+      "columns": [
+        {"name": "workflow_uuid", "data_type": "text"},
+        {"name": "function_id", "data_type": "integer"},
+        {"name": "key", "data_type": "text"}
+      ]
+    },
+    {
+      "name": "workflow_schedules",
+      "columns": [
+        {"name": "schedule_id", "data_type": "text"},
+        {"name": "schedule_name", "data_type": "text"},
+        {"name": "workflow_name", "data_type": "text"},
+        {"name": "workflow_class_name", "data_type": "text"},
+        {"name": "schedule", "data_type": "text"},
+        {"name": "status", "data_type": "text"},
+        {"name": "last_fired_at", "data_type": "text"},
+        {"name": "automatic_backfill", "data_type": "boolean"},
+        {"name": "cron_timezone", "data_type": "text"},
+        {"name": "queue_name", "data_type": "text"}
+      ]
+    },
+    {
+      "name": "workflow_status",
+      "columns": [
+        {"name": "workflow_uuid", "data_type": "text"},
+        {"name": "parent_workflow_id", "data_type": "text"},
+        {"name": "name", "data_type": "text"},
+        {"name": "status", "data_type": "text"},
+        {"name": "queue_name", "data_type": "text"},
+        {"name": "executor_id", "data_type": "text"},
+        {"name": "started_at_epoch_ms", "data_type": "bigint"},
+        {"name": "created_at", "data_type": "bigint"},
+        {"name": "updated_at", "data_type": "bigint"},
+        {"name": "output", "data_type": "text"},
+        {"name": "error", "data_type": "text"},
+        {"name": "serialization", "data_type": "text"}
+      ]
+    }
+  ]
+}

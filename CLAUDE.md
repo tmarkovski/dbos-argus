@@ -64,6 +64,8 @@ Pure frontend dev (HMR): `pnpm --filter console dev` starts Vite on :5173 and pr
 
 Argus does not own a schema. It reads DBOS Transact's system tables (`dbos.workflow_status`, etc.) from the Postgres DB that the DBOS app also uses. No migrations to run.
 
+The `/api/sql-diagnostics` endpoint diffs the live schema against a checked-in snapshot at `packages/server/dbos_argus/data/expected_schema.json`. **When DBOS gets bumped or a new query in `main.py` touches a column not in the snapshot, regenerate the snapshot** — see "Schema snapshot" in `CONTRIBUTING.md`. TL;DR: stand up a fresh DBOS DB, run `dbos-argus --db-url ... --dump-schema`, prune to the columns Argus reads, commit.
+
 ## Architecture invariants (enforce in code review)
 
 1. **Argus is read-mostly today.** The server only reads from DBOS Transact's `dbos.*` system tables. When write actions land (cancel/resume/fork), they will go through DBOS Transact's own management APIs from inside the server process — not raw SQL — and `packages/server/pyproject.toml` will then take a runtime dep on `dbos`.

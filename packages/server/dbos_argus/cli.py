@@ -5,7 +5,10 @@ app to see have to be in `os.environ` *before* uvicorn imports `dbos_argus.main`
 We pass the app as an import string for that reason.
 """
 
+import asyncio
+import json
 import os
+import sys
 
 import click
 import uvicorn
@@ -48,12 +51,29 @@ from . import __version__
     envvar="ARGUS_CORS_ORIGINS",
     help="Comma-separated allowed CORS origins. Also reads ARGUS_CORS_ORIGINS.",
 )
+@click.option(
+    "--dump-schema",
+    is_flag=True,
+    help=(
+        "Connect to --db-url, print the live `dbos` schema as JSON to stdout, "
+        "and exit. Use this to regenerate the snapshot at "
+        "dbos_argus/data/expected_schema.json against a fresh DBOS DB."
+    ),
+)
+@click.option(
+    "--dump-schema-name",
+    default="dbos",
+    show_default=True,
+    help="Schema to dump when --dump-schema is set.",
+)
 def main(
     db_url: str | None,
     host: str,
     port: int,
     log_level: str,
     cors_origins: str | None,
+    dump_schema: bool,
+    dump_schema_name: str,
 ) -> None:
     """Run the dbos-argus management console (FastAPI + bundled SPA)."""
     if db_url:
@@ -62,12 +82,32 @@ def main(
         os.environ["ARGUS_CORS_ORIGINS"] = cors_origins
     os.environ["ARGUS_LOG_LEVEL"] = log_level.upper()
 
+    if dump_schema:
+        _dump_schema_and_exit(dump_schema_name)
+        return
+
     uvicorn.run(
         "dbos_argus.main:app",
         host=host,
         port=port,
         log_level=log_level,
     )
+
+
+def _dump_schema_and_exit(schema_name: str) -> None:
+    # Imported lazily so server-only deps don't load when the CLI just dumps.
+    from .db import engine
+    from .schema_dump import dump_live_schema, to_json
+
+    async def _run() -> dict[str, object]:
+        async with engine.connect() as conn:
+            dump = await dump_live_schema(conn, schema=schema_name)
+        await engine.dispose()
+        return to_json(dump)
+
+    payload = asyncio.run(_run())
+    json.dump(payload, sys.stdout, indent=2)
+    sys.stdout.write("\n")
 
 
 if __name__ == "__main__":

@@ -60,6 +60,43 @@ uv run pytest packages/server
 - TypeScript / Svelte: `prettier` + the SvelteKit project config. Run `pnpm run lint`.
 - Commit messages: imperative mood ("add", "fix", "refactor"), scoped where helpful (`server:`, `console:`, `ui:`).
 
+## Schema snapshot (`expected_schema.json`)
+
+The `/api/sql-diagnostics` endpoint compares the live `dbos.*` schema against a checked-in snapshot at `packages/server/dbos_argus/data/expected_schema.json`. The snapshot lists every table and column Argus reads — generic dump-vs-dump diff lives in `schema_diff.py` and has no DBOS-specific knowledge baked in.
+
+**Regenerate when:**
+- Bumping the `dbos` pin in `tests/sample-app/pyproject.toml` (or otherwise pulling a newer DBOS) and the new version adds/renames/retypes columns or tables Argus uses.
+- Adding a new query in `packages/server/dbos_argus/main.py` that touches a column not currently listed in the snapshot.
+- A user reports a false-positive "schema issue" on a current DBOS install (means the snapshot has drifted from reality).
+
+**How to regenerate:**
+
+```bash
+# 1. Stand up a fresh DBOS app against a clean Postgres so DBOS bootstraps its
+#    current schema (the sample-app fixture works):
+docker compose up -d postgres
+uv run argus-runner   # bootstraps dbos.* schema, then idle is fine — Ctrl+C
+
+# 2. Dump the live schema and overwrite the snapshot:
+uv run dbos-argus \
+  --db-url 'postgresql+asyncpg://argus:argus@localhost:5432/argus' \
+  --dump-schema \
+  > packages/server/dbos_argus/data/expected_schema.json.full
+
+# 3. Hand-edit the dump to keep only the tables/columns Argus actually reads
+#    (the existing snapshot is the reference for the right scope). The dump
+#    command emits everything in the schema; the checked-in file is the
+#    minimal subset we depend on.
+$EDITOR packages/server/dbos_argus/data/expected_schema.json.full
+mv packages/server/dbos_argus/data/expected_schema.json{.full,}
+
+# 4. Verify:
+uv run pytest packages/server/tests/test_sql_diagnostics.py
+curl -s http://localhost:8090/api/sql-diagnostics   # should be {"ok":true,"issues":[]}
+```
+
+The snapshot is intentionally curated, not a full pg_dump — the diff is one-sided (extra tables/columns in the live DB are ignored), so the snapshot is a "what we depend on", not "what DBOS currently ships". When in doubt, leave a column out: that just means we don't validate it.
+
 ## Releasing
 
 Releases are tag-driven — pushing a `v*` tag fires `.github/workflows/release.yml`, which publishes to PyPI, builds and pushes the multi-arch Docker image, and creates the GitHub Release.

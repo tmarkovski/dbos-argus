@@ -1,63 +1,70 @@
 from dbos_argus import main
 from dbos_argus.main import app
-from dbos_argus.sql_diagnostics import (
-    DBOS_SCHEMA_EXPECTATIONS,
-    SchemaIssue,
-    collect_schema_issues,
-)
+from dbos_argus.schema_diff import SchemaIssue, diff_schemas
+from dbos_argus.schema_dump import ColumnInfo, SchemaDump, TableInfo, load_expected_dump
 from fastapi.testclient import TestClient
 
 
-def _expected_schema() -> tuple[set[str], dict[tuple[str, str], str]]:
-    tables: set[str] = set()
-    columns: dict[tuple[str, str], str] = {}
-    for table in DBOS_SCHEMA_EXPECTATIONS:
-        tables.add(table.name)
-        for column in table.columns:
-            columns[(table.name, column.name)] = column.accepted_data_types[0]
-    return tables, columns
+def _dump(*tables: tuple[str, list[tuple[str, str]]]) -> SchemaDump:
+    return SchemaDump(
+        schema="dbos",
+        tables=tuple(
+            TableInfo(name=t, columns=tuple(ColumnInfo(name=n, data_type=dt) for n, dt in cols))
+            for t, cols in tables
+        ),
+    )
 
 
-def test_collect_schema_issues_accepts_expected_schema() -> None:
-    tables, columns = _expected_schema()
+def test_diff_accepts_identical_dumps() -> None:
+    expected = _dump(
+        ("workflow_status", [("workflow_uuid", "text"), ("created_at", "bigint")]),
+    )
+    assert diff_schemas(expected, expected) == []
 
-    assert collect_schema_issues(tables, columns) == []
 
+def test_diff_reports_missing_table_column_and_type_mismatch() -> None:
+    expected = _dump(
+        ("workflow_status", [("workflow_uuid", "text"), ("created_at", "bigint")]),
+        ("notifications", [("consumed", "boolean")]),
+        ("workflow_events_history", [("key", "text")]),
+    )
+    actual = _dump(
+        ("workflow_status", [("workflow_uuid", "text"), ("created_at", "integer")]),
+        ("notifications", []),
+    )
 
-def test_collect_schema_issues_reports_missing_tables_columns_and_type_mismatches() -> None:
-    tables, columns = _expected_schema()
-    tables.remove("workflow_events_history")
-    columns.pop(("notifications", "consumed"))
-    columns[("workflow_status", "created_at")] = "integer"
-
-    issues = collect_schema_issues(tables, columns)
+    issues = diff_schemas(expected, actual)
 
     assert [
-        (
-            issue.kind,
-            issue.table_name,
-            issue.column_name,
-            issue.expected_type,
-            issue.actual_type,
-        )
-        for issue in issues
+        (i.kind, i.table_name, i.column_name, i.expected_type, i.actual_type) for i in issues
     ] == [
         ("wrong_type", "workflow_status", "created_at", "bigint", "integer"),
-        (
-            "missing_table",
-            "workflow_events_history",
-            None,
-            None,
-            None,
-        ),
-        (
-            "missing_column",
-            "notifications",
-            "consumed",
-            "boolean",
-            None,
-        ),
+        ("missing_column", "notifications", "consumed", "boolean", None),
+        ("missing_table", "workflow_events_history", None, None, None),
     ]
+
+
+def test_diff_treats_pg_string_synonyms_as_equivalent() -> None:
+    expected = _dump(("t", [("c", "text")]))
+    actual = _dump(("t", [("c", "character varying")]))
+    assert diff_schemas(expected, actual) == []
+
+
+def test_diff_ignores_extra_tables_and_columns_in_actual() -> None:
+    expected = _dump(("t", [("c", "text")]))
+    actual = _dump(
+        ("t", [("c", "text"), ("extra_col", "text")]),
+        ("extra_table", [("x", "text")]),
+    )
+    assert diff_schemas(expected, actual) == []
+
+
+def test_load_expected_dump_matches_itself() -> None:
+    expected = load_expected_dump()
+    assert expected.schema == "dbos"
+    assert {t.name for t in expected.tables}, "snapshot should describe at least one table"
+    # The snapshot must be self-consistent — diffing it against itself yields no issues.
+    assert diff_schemas(expected, expected) == []
 
 
 class _FakeConnectionContext:
