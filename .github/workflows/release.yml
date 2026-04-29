@@ -1,0 +1,138 @@
+name: release
+
+# Triggered by pushing a v* tag. Three sequenced jobs:
+#   1. pypi    — build wheel/sdist and publish via OIDC trusted publishing
+#   2. docker  — pull from PyPI into a slim image, push multi-arch to Docker Hub
+#   3. release — create the matching GitHub Release with auto-generated notes
+#
+# Docker depends on PyPI so the `pip install dbos-argus==<ver>` in the image
+# can never race against the upload. Release depends on both — it only fires
+# once both artifacts are live.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write   # OIDC trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # hatch-vcs reads tags
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install pnpm workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Build wheel + sdist
+        run: bash scripts/build-pypi.sh
+
+      - name: Publish to PyPI
+        run: uv publish --trusted-publishing always dist/*
+
+  docker:
+    needs: [pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: tmarkovski
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Compute version (strip leading v)
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: tmarkovski/dbos-argus
+          # `latest` is suppressed for prereleases (rc/a/b suffixes) so
+          # `:latest` always points at a stable release.
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, 'rc') && !contains(github.ref_name, 'a') && !contains(github.ref_name, 'b') }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            ARGUS_VERSION=${{ steps.ver.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    needs: [pypi, docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # If CHANGELOG.md has a section for this tag, use that as the body.
+          # Otherwise fall back to GitHub's auto-generated commit/PR list.
+          version="${GITHUB_REF_NAME#v}"
+          notes_file="$(mktemp)"
+          if [ -f CHANGELOG.md ] && awk -v v="$version" '
+              /^## \[/ {
+                if (capturing) exit
+                if ($0 ~ "\\[" v "\\]") capturing=1; next
+              }
+              capturing { print }
+            ' CHANGELOG.md > "$notes_file" && [ -s "$notes_file" ]; then
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file "$notes_file" \
+              --verify-tag
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes \
+              --verify-tag
+          fi

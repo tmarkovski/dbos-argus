@@ -1,58 +1,29 @@
-# syntax=docker/dockerfile:1.7
+# Single-stage runtime: install dbos-argus from PyPI and run.
+#
+# The wheel ships the SvelteKit console SPA inside the package at
+# dbos_argus/_console/, so there is no separate JS build stage anymore.
+#
+# CI passes ARGUS_VERSION=<tag without v prefix> on tagged builds. Local
+# `docker build .` without --build-arg installs whatever PyPI marks as latest.
 
-# ---------- stage 1: build the Svelte console into static files ----------
-FROM node:22-slim AS console-builder
+FROM python:3.12-slim
 
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
-
-WORKDIR /repo
-
-# Install deps first for layer caching.
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* turbo.json ./
-COPY apps/console/package.json ./apps/console/
-COPY packages/ui/package.json ./packages/ui/
-
-RUN pnpm install --no-frozen-lockfile
-
-COPY apps/console ./apps/console
-COPY packages/ui ./packages/ui
-
-RUN pnpm --filter console build
-
-# ---------- stage 2: Python runtime with FastAPI serving the console ----------
-FROM python:3.12-slim AS runtime
+ARG ARGUS_VERSION=
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    ARGUS_CONSOLE_DIR=/app/console
+    PIP_NO_CACHE_DIR=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /bin/
-
-WORKDIR /app
-
-# Resolve deps from workspace manifests first for caching.
-COPY pyproject.toml ./
-COPY packages/server/pyproject.toml packages/server/README.md ./packages/server/
-
-RUN mkdir -p packages/server/dbos_argus \
- && touch packages/server/dbos_argus/__init__.py
-
-RUN uv sync
-
-COPY packages/server ./packages/server
-
-RUN uv sync
-
-# Bring the built console into the image at ARGUS_CONSOLE_DIR.
-COPY --from=console-builder /repo/apps/console/build /app/console
-
-WORKDIR /app/packages/server
+RUN if [ -n "$ARGUS_VERSION" ]; then \
+      pip install "dbos-argus==${ARGUS_VERSION}"; \
+    else \
+      pip install dbos-argus; \
+    fi
 
 EXPOSE 8090
 
-CMD ["uv", "run", "--project", "/app", "uvicorn", "dbos_argus.main:app", "--host", "0.0.0.0", "--port", "8090"]
+CMD ["dbos-argus", "--host", "0.0.0.0", "--port", "8090"]

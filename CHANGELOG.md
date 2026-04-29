@@ -1,0 +1,21 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.0.1] - 2026-04-29
+
+### Added
+- First public release of the `dbos-argus` package on PyPI.
+- `dbos-argus` console script (click + uvicorn) — run with `uvx dbos-argus --db-url ...`.
+- SvelteKit console SPA bundled inside the wheel at `dbos_argus/_console/`, served by FastAPI on the same port.
+- Read-only views of DBOS Transact's `dbos.workflow_status`, `operation_outputs`, `workflow_schedules`, `notifications` system tables.
+- Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
+- Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
+
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.1...HEAD
+[0.0.1]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.1

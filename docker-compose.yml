@@ -1,3 +1,15 @@
+# Postgres + Argus, both pulled as published images.
+#
+# Quick start:
+#   docker compose up
+#
+# Pin a specific Argus version (matches the Docker Hub tag — no leading "v"):
+#   ARGUS_IMAGE_TAG=0.1.0 docker compose up
+#
+# Point at an existing Postgres instead of the bundled one:
+#   ARGUS_DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/db \
+#     docker compose up argus
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -16,14 +28,13 @@ services:
       - argus-pg-data:/var/lib/postgresql/data
 
   argus:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: tmarkovski/dbos-argus:${ARGUS_IMAGE_TAG:-latest}
     environment:
-      ARGUS_DATABASE_URL: postgresql+asyncpg://argus:argus@postgres:5432/argus
+      ARGUS_DATABASE_URL: ${ARGUS_DATABASE_URL:-postgresql+asyncpg://argus:argus@postgres:5432/argus}
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
     ports:
       - "8090:8090"
     healthcheck:

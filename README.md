@@ -12,22 +12,39 @@ Argus is a web dashboard for observing the durable workflows your [DBOS Transact
 
 ## Quick start
 
-If you already have a DBOS app running against Postgres, you're 30 seconds away. Point Argus at the same database:
+If you already have a DBOS app running against Postgres, you're 30 seconds away. Point Argus at the same database — pick whichever runner is most convenient.
+
+### With `uvx` (recommended, no install)
+
+```bash
+uvx dbos-argus --db-url "postgresql+asyncpg://USER:PASS@localhost:5432/YOURDB"
+```
+
+[`uv`](https://docs.astral.sh/uv/) downloads the published wheel, installs it into a throwaway environment, and runs it. The console SPA is bundled inside the wheel — no separate frontend to install.
+
+### With `pip` / `pipx`
+
+```bash
+pipx install dbos-argus
+dbos-argus --db-url "postgresql+asyncpg://USER:PASS@localhost:5432/YOURDB"
+```
+
+### With Docker
 
 ```bash
 docker run --rm -p 8090:8090 \
   -e ARGUS_DATABASE_URL="postgresql+asyncpg://USER:PASS@host.docker.internal:5432/YOURDB" \
-  tmarkovski/dbos-argus:edge
+  tmarkovski/dbos-argus:latest
 ```
 
-Open http://localhost:8090.
+In every case, open http://localhost:8090.
 
 That's it. Argus is read-only against `dbos.workflow_status` and the related DBOS system tables, so it can't break anything. Nothing to install in your app.
 
 A few gotchas:
 
 - **Driver must be asyncpg.** The URL prefix is `postgresql+asyncpg://`, not `postgresql://`.
-- **`host.docker.internal`** is what the container uses to reach Postgres on your host (macOS, Windows, Docker Desktop). On Linux, add `--add-host=host.docker.internal:host-gateway`, or use `--network host` and switch back to `localhost`.
+- **`host.docker.internal`** (Docker only) is what the container uses to reach Postgres on your host (macOS, Windows, Docker Desktop). On Linux, add `--add-host=host.docker.internal:host-gateway`, or use `--network host` and switch back to `localhost`.
 - **`pg_hba.conf`** may reject connections from the docker bridge (`172.17.0.0/16`) by default. If you see auth errors, add a matching `host` line.
 
 Smoke-test the URL first if you're unsure:
@@ -36,13 +53,13 @@ Smoke-test the URL first if you're unsure:
 psql "postgresql://USER:PASS@localhost:5432/YOURDB" -c "select count(*) from dbos.workflow_status;"
 ```
 
-If that returns a number, you're good — swap `localhost` → `host.docker.internal` and `postgresql://` → `postgresql+asyncpg://` in the docker command.
+If that returns a number, you're good — swap `postgresql://` → `postgresql+asyncpg://` in the Argus command (and `localhost` → `host.docker.internal` if using the Docker runner).
 
 ### Image tags
 
 | Tag | Meaning |
 |---|---|
-| `:edge` | Built from every push to `main` |
+| `:latest` | Latest stable release |
 | `:vX.Y.Z` / `:X.Y` / `:X` | Release tags |
 | `:sha-<short>` | Per-commit, immutable |
 
