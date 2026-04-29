@@ -9,6 +9,7 @@
   import ColumnsIcon from "@lucide/svelte/icons/columns-3";
   import XIcon from "@lucide/svelte/icons/x";
   import CheckIcon from "@lucide/svelte/icons/check";
+  import ListChecksIcon from "@lucide/svelte/icons/list-checks";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import { slide } from "svelte/transition";
   import DateRangePicker from "$lib/components/DateRangePicker.svelte";
@@ -24,7 +25,6 @@
   import {
     computeLineage,
     statusBadgeClass,
-    statusDotClass,
     type TreeRow,
     type Workflow,
   } from "$lib/workflow-tree";
@@ -112,6 +112,7 @@
     started: "Started",
     executor_id: "Executor",
   };
+  const REQUIRED_COLUMNS: ReadonlySet<ColumnKey> = new Set(["name", "status"]);
 
   function toggleStatus(value: string) {
     const next = new Set(selectedStatuses);
@@ -157,14 +158,16 @@
 
   async function refresh() {
     try {
-      const [listRes, enqRes] = await Promise.all([
-        fetch("/api/workflows?" + buildQuery()),
-        fetch("/api/workflows?" + buildEnqueuedQuery()),
-      ]);
-      if (!listRes.ok) throw new Error(`HTTP ${listRes.status}`);
+      const enqRes = await fetch("/api/workflows?" + buildEnqueuedQuery());
       if (!enqRes.ok) throw new Error(`HTTP ${enqRes.status}`);
-      workflows = (await listRes.json()) as Workflow[];
       enqueued = (await enqRes.json()) as Workflow[];
+      if (selectedStatuses.size === 0) {
+        workflows = [];
+      } else {
+        const listRes = await fetch("/api/workflows?" + buildQuery());
+        if (!listRes.ok) throw new Error(`HTTP ${listRes.status}`);
+        workflows = (await listRes.json()) as Workflow[];
+      }
       error = null;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
@@ -385,9 +388,13 @@
           <Button variant="outline" {...props}>
             <FilterIcon />
             Status
-            {#if statusNarrowed}
-              <Badge variant="secondary">{selectedStatuses.size}</Badge>
-            {/if}
+            <Badge variant="secondary">
+              {selectedStatuses.size === 0
+                ? "None"
+                : selectedStatuses.size === STATUS_OPTIONS.length
+                  ? "All"
+                  : selectedStatuses.size}
+            </Badge>
           </Button>
         {/snippet}
       </Popover.Trigger>
@@ -400,24 +407,21 @@
             class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-2xl px-2 py-1.5 text-left text-sm"
           >
             <CheckIcon class="size-4 {checked ? 'opacity-100' : 'opacity-0'}" />
-            <span class="flex items-center gap-1.5">
-              <span class="inline-block h-2 w-2 rounded-full {statusDotClass(opt.value)}"></span>
-              {opt.label}
-            </span>
+            {opt.label}
           </button>
         {/each}
-        {#if selectedStatuses.size !== STATUS_OPTIONS.length}
-          <div class="border-border mt-1 border-t pt-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              class="w-full justify-center"
-              onclick={() => (selectedStatuses = allStatuses())}
-            >
-              Reset
-            </Button>
-          </div>
-        {/if}
+        {@const allSelected = selectedStatuses.size === STATUS_OPTIONS.length}
+        <div class="border-border mt-1 border-t pt-1">
+          <button
+            type="button"
+            onclick={() =>
+              (selectedStatuses = allSelected ? new Set() : allStatuses())}
+            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-2xl px-2 py-1.5 text-left text-sm"
+          >
+            <ListChecksIcon class="size-4" />
+            {allSelected ? "Deselect all" : "Select all"}
+          </button>
+        </div>
       </Popover.Content>
     </Popover.Root>
 
@@ -483,15 +487,36 @@
         {#each Object.keys(COLUMN_LABELS) as key (key)}
           {@const k = key as ColumnKey}
           {@const checked = columns[k]}
+          {@const required = REQUIRED_COLUMNS.has(k)}
           <button
             type="button"
+            disabled={required}
             onclick={() => (columns[k] = !columns[k])}
-            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-2xl px-2 py-1.5 text-left text-sm"
+            class="flex w-full items-center gap-2 rounded-2xl px-2 py-1.5 text-left text-sm {required
+              ? 'text-muted-foreground cursor-not-allowed'
+              : 'hover:bg-muted cursor-pointer'}"
           >
             <CheckIcon class="size-4 {checked ? 'opacity-100' : 'opacity-0'}" />
             {COLUMN_LABELS[k]}
           </button>
         {/each}
+        {@const optionalKeys = (Object.keys(COLUMN_LABELS) as ColumnKey[]).filter(
+          (k) => !REQUIRED_COLUMNS.has(k),
+        )}
+        {@const allSelected = optionalKeys.every((k) => columns[k])}
+        <div class="border-border mt-1 border-t pt-1">
+          <button
+            type="button"
+            onclick={() => {
+              const next = !allSelected;
+              for (const k of optionalKeys) columns[k] = next;
+            }}
+            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-2xl px-2 py-1.5 text-left text-sm"
+          >
+            <ListChecksIcon class="size-4" />
+            {allSelected ? "Deselect all" : "Select all"}
+          </button>
+        </div>
       </Popover.Content>
     </Popover.Root>
   </div>

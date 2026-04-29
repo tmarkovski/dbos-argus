@@ -5,7 +5,7 @@ export type BreadcrumbItem = {
   status?: string | null;
   tooltip?: string;
   // When set, the layout renders the icon in place of the label.
-  icon?: "home" | "workflow";
+  icon?: "home" | "workflow" | "schedules" | "notifications";
 };
 
 class BreadcrumbState {

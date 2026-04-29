@@ -23,10 +23,7 @@
   let timer: ReturnType<typeof setInterval> | undefined;
 
   $effect(() => {
-    breadcrumb.items = [
-      { label: "Home", href: "/", icon: "home" },
-      { label: "Notifications" },
-    ];
+    breadcrumb.items = [{ label: "Notifications", icon: "notifications" }];
     return () => {
       breadcrumb.items = [];
     };

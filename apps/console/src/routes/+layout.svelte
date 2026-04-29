@@ -230,14 +230,19 @@
                 <Breadcrumb.Link
                   href={item.href}
                   title={item.tooltip}
-                  aria-label={item.icon ? item.label : undefined}
+                  aria-label={item.icon === "home" ? item.label : undefined}
                   class="inline-flex items-center"
                 >
                   {#if item.icon === "home"}
                     <House class="size-3.5" />
-                  {:else if item.icon === "workflow"}
-                    <Workflow class="size-3.5" />
                   {:else}
+                    {#if item.icon === "workflow"}
+                      <Workflow class="mr-1.5 size-3.5" />
+                    {:else if item.icon === "schedules"}
+                      <CalendarClock class="mr-1.5 size-3.5" />
+                    {:else if item.icon === "notifications"}
+                      <Bell class="mr-1.5 size-3.5" />
+                    {/if}
                     {item.label}
                   {/if}
                 </Breadcrumb.Link>
@@ -245,9 +250,14 @@
                 <Breadcrumb.Page title={item.tooltip} class="inline-flex items-center">
                   {#if item.icon === "home"}
                     <House class="size-3.5" />
-                  {:else if item.icon === "workflow"}
-                    <Workflow class="size-3.5" />
                   {:else}
+                    {#if item.icon === "workflow"}
+                      <Workflow class="mr-1.5 size-3.5" />
+                    {:else if item.icon === "schedules"}
+                      <CalendarClock class="mr-1.5 size-3.5" />
+                    {:else if item.icon === "notifications"}
+                      <Bell class="mr-1.5 size-3.5" />
+                    {/if}
                     {item.label}
                   {/if}
                 </Breadcrumb.Page>
