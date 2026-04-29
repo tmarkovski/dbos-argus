@@ -45,7 +45,13 @@
     };
   });
 
-  type ColumnKey = "name" | "status" | "workflow_id" | "started" | "executor_id";
+  type ColumnKey =
+    | "name"
+    | "status"
+    | "workflow_id"
+    | "started"
+    | "executor_id"
+    | "queue_name";
 
   let workflows = $state<Workflow[] | null>(null);
   // ENQUEUED rows live in a pinned strip above the main list; the server
@@ -103,6 +109,7 @@
     workflow_id: true,
     started: true,
     executor_id: true,
+    queue_name: false,
   });
 
   const COLUMN_LABELS: Record<ColumnKey, string> = {
@@ -111,6 +118,7 @@
     workflow_id: "Workflow ID",
     started: "Started",
     executor_id: "Executor",
+    queue_name: "Queue",
   };
   const REQUIRED_COLUMNS: ReadonlySet<ColumnKey> = new Set(["name", "status"]);
 
@@ -477,9 +485,20 @@
     <Popover.Root>
       <Popover.Trigger>
         {#snippet child({ props })}
+          {@const optionalKeys = (Object.keys(COLUMN_LABELS) as ColumnKey[]).filter(
+            (k) => !REQUIRED_COLUMNS.has(k),
+          )}
+          {@const selectedCount = optionalKeys.filter((k) => columns[k]).length}
           <Button variant="outline" {...props}>
             <ColumnsIcon />
             Columns
+            <Badge variant="secondary">
+              {selectedCount === 0
+                ? "None"
+                : selectedCount === optionalKeys.length
+                  ? "All"
+                  : selectedCount}
+            </Badge>
           </Button>
         {/snippet}
       </Popover.Trigger>
@@ -547,6 +566,7 @@
             {#if columns.workflow_id}<Table.Head class="px-4">Workflow ID</Table.Head>{/if}
             {#if columns.started}<Table.Head class="px-4">Started</Table.Head>{/if}
             {#if columns.executor_id}<Table.Head class="px-4">Executor</Table.Head>{/if}
+            {#if columns.queue_name}<Table.Head class="px-4">Queue</Table.Head>{/if}
           </Table.Row>
         </Table.Header>
         <Table.Body>
@@ -654,6 +674,26 @@
                   title={w.executor_id ?? ""}
                 >
                   {w.executor_id ?? "—"}
+                </Table.Cell>
+              {/if}
+              {#if columns.queue_name}
+                <Table.Cell
+                  class="text-muted-foreground px-4 font-mono text-xs {!grouped ||
+                  w.depth === 0
+                    ? 'py-2'
+                    : 'py-1'}"
+                  title={w.queue_name ?? ""}
+                >
+                  {#if w.queue_name}
+                    <a
+                      href="/workflows/?queue_name={encodeURIComponent(w.queue_name)}"
+                      class="hover:text-foreground hover:underline"
+                    >
+                      {w.queue_name}
+                    </a>
+                  {:else}
+                    —
+                  {/if}
                 </Table.Cell>
               {/if}
             </Table.Row>

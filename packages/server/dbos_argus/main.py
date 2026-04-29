@@ -676,12 +676,25 @@ async def list_schedules() -> list[WorkflowSchedule]:
     ]
 
 
+class WorkflowAncestor(BaseModel):
+    workflow_id: str
+    name: str | None
+    status: str | None
+
+
 class NotificationItem(BaseModel):
     message_uuid: str
     destination_uuid: str
     topic: str | None
     consumed: bool
     created_at: datetime
+    message: str | None
+    serialization: str | None
+    message_decoded: str | None
+    # Chain from the topmost ancestor down to the destination workflow itself
+    # (last entry). Empty when the destination row doesn't exist in
+    # dbos.workflow_status.
+    destination_ancestors: list[WorkflowAncestor]
 
 
 @app.get("/api/notifications")
@@ -704,17 +717,64 @@ async def list_notifications(
         params["topic"] = topic
     where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
     sql = f"""
-        SELECT message_uuid, destination_uuid, topic, consumed, created_at_epoch_ms
+        SELECT message_uuid, destination_uuid, topic, consumed, created_at_epoch_ms,
+               message, serialization
         FROM dbos.notifications
         {where}
         ORDER BY created_at_epoch_ms DESC
         LIMIT :limit
     """
+    # Walks parent_workflow_id from each destination up to the topmost
+    # ancestor in one set-based recursive CTE. Tracks the seed destination so
+    # results can be grouped per-notification client-side.
+    ancestors_sql = """
+        WITH RECURSIVE up AS (
+            SELECT
+                ws.workflow_uuid AS seed_id,
+                ws.workflow_uuid,
+                ws.parent_workflow_id,
+                ws.name,
+                ws.status,
+                0 AS lvl
+            FROM dbos.workflow_status ws
+            WHERE ws.workflow_uuid = ANY(:destination_ids)
+
+            UNION ALL
+
+            SELECT
+                u.seed_id,
+                ws.workflow_uuid,
+                ws.parent_workflow_id,
+                ws.name,
+                ws.status,
+                u.lvl + 1
+            FROM dbos.workflow_status ws
+            JOIN up u ON ws.workflow_uuid = u.parent_workflow_id
+        )
+        SELECT seed_id, workflow_uuid, name, status, lvl
+        FROM up
+        ORDER BY seed_id, lvl DESC
+    """
     try:
         async with engine.connect() as conn:
             rows = (await conn.execute(text(sql), params)).fetchall()
+            destination_ids = list({r.destination_uuid for r in rows})
+            ancestor_rows = (
+                (
+                    await conn.execute(
+                        text(ancestors_sql), {"destination_ids": destination_ids}
+                    )
+                ).fetchall()
+                if destination_ids
+                else []
+            )
     except ProgrammingError:
         return []
+    ancestors_by_seed: dict[str, list[WorkflowAncestor]] = {}
+    for ar in ancestor_rows:
+        ancestors_by_seed.setdefault(ar.seed_id, []).append(
+            WorkflowAncestor(workflow_id=ar.workflow_uuid, name=ar.name, status=ar.status)
+        )
     return [
         NotificationItem(
             message_uuid=r.message_uuid,
@@ -722,6 +782,10 @@ async def list_notifications(
             topic=r.topic,
             consumed=r.consumed,
             created_at=datetime.fromtimestamp(r.created_at_epoch_ms / 1000, tz=UTC),
+            message=r.message,
+            serialization=r.serialization,
+            message_decoded=decode_dbos_value(r.message, r.serialization),
+            destination_ancestors=ancestors_by_seed.get(r.destination_uuid, []),
         )
         for r in rows
     ]
