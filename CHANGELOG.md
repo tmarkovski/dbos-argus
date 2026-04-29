@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+### Changed
+- Release pipeline: docker step split into a parallel matrix
+  (`docker-build` on native amd64 + native arm64 runners) plus a
+  `docker-manifest` job that assembles the multi-arch image from the
+  per-arch digests. Removes QEMU emulation, where arm64 was ~10× slower
+  than amd64 (95s vs 10s for `pip install` alone).
+
 ## [0.0.9] - 2026-04-29
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.

@@ -106,11 +106,12 @@ git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-The workflow has three sequenced jobs:
+The workflow has four sequenced jobs:
 
 1. **`pypi`** — `scripts/build-pypi.sh` builds the wheel (with the SvelteKit SPA bundled at `dbos_argus/_console/`); `uv publish` uploads via OIDC trusted publishing to the `pypi` GitHub environment.
-2. **`docker`** — depends on `pypi` so `pip install dbos-argus==<ver>` in the image can't race the upload. Pushes `:X.Y.Z`, `:X.Y`, `:X`, `:latest` (stable only), and `:sha-<short>` to Docker Hub.
-3. **`release`** — depends on both. Creates the GitHub Release with the matching CHANGELOG section as body (auto-generated commit list as fallback).
+2. **`docker-build`** — matrix job that runs in parallel on a native amd64 runner (`ubuntu-latest`) and a native arm64 runner (`ubuntu-24.04-arm`). Each builds the Dockerfile for its single platform and pushes by digest only. Native runners avoid the QEMU emulation tax (arm64 builds were ~10x slower than amd64 under emulation).
+3. **`docker-manifest`** — depends on `docker-build`. Downloads the per-arch digests, runs `docker buildx imagetools create` to assemble the multi-arch manifest, and applies the user-facing tags (`:X.Y.Z`, `:X.Y`, `:X`, `:latest` stable-only, `:sha-<short>`).
+4. **`release`** — depends on `pypi` and `docker-manifest`. Creates the GitHub Release with the matching CHANGELOG section as body (auto-generated commit list as fallback).
 
 **Versioning.** Source of truth is the git tag — version is computed by `hatch-vcs` at build time. There's nothing to bump in `pyproject.toml` or `__init__.py`. Untagged builds get a local-version segment (`0.0.2.dev3+g<sha>`) which PyPI rejects, so accidental publishes from non-tagged commits aren't possible.
 

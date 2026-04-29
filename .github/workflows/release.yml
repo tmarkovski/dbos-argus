@@ -55,15 +55,31 @@ jobs:
       - name: Publish to PyPI
         run: uv publish --trusted-publishing always dist/*
 
-  docker:
+  # Build amd64 and arm64 images in parallel on *native* runners, push each by
+  # digest only (no tags), then assemble the multi-arch manifest in `docker-manifest`.
+  # Building arm64 under QEMU on an amd64 runner was the dominant cost — pip
+  # install of dbos-argus took ~10s natively but ~95s emulated. With native
+  # arm64 runners the per-arch jobs run side-by-side instead of sequentially.
+  docker-build:
     needs: [pypi]
-    runs-on: ubuntu-latest
     permissions:
       contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux/amd64
+            arch_suffix: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            arch_suffix: arm64
+    runs-on: ${{ matrix.runner }}
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
     steps:
       - uses: actions/checkout@v6
 
-      - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
 
       - uses: docker/login-action@v4
@@ -74,6 +90,56 @@ jobs:
       - name: Compute version (strip leading v)
         id: ver
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          platforms: ${{ matrix.platform }}
+          # Push by digest only; `docker-manifest` job assembles the tagged
+          # multi-arch manifest from these digests.
+          outputs: type=image,name=tmarkovski/dbos-argus,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            ARGUS_VERSION=${{ steps.ver.outputs.version }}
+          # Per-arch GHA cache scope so amd64 and arm64 don't fight over the
+          # same key on subsequent runs.
+          cache-from: type=gha,scope=docker-${{ matrix.arch_suffix }}
+          cache-to: type=gha,mode=max,scope=docker-${{ matrix.arch_suffix }}
+
+      - name: Export digest
+        run: |
+          mkdir -p "${RUNNER_TEMP}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${RUNNER_TEMP}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.arch_suffix }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  docker-manifest:
+    needs: [docker-build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          username: tmarkovski
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
@@ -89,22 +155,19 @@ jobs:
             type=sha,prefix=sha-,format=short
             type=raw,value=latest,enable=${{ !contains(github.ref_name, 'rc') && !contains(github.ref_name, 'a') && !contains(github.ref_name, 'b') }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          build-args: |
-            ARGUS_VERSION=${{ steps.ver.outputs.version }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Create multi-arch manifest
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf 'tmarkovski/dbos-argus@sha256:%s ' *)
+
+      - name: Inspect resulting image
+        run: |
+          docker buildx imagetools inspect tmarkovski/dbos-argus:${{ needs.docker-build.outputs.version }}
 
   release:
-    needs: [pypi, docker]
+    needs: [pypi, docker-manifest]
     runs-on: ubuntu-latest
     permissions:
       contents: write
