@@ -781,9 +781,7 @@ async def list_notifications(
             destination_ids = list({r.destination_uuid for r in rows})
             ancestor_rows = (
                 (
-                    await conn.execute(
-                        text(ancestors_sql), {"destination_ids": destination_ids}
-                    )
+                    await conn.execute(text(ancestors_sql), {"destination_ids": destination_ids})
                 ).fetchall()
                 if destination_ids
                 else []
