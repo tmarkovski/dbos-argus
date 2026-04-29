@@ -14,10 +14,26 @@ import click
 import uvicorn
 
 from . import __version__
+from .schema_dump import load_full_dump
+
+
+def _version_message() -> str:
+    """`dbos-argus X.Y.Z (tested against DBOS Y.Y.Y)` for `--version`."""
+    try:
+        tested = load_full_dump().meta.get("dbos_version", "unknown")
+    except Exception:
+        tested = "unknown"
+    return f"%(prog)s %(version)s (tested against DBOS {tested})"
 
 
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
-@click.version_option(__version__, "-V", "--version", prog_name="dbos-argus")
+@click.version_option(
+    __version__,
+    "-V",
+    "--version",
+    prog_name="dbos-argus",
+    message=_version_message(),
+)
 @click.option(
     "--db-url",
     envvar="ARGUS_DATABASE_URL",

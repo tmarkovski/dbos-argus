@@ -1,0 +1,143 @@
+{
+  "schema": "dbos",
+  "meta": {
+    "dbos_version": "2.19.0",
+    "note": "Full DBOS Postgres schema. `argus: true` columns are the ones the Argus backend actively reads — diff_schemas filters to those at runtime. The CI watchdog (.github/workflows/dbos-schema-watch.yml) regenerates this file against newly released DBOS versions and opens an issue when anything changes."
+  },
+  "tables": [
+    {
+      "name": "application_versions",
+      "columns": [
+        {"name": "version_id", "data_type": "text", "argus": false},
+        {"name": "version_name", "data_type": "text", "argus": false},
+        {"name": "version_timestamp", "data_type": "bigint", "argus": false},
+        {"name": "created_at", "data_type": "bigint", "argus": false}
+      ]
+    },
+    {
+      "name": "dbos_migrations",
+      "columns": [
+        {"name": "version", "data_type": "bigint", "argus": false}
+      ]
+    },
+    {
+      "name": "event_dispatch_kv",
+      "columns": [
+        {"name": "service_name", "data_type": "text", "argus": false},
+        {"name": "workflow_fn_name", "data_type": "text", "argus": false},
+        {"name": "key", "data_type": "text", "argus": false},
+        {"name": "value", "data_type": "text", "argus": false},
+        {"name": "update_seq", "data_type": "numeric", "argus": false},
+        {"name": "update_time", "data_type": "numeric", "argus": false}
+      ]
+    },
+    {
+      "name": "notifications",
+      "columns": [
+        {"name": "message_uuid", "data_type": "text", "argus": true},
+        {"name": "destination_uuid", "data_type": "text", "argus": true},
+        {"name": "topic", "data_type": "text", "argus": true},
+        {"name": "message", "data_type": "text", "argus": true},
+        {"name": "created_at_epoch_ms", "data_type": "bigint", "argus": true},
+        {"name": "serialization", "data_type": "text", "argus": true},
+        {"name": "consumed", "data_type": "boolean", "argus": true}
+      ]
+    },
+    {
+      "name": "operation_outputs",
+      "columns": [
+        {"name": "workflow_uuid", "data_type": "text", "argus": true},
+        {"name": "function_id", "data_type": "integer", "argus": true},
+        {"name": "function_name", "data_type": "text", "argus": true},
+        {"name": "output", "data_type": "text", "argus": true},
+        {"name": "error", "data_type": "text", "argus": true},
+        {"name": "child_workflow_id", "data_type": "text", "argus": true},
+        {"name": "started_at_epoch_ms", "data_type": "bigint", "argus": true},
+        {"name": "completed_at_epoch_ms", "data_type": "bigint", "argus": true},
+        {"name": "serialization", "data_type": "text", "argus": true}
+      ]
+    },
+    {
+      "name": "streams",
+      "columns": [
+        {"name": "workflow_uuid", "data_type": "text", "argus": false},
+        {"name": "key", "data_type": "text", "argus": false},
+        {"name": "value", "data_type": "text", "argus": false},
+        {"name": "offset", "data_type": "integer", "argus": false},
+        {"name": "function_id", "data_type": "integer", "argus": false},
+        {"name": "serialization", "data_type": "text", "argus": false}
+      ]
+    },
+    {
+      "name": "workflow_events",
+      "columns": [
+        {"name": "workflow_uuid", "data_type": "text", "argus": false},
+        {"name": "key", "data_type": "text", "argus": false},
+        {"name": "value", "data_type": "text", "argus": false},
+        {"name": "serialization", "data_type": "text", "argus": false}
+      ]
+    },
+    {
+      "name": "workflow_events_history",
+      "columns": [
+        {"name": "workflow_uuid", "data_type": "text", "argus": true},
+        {"name": "function_id", "data_type": "integer", "argus": true},
+        {"name": "key", "data_type": "text", "argus": true},
+        {"name": "value", "data_type": "text", "argus": false},
+        {"name": "serialization", "data_type": "text", "argus": false}
+      ]
+    },
+    {
+      "name": "workflow_schedules",
+      "columns": [
+        {"name": "schedule_id", "data_type": "text", "argus": true},
+        {"name": "schedule_name", "data_type": "text", "argus": true},
+        {"name": "workflow_name", "data_type": "text", "argus": true},
+        {"name": "workflow_class_name", "data_type": "text", "argus": true},
+        {"name": "schedule", "data_type": "text", "argus": true},
+        {"name": "status", "data_type": "text", "argus": true},
+        {"name": "context", "data_type": "text", "argus": false},
+        {"name": "last_fired_at", "data_type": "text", "argus": true},
+        {"name": "automatic_backfill", "data_type": "boolean", "argus": true},
+        {"name": "cron_timezone", "data_type": "text", "argus": true},
+        {"name": "queue_name", "data_type": "text", "argus": true}
+      ]
+    },
+    {
+      "name": "workflow_status",
+      "columns": [
+        {"name": "workflow_uuid", "data_type": "text", "argus": true},
+        {"name": "status", "data_type": "text", "argus": true},
+        {"name": "name", "data_type": "text", "argus": true},
+        {"name": "authenticated_user", "data_type": "text", "argus": false},
+        {"name": "assumed_role", "data_type": "text", "argus": false},
+        {"name": "authenticated_roles", "data_type": "text", "argus": false},
+        {"name": "request", "data_type": "text", "argus": false},
+        {"name": "output", "data_type": "text", "argus": true},
+        {"name": "error", "data_type": "text", "argus": true},
+        {"name": "executor_id", "data_type": "text", "argus": true},
+        {"name": "created_at", "data_type": "bigint", "argus": true},
+        {"name": "updated_at", "data_type": "bigint", "argus": true},
+        {"name": "application_version", "data_type": "text", "argus": false},
+        {"name": "application_id", "data_type": "text", "argus": false},
+        {"name": "class_name", "data_type": "character varying", "argus": false},
+        {"name": "config_name", "data_type": "character varying", "argus": false},
+        {"name": "recovery_attempts", "data_type": "bigint", "argus": false},
+        {"name": "queue_name", "data_type": "text", "argus": true},
+        {"name": "workflow_timeout_ms", "data_type": "bigint", "argus": false},
+        {"name": "workflow_deadline_epoch_ms", "data_type": "bigint", "argus": false},
+        {"name": "inputs", "data_type": "text", "argus": false},
+        {"name": "started_at_epoch_ms", "data_type": "bigint", "argus": true},
+        {"name": "deduplication_id", "data_type": "text", "argus": false},
+        {"name": "priority", "data_type": "integer", "argus": false},
+        {"name": "queue_partition_key", "data_type": "text", "argus": false},
+        {"name": "forked_from", "data_type": "text", "argus": false},
+        {"name": "owner_xid", "data_type": "text", "argus": false},
+        {"name": "parent_workflow_id", "data_type": "text", "argus": true},
+        {"name": "serialization", "data_type": "text", "argus": true},
+        {"name": "delay_until_epoch_ms", "data_type": "bigint", "argus": false},
+        {"name": "was_forked_from", "data_type": "boolean", "argus": false}
+      ]
+    }
+  ]
+}

@@ -1,7 +1,13 @@
 from dbos_argus import main
 from dbos_argus.main import app
 from dbos_argus.schema_diff import SchemaIssue, diff_schemas
-from dbos_argus.schema_dump import ColumnInfo, SchemaDump, TableInfo, load_expected_dump
+from dbos_argus.schema_dump import (
+    ColumnInfo,
+    SchemaDump,
+    TableInfo,
+    argus_only,
+    load_full_dump,
+)
 from fastapi.testclient import TestClient
 
 
@@ -59,12 +65,41 @@ def test_diff_ignores_extra_tables_and_columns_in_actual() -> None:
     assert diff_schemas(expected, actual) == []
 
 
-def test_load_expected_dump_matches_itself() -> None:
-    expected = load_expected_dump()
-    assert expected.schema == "dbos"
-    assert {t.name for t in expected.tables}, "snapshot should describe at least one table"
-    # The snapshot must be self-consistent — diffing it against itself yields no issues.
-    assert diff_schemas(expected, expected) == []
+def test_argus_only_keeps_only_marked_columns_and_drops_empty_tables() -> None:
+    full = SchemaDump(
+        schema="dbos",
+        tables=(
+            TableInfo(
+                "t1",
+                (
+                    ColumnInfo("a", "text", argus=True),
+                    ColumnInfo("b", "text", argus=False),
+                ),
+            ),
+            TableInfo(
+                "t2",
+                (
+                    ColumnInfo("x", "text", argus=False),
+                    ColumnInfo("y", "text", argus=False),
+                ),
+            ),
+        ),
+    )
+    filtered = argus_only(full)
+    assert [t.name for t in filtered.tables] == ["t1"]
+    assert [c.name for c in filtered.tables[0].columns] == ["a"]
+
+
+def test_load_full_dump_is_self_consistent() -> None:
+    full = load_full_dump()
+    assert full.schema == "dbos"
+    assert "dbos_version" in full.meta
+    assert any(c.argus for t in full.tables for c in t.columns), (
+        "snapshot should mark at least one column as argus-tracked"
+    )
+    # Filtering to argus-only and diffing against the full dump (which is a
+    # superset) yields no issues — argus-marked columns must exist in the snapshot.
+    assert diff_schemas(argus_only(full), full) == []
 
 
 class _FakeConnectionContext:
@@ -78,6 +113,17 @@ class _FakeConnectionContext:
 class _FakeEngine:
     def connect(self) -> _FakeConnectionContext:
         return _FakeConnectionContext()
+
+
+def test_version_endpoint_includes_tested_dbos_version() -> None:
+    with TestClient(app) as client:
+        response = client.get("/version")
+    assert response.status_code == 200
+    body = response.json()
+    assert "version" in body
+    assert "tested_dbos_version" in body
+    # Snapshot ships with a real version string; reject "unknown" fallback in tests.
+    assert body["tested_dbos_version"] not in ("", "unknown")
 
 
 def test_sql_diagnostics_endpoint_returns_schema_issues(monkeypatch) -> None:

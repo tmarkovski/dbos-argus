@@ -26,7 +26,8 @@ _TYPE_SYNONYMS: tuple[frozenset[str], ...] = (
 )
 
 
-def _types_match(expected: str, actual: str) -> bool:
+def types_match(expected: str, actual: str) -> bool:
+    """True iff the two PG `data_type` strings are interchangeable for our purposes."""
     if expected == actual:
         return True
     return any(expected in group and actual in group for group in _TYPE_SYNONYMS)
@@ -79,7 +80,7 @@ def diff_schemas(expected: SchemaDump, actual: SchemaDump) -> list[SchemaIssue]:
                     )
                 )
                 continue
-            if not _types_match(expected_column.data_type, actual_column.data_type):
+            if not types_match(expected_column.data_type, actual_column.data_type):
                 issues.append(
                     SchemaIssue(
                         kind="wrong_type",

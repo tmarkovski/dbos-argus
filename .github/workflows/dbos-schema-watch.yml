@@ -1,0 +1,135 @@
+name: dbos-schema-watch
+
+# Daily watchdog: detect when DBOS ships a new release whose Postgres schema
+# differs from the snapshot at packages/server/dbos_argus/data/dbos_schema.json,
+# and file an issue with the diff.
+#
+# Two-tier model:
+#   - The snapshot is the *full* DBOS Postgres schema, with each column tagged
+#     `argus: true|false` based on whether the Argus backend reads it.
+#   - The watchdog regenerates the snapshot from the latest DBOS install,
+#     carrying forward the argus flags. Anything that changed gets bucketed
+#     into "Breaking for Argus" (argus-tracked column lost/retyped) and
+#     "Untracked DBOS changes" (everything else, FYI).
+#   - The action only opens an issue; it never opens a PR. A regenerated JSON
+#     is included in the issue body so a human can paste it in once they've
+#     decided whether code edits are also needed.
+
+on:
+  schedule:
+    # Every day at 07:17 UTC. Off-hour times to dodge GH Actions queues.
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dbos
+          POSTGRES_PASSWORD: dbos
+          POSTGRES_DB: dbos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Resolve latest dbos version from PyPI
+        id: pypi
+        run: |
+          version=$(curl -fsSL https://pypi.org/pypi/dbos/json \
+            | python -c 'import json,sys; print(json.load(sys.stdin)["info"]["version"])')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Latest dbos on PyPI: $version"
+
+      - name: Read pinned dbos version from snapshot
+        id: pinned
+        run: |
+          pinned=$(python -c '
+          import json
+          d = json.load(open("packages/server/dbos_argus/data/dbos_schema.json"))
+          print(d.get("meta", {}).get("dbos_version", "0.0.0"))
+          ')
+          echo "version=$pinned" >> "$GITHUB_OUTPUT"
+          echo "Pinned in snapshot: $pinned"
+
+      - name: Skip if no new dbos
+        id: gate
+        run: |
+          if [ "${{ steps.pypi.outputs.version }}" = "${{ steps.pinned.outputs.version }}" ]; then
+            echo "DBOS ${{ steps.pypi.outputs.version }} already verified — nothing to do."
+            echo "drift_check_needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "drift_check_needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bootstrap DBOS schema against postgres service
+        if: steps.gate.outputs.drift_check_needed == 'true'
+        env:
+          DBOS_VERSION: ${{ steps.pypi.outputs.version }}
+        run: |
+          uv run --no-project --with "dbos==${DBOS_VERSION}" --with sqlalchemy --with psycopg2-binary \
+            python scripts/dbos_schema_bootstrap.py \
+            "postgres://dbos:dbos@localhost:5432/dbos"
+
+      - name: Compare live schema against snapshot
+        if: steps.gate.outputs.drift_check_needed == 'true'
+        id: diff
+        env:
+          DBOS_VERSION: ${{ steps.pypi.outputs.version }}
+        run: |
+          set +e
+          uv run --with sqlalchemy --with asyncpg \
+            python scripts/dbos_schema_compare.py \
+              --db-url "postgresql+asyncpg://dbos:dbos@localhost:5432/dbos" \
+              --new-dbos-version "${DBOS_VERSION}" \
+              --report-file "$RUNNER_TEMP/report.md" \
+              --regenerated-file "$RUNNER_TEMP/regenerated.json"
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          elif [ "$status" -eq 1 ]; then
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          else
+            exit "$status"
+          fi
+
+      - name: Open issue if drift detected
+        if: steps.diff.outputs.drift == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DBOS_VERSION: ${{ steps.pypi.outputs.version }}
+        run: |
+          title="chore(schema): DBOS ${DBOS_VERSION} drift detected"
+          existing=$(gh issue list \
+            --state open \
+            --search "in:title \"${title}\"" \
+            --json number \
+            --jq 'length')
+          if [ "${existing}" = "0" ]; then
+            gh issue create \
+              --title "${title}" \
+              --label "dbos-watch,schema" \
+              --body-file "$RUNNER_TEMP/report.md"
+            echo "Opened issue: ${title}"
+          else
+            echo "Issue with title '${title}' already open — skipping."
+          fi

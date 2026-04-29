@@ -8,6 +8,8 @@ Argus is a web dashboard for observing the durable workflows your [DBOS Transact
 
 > **Status:** Pre-alpha. Everything will change. Not production-ready. If you're here early, welcome — the issue tracker and Discussions are the best place to have a say in where this goes.
 
+> **DBOS compatibility.** Each release is validated against a specific DBOS version — see the "Tested against DBOS …" line in [CHANGELOG.md](./CHANGELOG.md) (and in the release notes on the [Releases page](https://github.com/tmarkovski/dbos-argus/releases)), or call `GET /version` (`tested_dbos_version`) on a running instance. Older / newer DBOS versions usually still work; the connection sidebar in the UI flags any schema mismatches it finds.
+
 ---
 
 ## Quick start

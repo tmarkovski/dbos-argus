@@ -60,42 +60,32 @@ uv run pytest packages/server
 - TypeScript / Svelte: `prettier` + the SvelteKit project config. Run `pnpm run lint`.
 - Commit messages: imperative mood ("add", "fix", "refactor"), scoped where helpful (`server:`, `console:`, `ui:`).
 
-## Schema snapshot (`expected_schema.json`)
+## Schema snapshot (`dbos_schema.json`)
 
-The `/api/sql-diagnostics` endpoint compares the live `dbos.*` schema against a checked-in snapshot at `packages/server/dbos_argus/data/expected_schema.json`. The snapshot lists every table and column Argus reads — generic dump-vs-dump diff lives in `schema_diff.py` and has no DBOS-specific knowledge baked in.
+The `/api/sql-diagnostics` endpoint compares the live `dbos.*` schema against a checked-in snapshot at `packages/server/dbos_argus/data/dbos_schema.json`. The snapshot is the **full DBOS Postgres schema** — every table and column DBOS ships — with each column tagged `"argus": true|false` indicating whether the Argus backend actively reads it. At runtime the diagnostics filter to `argus: true` columns; the watchdog uses the unfiltered snapshot.
 
-**Regenerate when:**
-- Bumping the `dbos` pin in `tests/sample-app/pyproject.toml` (or otherwise pulling a newer DBOS) and the new version adds/renames/retypes columns or tables Argus uses.
-- Adding a new query in `packages/server/dbos_argus/main.py` that touches a column not currently listed in the snapshot.
-- A user reports a false-positive "schema issue" on a current DBOS install (means the snapshot has drifted from reality).
+The generic dump/diff machinery (`schema_dump.py`, `schema_diff.py`) has no DBOS-specific knowledge.
 
-**How to regenerate:**
+**The CI watchdog regenerates this for you.** `.github/workflows/dbos-schema-watch.yml` runs daily, pulls the latest DBOS from PyPI, bootstraps its schema in a Postgres service container, and opens an issue if anything changed. The issue body bundles a regenerated `dbos_schema.json` you can paste in. There's no PR creation — when the breakage section is non-empty you'll typically need code edits in `packages/server/dbos_argus/main.py` too, so the issue is the right human checkpoint.
+
+**Manual regeneration** (if you can't wait for the cron, or want to verify locally):
 
 ```bash
-# 1. Stand up a fresh DBOS app against a clean Postgres so DBOS bootstraps its
-#    current schema (the sample-app fixture works):
+# Stand up a fresh DBOS DB and bootstrap the schema:
 docker compose up -d postgres
-uv run argus-runner   # bootstraps dbos.* schema, then idle is fine — Ctrl+C
+uv run --with dbos --with psycopg2-binary --with sqlalchemy \
+  python scripts/dbos_schema_bootstrap.py 'postgres://argus:argus@localhost:5432/argus'
 
-# 2. Dump the live schema and overwrite the snapshot:
-uv run dbos-argus \
-  --db-url 'postgresql+asyncpg://argus:argus@localhost:5432/argus' \
-  --dump-schema \
-  > packages/server/dbos_argus/data/expected_schema.json.full
-
-# 3. Hand-edit the dump to keep only the tables/columns Argus actually reads
-#    (the existing snapshot is the reference for the right scope). The dump
-#    command emits everything in the schema; the checked-in file is the
-#    minimal subset we depend on.
-$EDITOR packages/server/dbos_argus/data/expected_schema.json.full
-mv packages/server/dbos_argus/data/expected_schema.json{.full,}
-
-# 4. Verify:
-uv run pytest packages/server/tests/test_sql_diagnostics.py
-curl -s http://localhost:8090/api/sql-diagnostics   # should be {"ok":true,"issues":[]}
+# Compare against the checked-in snapshot. Exit code 1 means drift.
+uv run --with asyncpg --with sqlalchemy \
+  python scripts/dbos_schema_compare.py \
+    --db-url 'postgresql+asyncpg://argus:argus@localhost:5432/argus' \
+    --new-dbos-version "$(uv run python -c 'import importlib.metadata as m; print(m.version("dbos"))')" \
+    --report-file /tmp/report.md \
+    --regenerated-file /tmp/regenerated.json
 ```
 
-The snapshot is intentionally curated, not a full pg_dump — the diff is one-sided (extra tables/columns in the live DB are ignored), so the snapshot is a "what we depend on", not "what DBOS currently ships". When in doubt, leave a column out: that just means we don't validate it.
+**When you adopt a new DBOS column** (flipping `argus: true` and adding a query in `main.py`), bump it in the snapshot directly. The watchdog only carries flags forward — it never sets `argus: true`.
 
 ## Releasing
 
@@ -104,6 +94,9 @@ Releases are tag-driven — pushing a `v*` tag fires `.github/workflows/release.
 ```bash
 # 1. Move the [Unreleased] entries in CHANGELOG.md into a new
 #    `## [X.Y.Z] - YYYY-MM-DD` section, and add the link reference at the bottom.
+#    Keep the "Tested against DBOS …" line — it should match the
+#    meta.dbos_version in packages/server/dbos_argus/data/dbos_schema.json.
+#    Re-add a fresh "Tested against DBOS …" line at the top of [Unreleased].
 # 2. Commit and push.
 git commit -am "release vX.Y.Z"
 git push

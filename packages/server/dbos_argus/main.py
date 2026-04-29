@@ -15,6 +15,7 @@ from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 from . import __version__
 from .db import engine
 from .decoding import decode_dbos_value
+from .schema_dump import load_full_dump
 from .settings import settings
 from .sql_diagnostics import inspect_dbos_schema
 from .workflow_status import (
@@ -82,7 +83,15 @@ async def healthz() -> dict[str, str]:
 
 @app.get("/version")
 async def version() -> dict[str, str]:
-    return {"version": __version__}
+    # tested_dbos_version is sourced from the packaged schema snapshot —
+    # whichever DBOS version produced the dbos.* schema this build was
+    # validated against. The CI watchdog refreshes the snapshot on each
+    # DBOS release, so this is automatically what `git log` would show.
+    snapshot = load_full_dump()
+    return {
+        "version": __version__,
+        "tested_dbos_version": str(snapshot.meta.get("dbos_version", "unknown")),
+    }
 
 
 class SqlDiagnosticIssue(BaseModel):
