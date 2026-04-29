@@ -13,6 +13,10 @@ def _parse_libpq_options(opts: str) -> dict[str, str]:
     return dict(re.findall(r"-c\s*([^=\s]+)=(\S+)", opts))
 
 
+def _is_azure_postgres_host(hostname: str | None) -> bool:
+    return bool(hostname) and hostname.endswith(".postgres.database.azure.com")
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="ARGUS_", env_file=".env", extra="ignore")
 
@@ -46,6 +50,12 @@ class Settings(BaseSettings):
 
         if "sslmode" in params:
             connect_args["ssl"] = params.pop("sslmode")
+        elif _is_azure_postgres_host(parsed.hostname):
+            # Azure Database for PostgreSQL requires TLS. Default to libpq's
+            # common `sslmode=require` behavior so pasted Azure URLs work
+            # without an extra query param, while still letting explicit
+            # sslmode=... override this default.
+            connect_args["ssl"] = "require"
 
         cleaned = urlunparse(parsed._replace(query=urlencode(params)))
         return cleaned, connect_args

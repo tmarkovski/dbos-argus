@@ -44,6 +44,7 @@ That's it. Argus is read-only against `dbos.workflow_status` and the related DBO
 A few gotchas:
 
 - **Driver must be asyncpg.** The URL prefix is `postgresql+asyncpg://`, not `postgresql://`.
+- **Azure Database for PostgreSQL uses TLS.** Argus auto-enables `sslmode=require` for hosts under `*.postgres.database.azure.com`; add an explicit `sslmode=` only if you need to override that default.
 - **`host.docker.internal`** (Docker only) is what the container uses to reach Postgres on your host (macOS, Windows, Docker Desktop). On Linux, add `--add-host=host.docker.internal:host-gateway`, or use `--network host` and switch back to `localhost`.
 - **`pg_hba.conf`** may reject connections from the docker bridge (`172.17.0.0/16`) by default. If you see auth errors, add a matching `host` line.
 

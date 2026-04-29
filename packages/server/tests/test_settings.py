@@ -52,6 +52,31 @@ def test_asyncpg_engine_args_translates_sslmode() -> None:
     assert kwargs["ssl"] == "require"
 
 
+def test_asyncpg_engine_args_defaults_azure_hosts_to_require_ssl() -> None:
+    s = Settings(
+        database_url=(
+            "postgresql://u:p@fmz-e-n-flex-pgsql-ailz-01.postgres.database.azure.com:5432/db"
+        )
+    )
+    url, kwargs = s.asyncpg_engine_args()
+    assert url == (
+        "postgresql+asyncpg://u:p@fmz-e-n-flex-pgsql-ailz-01.postgres.database.azure.com:5432/db"
+    )
+    assert kwargs["ssl"] == "require"
+
+
+def test_asyncpg_engine_args_keeps_explicit_sslmode_for_azure_hosts() -> None:
+    s = Settings(
+        database_url=(
+            "postgresql://u:p@fmz-e-n-flex-pgsql-ailz-01.postgres.database.azure.com:5432/db"
+            "?sslmode=disable"
+        )
+    )
+    url, kwargs = s.asyncpg_engine_args()
+    assert "sslmode=" not in url
+    assert kwargs["ssl"] == "disable"
+
+
 def test_asyncpg_engine_args_passthrough_when_no_libpq_params() -> None:
     s = Settings(database_url="postgresql+asyncpg://u:p@host:5432/db")
     url, kwargs = s.asyncpg_engine_args()
