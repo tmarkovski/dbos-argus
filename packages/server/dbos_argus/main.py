@@ -3,19 +3,20 @@ import os
 from datetime import UTC, datetime
 from importlib.resources import files
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import text
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 
 from . import __version__
 from .db import engine
 from .decoding import decode_dbos_value
 from .settings import settings
+from .sql_diagnostics import inspect_dbos_schema
 from .workflow_status import (
     ACTIVE_STATUSES_SQL,
     ERROR_STATUSES_SQL,
@@ -82,6 +83,43 @@ async def healthz() -> dict[str, str]:
 @app.get("/version")
 async def version() -> dict[str, str]:
     return {"version": __version__}
+
+
+class SqlDiagnosticIssue(BaseModel):
+    kind: Literal["missing_table", "missing_column", "wrong_type"]
+    table_name: str
+    column_name: str | None
+    expected_type: str | None
+    actual_type: str | None
+    detail: str
+
+
+class SqlDiagnostics(BaseModel):
+    ok: bool
+    issues: list[SqlDiagnosticIssue]
+
+
+@app.get("/api/sql-diagnostics")
+async def get_sql_diagnostics() -> SqlDiagnostics:
+    try:
+        async with engine.connect() as conn:
+            issues = await inspect_dbos_schema(conn)
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=503, detail="database diagnostics unavailable") from e
+    return SqlDiagnostics(
+        ok=not issues,
+        issues=[
+            SqlDiagnosticIssue(
+                kind=issue.kind,
+                table_name=issue.table_name,
+                column_name=issue.column_name,
+                expected_type=issue.expected_type,
+                actual_type=issue.actual_type,
+                detail=issue.detail,
+            )
+            for issue in issues
+        ],
+    )
 
 
 class WorkflowListItem(BaseModel):
