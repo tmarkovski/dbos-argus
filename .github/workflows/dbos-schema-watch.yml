@@ -20,6 +20,15 @@ on:
     # Every day at 07:17 UTC. Off-hour times to dodge GH Actions queues.
     - cron: "17 7 * * *"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Force the bootstrap+compare path even when PyPI dbos == snapshot pin"
+        type: boolean
+        default: false
+      skip_issue:
+        description: "Run compare but skip opening an issue on drift (debugging)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -72,8 +81,13 @@ jobs:
 
       - name: Skip if no new dbos
         id: gate
+        env:
+          FORCE: ${{ inputs.force }}
         run: |
-          if [ "${{ steps.pypi.outputs.version }}" = "${{ steps.pinned.outputs.version }}" ]; then
+          if [ "${FORCE}" = "true" ]; then
+            echo "force=true → bootstrap+compare anyway."
+            echo "drift_check_needed=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.pypi.outputs.version }}" = "${{ steps.pinned.outputs.version }}" ]; then
             echo "DBOS ${{ steps.pypi.outputs.version }} already verified — nothing to do."
             echo "drift_check_needed=false" >> "$GITHUB_OUTPUT"
           else
@@ -113,7 +127,7 @@ jobs:
           fi
 
       - name: Open issue if drift detected
-        if: steps.diff.outputs.drift == 'true'
+        if: steps.diff.outputs.drift == 'true' && inputs.skip_issue != true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DBOS_VERSION: ${{ steps.pypi.outputs.version }}
