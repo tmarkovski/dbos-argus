@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-04-29
+
+### Fixed
+- `--db-url` now translates libpq-only query params that asyncpg rejects:
+  `?options=-c<key>=<val> ...` is lifted into asyncpg's `server_settings`,
+  and `?sslmode=...` becomes `ssl=...`. Previously these passed through to
+  `asyncpg.connect()` and crashed with `TypeError: unexpected keyword
+  argument 'options'` (common when copying connection strings from Azure
+  Postgres Flex / Heroku that include a `search_path` override).
+
 ## [0.0.4] - 2026-04-29
 
 ### Fixed
@@ -53,7 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.4...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.5...HEAD
+[0.0.5]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.5
 [0.0.4]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.4
 [0.0.3]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.3
 [0.0.2]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.2
