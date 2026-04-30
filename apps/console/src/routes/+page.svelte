@@ -242,71 +242,73 @@
     </Card.Root>
   </div>
 
-  <WorkflowThroughputChart />
+  <div class="grid grid-cols-1 items-start gap-4 @5xl/main:grid-cols-2 md:gap-6">
+    <WorkflowThroughputChart />
 
-  <Card.Root class="gap-0 py-0 shadow-xs">
-    <Card.Header class="border-b py-4">
-      <Card.Title class="text-base font-semibold">Recent workflows</Card.Title>
-      <Card.Description>The most recent workflow runs from this database.</Card.Description>
-      <Card.Action>
-        <a
-          href="/workflows/"
-          class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-        >
-          View all
-          <ArrowRightIcon class="size-3" />
-        </a>
-      </Card.Action>
-    </Card.Header>
+    <Card.Root class="gap-0 overflow-hidden py-0 shadow-xs">
+      <Card.Header class="border-b py-4">
+        <Card.Title class="text-base font-semibold">Recent workflows</Card.Title>
+        <Card.Description>The most recent workflow runs from this database.</Card.Description>
+        <Card.Action>
+          <a
+            href="/workflows/"
+            class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+          >
+            View all
+            <ArrowRightIcon class="size-3" />
+          </a>
+        </Card.Action>
+      </Card.Header>
 
-    {#if recents === null}
-      <p class="text-muted-foreground p-6 text-sm">Loading…</p>
-    {:else if recents.length === 0}
-      <p class="text-muted-foreground p-6 text-sm">
-        No workflows yet. Run a DBOS app pointed at this database to see data here.
-      </p>
-    {:else}
-      <Table.Root>
-        <Table.Header class="bg-muted/40">
-          <Table.Row class="hover:bg-muted/40">
-            <Table.Head class="px-4">Status</Table.Head>
-            <Table.Head>Name</Table.Head>
-            <Table.Head>Workflow ID</Table.Head>
-            <Table.Head class="px-4">Started</Table.Head>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {#each recents as w (w.workflow_id)}
-            <Table.Row>
-              <Table.Cell class="px-4">
-                <Badge class={statusBadgeClass(w.status)}>{w.status ?? "—"}</Badge>
-              </Table.Cell>
-              <Table.Cell class="font-mono">
-                <a
-                  href="/workflows/{encodeURIComponent(w.workflow_id)}/"
-                  class="hover:text-foreground hover:underline"
-                >
-                  {w.name ?? "—"}
-                </a>
-              </Table.Cell>
-              <Table.Cell
-                class="text-muted-foreground font-mono text-xs"
-                title={w.workflow_id}
-              >
-                <a
-                  href="/workflows/{encodeURIComponent(w.workflow_id)}/"
-                  class="hover:text-foreground hover:underline"
-                >
-                  {w.workflow_id}
-                </a>
-              </Table.Cell>
-              <Table.Cell class="text-muted-foreground px-4" title={w.started_at}>
-                {formatRelative(w.started_at)}
-              </Table.Cell>
+      {#if recents === null}
+        <p class="text-muted-foreground p-6 text-sm">Loading…</p>
+      {:else if recents.length === 0}
+        <p class="text-muted-foreground p-6 text-sm">
+          No workflows yet. Run a DBOS app pointed at this database to see data here.
+        </p>
+      {:else}
+        <Table.Root>
+          <Table.Header class="bg-muted/40">
+            <Table.Row class="hover:bg-muted/40">
+              <Table.Head class="px-4">Status</Table.Head>
+              <Table.Head>Name</Table.Head>
+              <Table.Head class="px-4">Started</Table.Head>
+              <Table.Head>Workflow ID</Table.Head>
             </Table.Row>
-          {/each}
-        </Table.Body>
-      </Table.Root>
-    {/if}
-  </Card.Root>
+          </Table.Header>
+          <Table.Body>
+            {#each recents as w (w.workflow_id)}
+              <Table.Row>
+                <Table.Cell class="px-4">
+                  <Badge class={statusBadgeClass(w.status)}>{w.status ?? "—"}</Badge>
+                </Table.Cell>
+                <Table.Cell class="font-mono">
+                  <a
+                    href="/workflows/{encodeURIComponent(w.workflow_id)}/"
+                    class="hover:text-foreground hover:underline"
+                  >
+                    {w.name ?? "—"}
+                  </a>
+                </Table.Cell>
+                <Table.Cell class="text-muted-foreground px-4" title={w.started_at}>
+                  {formatRelative(w.started_at)}
+                </Table.Cell>
+                <Table.Cell
+                  class="text-muted-foreground w-full max-w-0 font-mono text-xs"
+                  title={w.workflow_id}
+                >
+                  <a
+                    href="/workflows/{encodeURIComponent(w.workflow_id)}/"
+                    class="hover:text-foreground block truncate hover:underline"
+                  >
+                    {w.workflow_id}
+                  </a>
+                </Table.Cell>
+              </Table.Row>
+            {/each}
+          </Table.Body>
+        </Table.Root>
+      {/if}
+    </Card.Root>
+  </div>
 </div>
