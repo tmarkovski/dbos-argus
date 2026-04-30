@@ -4,7 +4,9 @@
 
 Argus is a web dashboard for visualizing the durable workflows your [DBOS Transact](https://github.com/dbos-inc/dbos-transact-py) apps are already running. It points at the Postgres database your DBOS app uses, opens a read-only connection, and renders the workflow state DBOS already stores there. No agents, no app-side wiring, no schema of its own, no write path.
 
-![Argus workflow detail view](docs/images/workflow-detail.png)
+![Argus dashboard](docs/images/dashboard.png)
+
+![Workflow detail with step graph](docs/images/workflow-detail.png)
 
 > **Status:** Pre-alpha. Everything will change. Not production-ready. Argus is built for development and quick inspection of a running DBOS database.
 
@@ -96,6 +98,8 @@ Argus is not affiliated with, endorsed by, or sponsored by DBOS Inc.
 - Visual step-by-step workflow graphs with parent/child workflow lineage, powered by [Svelte Flow](https://svelteflow.dev)
 - Filter, search, and group workflow runs by status, name, ID, and time range
 - Light and dark mode (because of course)
+
+![Workflows list grouped by parent](docs/images/workflows-list.png)
 
 **Planned:**
 - Read-only queue views where DBOS exposes enough state in Postgres
