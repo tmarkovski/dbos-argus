@@ -18,6 +18,8 @@ Argus is a web dashboard for visualizing the durable workflows your [DBOS Transa
 
 If you already have a DBOS app running against Postgres, you're 30 seconds away. Point Argus at the same database — pick whichever runner is most convenient.
 
+In every case, open http://localhost:8090 once it's up.
+
 ### With `uvx` (recommended, no install)
 
 ```bash
@@ -40,8 +42,6 @@ docker run --rm -p 8090:8090 \
   -e ARGUS_DATABASE_URL="postgresql+asyncpg://USER:PASS@host.docker.internal:5432/YOURDB" \
   tmarkovski/dbos-argus:latest
 ```
-
-In every case, open http://localhost:8090.
 
 That's it. Argus connects read-only to `dbos.workflow_status` and the related DBOS system tables. Nothing to install in your app.
 
