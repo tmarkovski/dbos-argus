@@ -9,7 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.10] - 2026-04-29
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
 ### Changed
+- Dashboard top row: replaced the standalone "In flight" tile with a
+  clickable **Database** tile at the start of the row. State is conveyed
+  via a colored title and Lucide icon (`circle-check` /
+  `circle-alert` / `unplug`) for Connected / Incompatible schema /
+  Not connected; clicking the tile opens the same SQL-diagnostics sheet
+  the sidebar footer uses. The in-flight count remains as the corner
+  badge on Total workflows.
+- Connection health, SQL diagnostics, and sheet-open state moved to a
+  shared `connectionState` module so the diagnostics survive client-side
+  navigation. Previously they were stored in `page.state`, which resets
+  per history entry — the indicator briefly went green after navigating
+  away from the home page.
+- Top-row card gradient switched from `from-primary/5` to
+  `from-foreground/5`, restoring the neutral-gray look from the shadcn
+  blocks reference (`--primary` in this theme is brand-purple, which was
+  tinting all four tiles).
+- The dashboard's page-level fetch-error banner now hides while the
+  database is not in a healthy connected state — the Database tile
+  already surfaces the same condition.
 - Release pipeline: docker step split into a parallel matrix
   (`docker-build` on native amd64 + native arm64 runners) plus a
   `docker-manifest` job that assembles the multi-arch image from the

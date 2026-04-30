@@ -1,7 +1,6 @@
 <script lang="ts">
   import "../app.css";
   import { onDestroy, onMount } from "svelte";
-  import { replaceState } from "$app/navigation";
   import Sun from "@lucide/svelte/icons/sun";
   import Moon from "@lucide/svelte/icons/moon";
   import House from "@lucide/svelte/icons/house";
@@ -17,9 +16,8 @@
     connectionIndicatorLabel,
     diagnosticsIssueSummary,
     getConnectionIndicatorState,
-    type Health,
-    type SqlDiagnostics,
   } from "$lib/connection-diagnostics";
+  import { connectionState } from "$lib/connection-state.svelte";
   import { statusDotClass } from "$lib/workflow-tree";
   import * as Sidebar from "$lib/components/ui/sidebar/index.js";
   import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
@@ -48,10 +46,6 @@
     return pathname === href || pathname === base || pathname.startsWith(base + "/");
   }
 
-  let health = $state<Health | null>(null);
-  let fetchError = $state<string | null>(null);
-  let diagnosticsLoading = $state(false);
-  let diagnosticsError = $state<string | null>(null);
   let timer: ReturnType<typeof setInterval> | undefined;
   let isDark = $state(false);
   // Sidebar collapsed/expanded state survives reloads. SSR has no window, so
@@ -60,47 +54,6 @@
   // a flash of mismatched state on slow first paint.
   const SIDEBAR_OPEN_KEY = "argus.sidebar.open";
   let sidebarOpen = $state(true);
-
-  async function refresh() {
-    try {
-      const res = await fetch("/healthz");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      health = (await res.json()) as Health;
-      fetchError = null;
-    } catch (e) {
-      health = null;
-      fetchError = e instanceof Error ? e.message : String(e);
-    }
-  }
-
-  const connectionDiagnostics = $derived(page.state.connectionDiagnostics ?? null);
-
-  async function ensureConnectionDiagnostics() {
-    if (health?.database !== "up" || diagnosticsLoading || connectionDiagnostics) return;
-
-    diagnosticsError = null;
-    diagnosticsLoading = true;
-    try {
-      const res = await fetch("/api/sql-diagnostics");
-      if (!res.ok) {
-        let detail = `HTTP ${res.status}`;
-        try {
-          const body = (await res.json()) as { detail?: string };
-          if (body.detail) detail = body.detail;
-        } catch {
-          // The endpoint normally returns JSON; fall back to the status text if it doesn't.
-        }
-        throw new Error(detail);
-      }
-
-      const diagnostics = (await res.json()) as SqlDiagnostics;
-      replaceState("", { ...page.state, connectionDiagnostics: diagnostics });
-    } catch (e) {
-      diagnosticsError = e instanceof Error ? e.message : String(e);
-    } finally {
-      diagnosticsLoading = false;
-    }
-  }
 
   onMount(() => {
     isDark = document.documentElement.classList.contains("dark");
@@ -112,10 +65,10 @@
       // back to the default expanded state.
     }
     void (async () => {
-      await refresh();
-      await ensureConnectionDiagnostics();
+      await connectionState.refreshHealth();
+      await connectionState.ensureDiagnostics();
     })();
-    timer = setInterval(refresh, 5000);
+    timer = setInterval(() => connectionState.refreshHealth(), 5000);
   });
 
   function persistSidebarOpen(value: boolean) {
@@ -142,22 +95,22 @@
 
   const dbIndicatorState = $derived(
     getConnectionIndicatorState({
-      fetchError,
-      health,
-      diagnostics: connectionDiagnostics,
+      fetchError: connectionState.fetchError,
+      health: connectionState.health,
+      diagnostics: connectionState.diagnostics,
     }),
   );
   const dbConnected = $derived(dbIndicatorState !== "disconnected");
   const dbLabel = $derived(connectionIndicatorLabel(dbIndicatorState));
   const dbIconClass = $derived(connectionIndicatorClass(dbIndicatorState));
-  const dbIssueSummary = $derived(diagnosticsIssueSummary(connectionDiagnostics));
+  const dbIssueSummary = $derived(diagnosticsIssueSummary(connectionState.diagnostics));
   const dbSubtitle = $derived(
     dbIndicatorState === "issues" ? (dbIssueSummary ?? "Schema issues found") : "Click for details",
   );
   const dbDetail = $derived(
     dbConnected
-      ? (health?.database_url ?? "")
-      : (fetchError ?? health?.database_error ?? ""),
+      ? (connectionState.health?.database_url ?? "")
+      : (connectionState.fetchError ?? connectionState.health?.database_error ?? ""),
   );
   const dbDescription = $derived(
     dbConnected
@@ -220,12 +173,12 @@
     <Sidebar.Footer>
       <Sidebar.Menu>
         <Sidebar.MenuItem>
-          <Sheet.Root>
+          <Sheet.Root bind:open={connectionState.sheetOpen}>
             <Sheet.Trigger>
               {#snippet child({ props })}
                 <Sidebar.MenuButton size="lg" tooltipContent="Connection details" {...props}>
                   <Database
-                    class="mt-0.5 self-start group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:self-center {dbIconClass}"
+                    class="mt-1 self-start group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:self-center {dbIconClass}"
                   />
                   <div
                     class="flex flex-1 flex-col gap-0.5 text-left text-sm leading-snug group-data-[collapsible=icon]:hidden"
@@ -271,12 +224,12 @@
                       </p>
                     </div>
 
-                    {#if diagnosticsLoading}
+                    {#if connectionState.diagnosticsLoading}
                       <p class="text-muted-foreground text-sm">Checking the dbos schema…</p>
-                    {:else if diagnosticsError}
-                      <p class="text-sm text-red-600 dark:text-red-400">{diagnosticsError}</p>
-                    {:else if connectionDiagnostics}
-                      {#if connectionDiagnostics.ok}
+                    {:else if connectionState.diagnosticsError}
+                      <p class="text-sm text-red-600 dark:text-red-400">{connectionState.diagnosticsError}</p>
+                    {:else if connectionState.diagnostics}
+                      {#if connectionState.diagnostics.ok}
                         <p class="text-sm">
                           No missing tables, missing columns, or type mismatches were detected.
                         </p>
@@ -292,7 +245,7 @@
                               </Table.Row>
                             </Table.Header>
                             <Table.Body>
-                              {#each connectionDiagnostics.issues as issue, i (`${issue.table_name}:${issue.column_name ?? 'table'}:${i}`)}
+                              {#each connectionState.diagnostics.issues as issue, i (`${issue.table_name}:${issue.column_name ?? 'table'}:${i}`)}
                                 <Table.Row>
                                   <Table.Cell class="px-4 py-2 align-top">
                                     {issue.kind === "missing_table"
