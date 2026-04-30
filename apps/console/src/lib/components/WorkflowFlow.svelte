@@ -23,6 +23,8 @@
   export type FamilyWorkflow = Omit<Workflow, "operation_count"> & {
     has_output: boolean;
     has_error: boolean;
+    recovery_attempts: number | null;
+    workflow_timeout_ms: number | null;
   };
 
   export type Step = {

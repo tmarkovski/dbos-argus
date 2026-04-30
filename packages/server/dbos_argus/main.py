@@ -364,6 +364,12 @@ class WorkflowFamilyItem(BaseModel):
     status: str | None
     queue_name: str | None
     executor_id: str | None
+    # Number of times this workflow was resumed after an executor crash.
+    # 0 on a clean first run; > 0 means at least one recovery happened.
+    recovery_attempts: int | None
+    # Configured timeout in ms (workflow_status.workflow_timeout_ms). None
+    # when no timeout was set on the workflow.
+    workflow_timeout_ms: int | None
     started_at: datetime
     updated_at: datetime
     depth: int
@@ -462,6 +468,8 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
                     ws.status,
                     ws.queue_name,
                     ws.executor_id,
+                    ws.recovery_attempts,
+                    ws.workflow_timeout_ms,
                     ws.output IS NOT NULL AS has_output,
                     ws.error IS NOT NULL AS has_error,
                     COALESCE(ws.started_at_epoch_ms, ws.created_at) AS started_ms,
@@ -480,6 +488,8 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
                     c.status,
                     c.queue_name,
                     c.executor_id,
+                    c.recovery_attempts,
+                    c.workflow_timeout_ms,
                     c.output IS NOT NULL,
                     c.error IS NOT NULL,
                     COALESCE(c.started_at_epoch_ms, c.created_at),
@@ -491,6 +501,7 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
             )
         SELECT
             workflow_uuid, parent_workflow_id, name, status, queue_name, executor_id,
+            recovery_attempts, workflow_timeout_ms,
             has_output, has_error, started_ms, updated_ms, depth
         FROM tree
         ORDER BY sort_path ASC
@@ -540,6 +551,8 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
             status=r.status,
             queue_name=r.queue_name,
             executor_id=r.executor_id,
+            recovery_attempts=r.recovery_attempts,
+            workflow_timeout_ms=r.workflow_timeout_ms,
             has_output=r.has_output,
             has_error=r.has_error,
             started_at=datetime.fromtimestamp(r.started_ms / 1000, tz=UTC),

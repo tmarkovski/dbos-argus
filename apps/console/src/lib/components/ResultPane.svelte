@@ -71,6 +71,57 @@
     };
   });
 
+  type MetaItem = {
+    label: string;
+    value: string;
+    title?: string;
+    href?: string;
+  };
+
+  const metadata = $derived.by<MetaItem[]>(() => {
+    if (!selection || !heading) return [];
+    const items: MetaItem[] = [];
+    if (heading.startedAt)
+      items.push({
+        label: "Started",
+        value: new Date(heading.startedAt).toLocaleString(),
+        title: heading.startedAt,
+      });
+    if (heading.durationMs !== null)
+      items.push({ label: "Duration", value: formatDuration(heading.durationMs) });
+    if (selection.kind === "workflow") {
+      const w = selection.workflow;
+      if (w.queue_name) items.push({ label: "Queue", value: w.queue_name });
+      if (w.executor_id)
+        items.push({ label: "Executor", value: w.executor_id, title: w.executor_id });
+      if (w.workflow_timeout_ms !== null && w.workflow_timeout_ms !== undefined)
+        items.push({ label: "Timeout", value: formatDuration(w.workflow_timeout_ms) });
+      if (
+        w.recovery_attempts !== null &&
+        w.recovery_attempts !== undefined &&
+        w.recovery_attempts > 0
+      )
+        items.push({
+          label: "Recoveries",
+          value: String(w.recovery_attempts),
+          title: "Times this workflow was resumed after an executor crash",
+        });
+      return items;
+    }
+    const s = selection.step;
+    if (s.child_workflow_id)
+      items.push({
+        label: "Child",
+        value: s.child_workflow_id,
+        title: s.child_workflow_id,
+        href: `/workflows/${encodeURIComponent(s.child_workflow_id)}/`,
+      });
+    if (s.event_key) items.push({ label: "Event key", value: s.event_key });
+    if (s.sleep_requested_ms !== null)
+      items.push({ label: "Requested", value: formatDuration(s.sleep_requested_ms) });
+    return items;
+  });
+
   type Payload =
     | { kind: "none" }
     | { kind: "error"; raw: string; decoded: string | null; serialization: string | null }
@@ -164,24 +215,27 @@
       <div class="text-muted-foreground truncate font-mono text-[10px]" title={heading.subtitle}>
         {heading.subtitle}
       </div>
-      {#if heading.durationMs !== null || heading.startedAt}
-        <div class="text-muted-foreground mt-1 flex items-center gap-3 text-[11px]">
-          {#if heading.durationMs !== null}
-            <span class="inline-flex items-center gap-1" title="Execution duration">
-              <span class="text-muted-foreground/70">Duration</span>
-              <span class="text-foreground font-mono">{formatDuration(heading.durationMs)}</span>
-            </span>
-          {/if}
-          {#if heading.startedAt}
-            <span
-              class="inline-flex items-center gap-1"
-              title={new Date(heading.startedAt).toLocaleString()}
-            >
-              <span class="text-muted-foreground/70">Started</span>
-              <span class="font-mono">{new Date(heading.startedAt).toLocaleTimeString()}</span>
-            </span>
-          {/if}
-        </div>
+      {#if metadata.length > 0}
+        <dl class="mt-4 flex flex-col gap-5">
+          {#each metadata as item (item.label)}
+            <div class="flex flex-col gap-1.5">
+              <dt
+                class="text-muted-foreground text-[11px] font-medium uppercase tracking-wide"
+              >
+                {item.label}
+              </dt>
+              <dd class="break-all font-mono text-sm">
+                {#if item.href}
+                  <a href={item.href} class="hover:underline" title={item.title}>
+                    {item.value}
+                  </a>
+                {:else}
+                  <span title={item.title}>{item.value}</span>
+                {/if}
+              </dd>
+            </div>
+          {/each}
+        </dl>
       {/if}
     </div>
 

@@ -105,6 +105,13 @@
       return connectionIssueSummary ?? "Schema mismatch detected";
     return "Database unavailable";
   });
+  const connectionHoverClass = $derived.by(() => {
+    if (connectionIndicatorState === "connected")
+      return "cursor-pointer hover:ring-2 hover:ring-emerald-500/60 hover:from-emerald-500/20! hover:shadow-xl hover:shadow-emerald-500/30 dark:hover:ring-emerald-400/50 dark:hover:from-emerald-400/15! dark:hover:shadow-emerald-400/25";
+    if (connectionIndicatorState === "issues")
+      return "cursor-pointer hover:ring-2 hover:ring-amber-500/60 hover:from-amber-500/20! hover:shadow-xl hover:shadow-amber-500/30 dark:hover:ring-amber-400/50 dark:hover:from-amber-400/15! dark:hover:shadow-amber-400/25";
+    return "cursor-pointer hover:ring-2 hover:ring-rose-500/60 hover:from-rose-500/20! hover:shadow-xl hover:shadow-rose-500/30 dark:hover:ring-rose-400/50 dark:hover:from-rose-400/15! dark:hover:shadow-rose-400/25";
+  });
 </script>
 
 <div class="@container/main flex flex-col gap-4 p-4 md:gap-6 md:p-6">
@@ -123,7 +130,7 @@
       type="button"
       onclick={() => connectionState.open()}
       data-slot="card"
-      class="bg-card text-card-foreground ring-foreground/5 dark:ring-foreground/10 focus-visible:ring-ring/60 relative flex flex-col gap-6 overflow-hidden rounded-4xl py-6 text-left text-sm shadow-md ring-1 transition hover:opacity-95 focus:outline-none focus-visible:ring-2"
+      class="bg-card text-card-foreground ring-foreground/5 dark:ring-foreground/10 focus-visible:ring-ring/60 relative flex flex-col gap-6 overflow-hidden rounded-4xl py-6 text-left text-sm shadow-md ring-1 transition focus:outline-none focus-visible:ring-2 {connectionHoverClass}"
     >
       <div class="flex flex-col gap-1.5 px-6">
         <div class="flex items-start justify-between gap-3">
@@ -143,7 +150,7 @@
       <div class="mt-auto flex flex-col gap-1.5 px-6 text-sm">
         <span class="line-clamp-1 font-medium">{connectionSubtitle}</span>
         <span
-          class="text-muted-foreground line-clamp-2 break-all font-mono text-xs"
+          class="text-muted-foreground line-clamp-2 max-h-[2lh] overflow-hidden break-all font-mono text-xs"
           title={connectionDetail}
         >
           {connectionDetail || "—"}
