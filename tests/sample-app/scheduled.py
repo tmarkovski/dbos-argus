@@ -11,6 +11,8 @@ Uses the modern `DBOS.create_schedule(...)` API. The decorator-based
 
 from __future__ import annotations
 
+import random
+import time
 from datetime import datetime
 from typing import Any
 
@@ -18,12 +20,27 @@ from dbos import DBOS
 from workflows import audit, log_event
 
 HEARTBEAT_SCHEDULE_NAME = "argus-demo-heartbeat"
-HEARTBEAT_SCHEDULE = "*/10 * * * *"
+HEARTBEAT_SCHEDULE = "* * * * *"
+
+HEARTBEAT_JITTER_MIN_SEC = 1
+HEARTBEAT_JITTER_MAX_SEC = 30
+
+
+@DBOS.step()
+def random_jitter() -> int:
+    """Sleep a random 1–30s so heartbeat runs have varied durations.
+
+    Runs as a step (not a plain function) so the chosen delay is recorded as a
+    step output — useful when the dashboard later charts per-run durations.
+    """
+    seconds = random.randint(HEARTBEAT_JITTER_MIN_SEC, HEARTBEAT_JITTER_MAX_SEC)
+    time.sleep(seconds)
+    return seconds
 
 
 @DBOS.workflow()
 def heartbeat_check(scheduled_at: datetime, context: Any = None) -> None:
-    """Tick every 10 minutes. Each run lands a workflow row in the dashboard.
+    """Tick every minute. Each run lands a workflow row in the dashboard.
 
     `DBOS.create_schedule` invokes `(scheduled_at, context)` — `context` is
     whatever was passed to `create_schedule(context=...)`, defaulting to None.
@@ -31,7 +48,8 @@ def heartbeat_check(scheduled_at: datetime, context: Any = None) -> None:
     actual_at)` instead — different second argument.)
     """
     audit(f"heartbeat:{scheduled_at.isoformat()}")
-    log_event(f"heartbeat ran (scheduled for {scheduled_at.isoformat()})")
+    waited = random_jitter()
+    log_event(f"heartbeat ran (scheduled for {scheduled_at.isoformat()}, jitter={waited}s)")
 
 
 def register_schedules() -> None:

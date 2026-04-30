@@ -711,6 +711,79 @@ async def get_stats() -> DashboardStats:
     )
 
 
+class ThroughputBucket(BaseModel):
+    ts: datetime
+    succeeded: int
+    errored: int
+    running: int
+
+
+# Range → (date_trunc unit, lookback ms). The unit is interpolated directly
+# into SQL, so the set must stay closed to these literals.
+_THROUGHPUT_RANGES: dict[str, tuple[str, int]] = {
+    "24h": ("hour", 24 * 3_600_000),
+    "7d": ("day", 7 * 86_400_000),
+    "30d": ("day", 30 * 86_400_000),
+}
+
+
+@app.get("/api/stats/timeseries")
+async def get_throughput(
+    range: Literal["24h", "7d", "30d"] = "7d",
+) -> list[ThroughputBucket]:
+    bucket, lookback_ms = _THROUGHPUT_RANGES[range]
+    until_ms = int(datetime.now(UTC).timestamp() * 1000)
+    since_ms = until_ms - lookback_ms
+    # Bucket unit comes from a closed literal set above — safe to interpolate.
+    sql = f"""
+        WITH params AS (
+            SELECT
+                CAST(:since_ms AS bigint) AS since_ms,
+                CAST(:until_ms AS bigint) AS until_ms
+        ),
+        buckets AS (
+            SELECT generate_series(
+                date_trunc('{bucket}', to_timestamp(p.since_ms / 1000.0)),
+                date_trunc('{bucket}', to_timestamp(p.until_ms / 1000.0)),
+                '1 {bucket}'::interval
+            ) AS ts
+            FROM params p
+        ),
+        events AS (
+            SELECT
+                date_trunc('{bucket}', to_timestamp(ws.created_at / 1000.0)) AS ts,
+                ws.status
+            FROM dbos.workflow_status ws, params p
+            WHERE ws.created_at >= p.since_ms AND ws.created_at <= p.until_ms
+        )
+        SELECT
+            b.ts AS ts,
+            COUNT(e.*) FILTER (WHERE e.status = 'SUCCESS') AS succeeded,
+            COUNT(e.*) FILTER (WHERE e.status IN {ERROR_STATUSES_SQL}) AS errored,
+            COUNT(e.*) FILTER (WHERE e.status IN {ACTIVE_STATUSES_SQL}) AS running
+        FROM buckets b
+        LEFT JOIN events e ON e.ts = b.ts
+        GROUP BY b.ts
+        ORDER BY b.ts ASC
+    """
+    try:
+        async with engine.connect() as conn:
+            rows = (
+                await conn.execute(text(sql), {"since_ms": since_ms, "until_ms": until_ms})
+            ).fetchall()
+    except ProgrammingError:
+        return []
+    return [
+        ThroughputBucket(
+            ts=r.ts,
+            succeeded=r.succeeded,
+            errored=r.errored,
+            running=r.running,
+        )
+        for r in rows
+    ]
+
+
 class WorkflowSchedule(BaseModel):
     schedule_id: str
     schedule_name: str

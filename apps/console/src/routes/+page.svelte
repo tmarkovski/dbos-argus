@@ -19,6 +19,7 @@
   import * as Card from "$lib/components/ui/card/index.js";
   import * as Table from "$lib/components/ui/table/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
+  import WorkflowThroughputChart from "$lib/components/WorkflowThroughputChart.svelte";
 
   type Stats = {
     total: number;
@@ -240,6 +241,8 @@
       </Card.Footer>
     </Card.Root>
   </div>
+
+  <WorkflowThroughputChart />
 
   <Card.Root class="gap-0 py-0 shadow-xs">
     <Card.Header class="border-b py-4">

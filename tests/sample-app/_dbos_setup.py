@@ -1,10 +1,7 @@
-"""Shared DBOS construction for the runner and ops CLIs.
+"""Shared DBOS construction for the runner, ops, and scheduler CLIs.
 
 Loads env vars from `tests/sample-app/.env` (the one next to this file), then
-constructs the DBOS singleton with the given executor_id. If
-`DBOS_CONDUCTOR_KEY` is set, the process is connected to DBOS Conductor and
-DBOS will override the executor_id with a generated UUID at launch — see
-_dbos.py:524.
+constructs the DBOS singleton with the given executor_id.
 
 Also defines the demo queue. The runner registers it with default (unlimited)
 worker concurrency so it dequeues and runs queued workflows. The ops CLI
@@ -45,29 +42,19 @@ def init_dbos(
         load_dotenv(ENV_PATH)
 
     db_url = os.environ.get("DBOS_SYSTEM_DATABASE_URL", DEFAULT_DB_URL)
-    conductor_key = os.environ.get("DBOS_CONDUCTOR_KEY")
 
-    kwargs: dict = {
-        "config": {
+    print(
+        f"[{executor_id}] starting (app_name={app_name!r})",
+        file=sys.stderr,
+    )
+
+    DBOS(
+        config={
             "name": app_name,
             "system_database_url": db_url,
             "executor_id": executor_id,
         }
-    }
-    if conductor_key:
-        kwargs["conductor_key"] = conductor_key
-        print(
-            f"[{executor_id}] DBOS_CONDUCTOR_KEY detected (…{conductor_key[-8:]}) — "
-            f"connecting to Conductor as app_name={app_name!r}",
-            file=sys.stderr,
-        )
-    else:
-        print(
-            f"[{executor_id}] no DBOS_CONDUCTOR_KEY — running local-only (app_name={app_name!r})",
-            file=sys.stderr,
-        )
-
-    DBOS(**kwargs)
+    )
 
     global DEMO_QUEUE
     DEMO_QUEUE = Queue(
