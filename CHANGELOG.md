@@ -9,9 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
-## [0.0.11] - 2026-04-30
+## [0.0.12] - 2026-04-30
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+> **Note:** v0.0.11 was tagged but never published — the release pipeline's
+> "Build wheel + sdist" step OOMed on the GitHub runner during the SvelteKit
+> SPA build (Vite hit Node's default ~2 GB heap mid-rollup). v0.0.12 carries
+> the same intended changes plus the build fix.
 
 ### Added
 - Dashboard **workflow throughput chart**: stacked-area view (succeeded /
@@ -34,9 +39,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ResultPane: skip the view-transition close morph on Safari (the
   reverse direction stutters in Safari 26's WebKit, expand still
   morphs).
-- README: refreshed hero — dashboard + workflow graph screenshots above
-  the fold, workflows list lower down. Localhost URL surfaced before
-  the runner options.
+- Repo README: refreshed hero — dashboard + workflow graph screenshots
+  above the fold, workflows list lower down. Localhost URL surfaced
+  before the runner options. Dropped stale "must use `+asyncpg://`
+  prefix" gotcha (auto-rewritten since 0.0.4).
+- PyPI README: rewrote install/run instructions around the actual CLI
+  (`uvx dbos-argus --db-url ...`, `pipx`, Docker) instead of the old
+  `uv add` / `uvicorn` invocations, plus inline screenshots from
+  `raw.githubusercontent.com`.
+
+### Fixed
+- Release pipeline: bumped `NODE_OPTIONS=--max-old-space-size=4096` for
+  the SPA build step in `release.yml` and `ci-node.yml`. Vite's dual
+  SSR + client rollup transforms ~11.7k modules each and was OOMing
+  against Node's default 2 GB old-space heap.
 
 ## [0.0.10] - 2026-04-29
 
@@ -186,8 +202,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.11...HEAD
-[0.0.11]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.11
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.12...HEAD
+[0.0.12]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.12
 [0.0.10]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.10
 [0.0.9]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.9
 [0.0.8]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.8
