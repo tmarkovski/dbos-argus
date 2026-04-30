@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.11] - 2026-04-30
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+### Added
+- Dashboard **workflow throughput chart**: stacked-area view (succeeded /
+  errored / running) backed by a new `GET /api/stats/timeseries?range=`
+  endpoint. Range toggles between last 24h (hourly buckets), 7 days, and
+  30 days (daily buckets). Buckets are filled densely via `date_trunc` +
+  `generate_series` so empty windows render correctly. Polls every 10s.
+- Workflow detail: an **expand-to-dialog** button on the result pane,
+  morphing the output box into a full-screen dialog via the View
+  Transitions API for the JSON output of step/workflow records.
+
+### Changed
+- Dashboard layout: throughput chart and the recent-workflows table sit
+  side-by-side at `@5xl/main` (≈1024px), stacked single-column below.
+  Recent workflows columns reordered to **Status / Name / Started /
+  Workflow ID**, with the Workflow ID column truncating to fit the
+  shared width.
+- Workflow detail pane: tinted hover on the Database tile and more
+  workflow metadata surfaced in the detail summary.
+- ResultPane: skip the view-transition close morph on Safari (the
+  reverse direction stutters in Safari 26's WebKit, expand still
+  morphs).
+- README: refreshed hero — dashboard + workflow graph screenshots above
+  the fold, workflows list lower down. Localhost URL surfaced before
+  the runner options.
+
 ## [0.0.10] - 2026-04-29
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
@@ -157,7 +186,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.9...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.11...HEAD
+[0.0.11]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.11
+[0.0.10]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.10
 [0.0.9]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.9
 [0.0.8]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.8
 [0.0.6]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.6
