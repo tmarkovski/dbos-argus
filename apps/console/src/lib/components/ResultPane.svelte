@@ -2,8 +2,10 @@
   import type { FlowSelection } from "./WorkflowFlow.svelte";
   import { statusBadgeClass } from "$lib/workflow-tree";
   import { Badge } from "$lib/components/ui/badge/index.js";
+  import * as Dialog from "$lib/components/ui/dialog/index.js";
   import Copy from "@lucide/svelte/icons/copy";
   import Check from "@lucide/svelte/icons/check";
+  import Maximize2 from "@lucide/svelte/icons/maximize-2";
 
   // Result data is loaded lazily by the parent page (cached for the lifetime
   // of the page) so we never drag potentially-large output blobs through
@@ -164,6 +166,7 @@
 
   let justCopied = $state(false);
   let copyTimer: ReturnType<typeof setTimeout> | null = null;
+  let expanded = $state(false);
 
   async function copyResult() {
     if (!displayedText) return;
@@ -296,19 +299,30 @@
           </div>
         </div>
         <div class="flex-1 overflow-auto px-4 pb-4">
-          {#if payload.kind === "error"}
-            <pre
-              class="border-destructive/30 bg-destructive/5 text-destructive overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{effectiveMode ===
-              "decoded" && payload.decoded !== null
-                ? payload.decoded
-                : payload.raw}</pre>
-          {:else}
-            <pre
-              class="border-border bg-muted/40 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{effectiveMode ===
-              "decoded" && payload.decoded !== null
-                ? payload.decoded
-                : payload.raw}</pre>
-          {/if}
+          <div class="relative">
+            {#if payload.kind === "error"}
+              <pre
+                class="border-destructive/30 bg-destructive/5 text-destructive overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{effectiveMode ===
+                "decoded" && payload.decoded !== null
+                  ? payload.decoded
+                  : payload.raw}</pre>
+            {:else}
+              <pre
+                class="border-border bg-muted/40 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{effectiveMode ===
+                "decoded" && payload.decoded !== null
+                  ? payload.decoded
+                  : payload.raw}</pre>
+            {/if}
+            <button
+              type="button"
+              onclick={() => (expanded = true)}
+              title="Expand result"
+              aria-label="Expand result"
+              class="bg-background/80 text-muted-foreground hover:text-foreground hover:bg-muted border-border/60 absolute right-2 bottom-2 flex h-7 w-7 items-center justify-center rounded-md border shadow-sm backdrop-blur-sm transition-colors"
+            >
+              <Maximize2 class="h-3.5 w-3.5" />
+            </button>
+          </div>
           {#if payload.decoded === null && payload.serialization && payload.serialization.toLowerCase().includes("pickle")}
             <p class="text-muted-foreground mt-2 text-[11px]">
               Pickled Python value couldn't be decoded safely (likely a custom class). Showing
@@ -320,3 +334,69 @@
     </div>
   {/if}
 </aside>
+
+<Dialog.Root bind:open={expanded}>
+  <Dialog.Content
+    class="flex max-h-[85vh] w-full flex-col gap-4 sm:max-w-3xl"
+  >
+    <Dialog.Header>
+      <Dialog.Title class="text-base">
+        {payload.kind === "error" ? "Error" : "Output"}{heading ? ` · ${heading.title}` : ""}
+      </Dialog.Title>
+      {#if heading}
+        <Dialog.Description class="break-all font-mono text-xs">
+          {heading.subtitle}
+        </Dialog.Description>
+      {/if}
+    </Dialog.Header>
+    {#if payload.kind !== "none"}
+      <div class="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onclick={copyResult}
+          title={justCopied ? "Copied!" : "Copy to clipboard"}
+          aria-label="Copy result"
+          class="text-muted-foreground hover:text-foreground hover:bg-muted flex h-7 w-7 items-center justify-center rounded transition-colors"
+        >
+          {#if justCopied}
+            <Check class="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+          {:else}
+            <Copy class="h-3.5 w-3.5" />
+          {/if}
+        </button>
+        <div class="bg-muted flex items-center rounded-md p-0.5">
+          <button
+            type="button"
+            class="rounded px-2 py-0.5 text-[11px] font-medium transition
+              {effectiveMode === 'raw'
+                ? 'bg-background text-foreground shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'}"
+            onclick={() => (preferredMode = "raw")}
+          >
+            Raw
+          </button>
+          <button
+            type="button"
+            disabled={payload.decoded === null}
+            class="rounded px-2 py-0.5 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40
+              {effectiveMode === 'decoded'
+                ? 'bg-background text-foreground shadow-xs'
+                : 'text-muted-foreground enabled:hover:text-foreground'}"
+            onclick={() => (preferredMode = "decoded")}
+          >
+            Decoded
+          </button>
+        </div>
+      </div>
+      <div class="min-h-0 flex-1 overflow-auto">
+        {#if payload.kind === "error"}
+          <pre
+            class="border-destructive/30 bg-destructive/5 text-destructive overflow-auto rounded-lg border p-4 font-mono text-xs whitespace-pre-wrap break-words">{displayedText}</pre>
+        {:else}
+          <pre
+            class="border-border bg-muted/40 overflow-auto rounded-lg border p-4 font-mono text-xs whitespace-pre-wrap break-words">{displayedText}</pre>
+        {/if}
+      </div>
+    {/if}
+  </Dialog.Content>
+</Dialog.Root>
