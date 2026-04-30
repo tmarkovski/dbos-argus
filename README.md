@@ -47,7 +47,7 @@ That's it. Argus connects read-only to `dbos.workflow_status` and the related DB
 
 A few gotchas:
 
-- **Driver must be asyncpg.** The URL prefix is `postgresql+asyncpg://`, not `postgresql://`.
+- **Argus runs on asyncpg.** Bare `postgresql://` and `postgres://` URLs work — Argus rewrites the scheme to `postgresql+asyncpg://` automatically. Pasting a standard libpq connection string is fine.
 - **Azure Database for PostgreSQL uses TLS.** Argus auto-enables `sslmode=require` for hosts under `*.postgres.database.azure.com`; add an explicit `sslmode=` only if you need to override that default.
 - **`host.docker.internal`** (Docker only) is what the container uses to reach Postgres on your host (macOS, Windows, Docker Desktop). On Linux, add `--add-host=host.docker.internal:host-gateway`, or use `--network host` and switch back to `localhost`.
 - **`pg_hba.conf`** may reject connections from the docker bridge (`172.17.0.0/16`) by default. If you see auth errors, add a matching `host` line.
@@ -58,7 +58,7 @@ Smoke-test the URL first if you're unsure:
 psql "postgresql://USER:PASS@localhost:5432/YOURDB" -c "select count(*) from dbos.workflow_status;"
 ```
 
-If that returns a number, you're good — swap `postgresql://` → `postgresql+asyncpg://` in the Argus command (and `localhost` → `host.docker.internal` if using the Docker runner).
+If that returns a number, you're good — pass the same URL to Argus (swap `localhost` → `host.docker.internal` if using the Docker runner).
 
 ### Image tags
 
