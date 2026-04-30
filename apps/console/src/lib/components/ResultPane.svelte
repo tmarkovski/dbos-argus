@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import type { FlowSelection } from "./WorkflowFlow.svelte";
   import { statusBadgeClass } from "$lib/workflow-tree";
   import { Badge } from "$lib/components/ui/badge/index.js";
@@ -168,6 +169,30 @@
   let copyTimer: ReturnType<typeof setTimeout> | null = null;
   let expanded = $state(false);
 
+  type DocWithVT = Document & {
+    startViewTransition: (cb: () => void | Promise<void>) => unknown;
+  };
+
+  // Browser View Transitions API: when supported, wrap the open/close state
+  // change so the browser interpolates the snapshots of the side-pane <pre>
+  // and the dialog (matched by `view-transition-name: result-output`) — the
+  // box visually grows from the small pre into the dialog and back. Firefox
+  // falls back to the bits-ui zoom-95 default.
+  function transitionExpanded(next: boolean) {
+    if (next === expanded) return;
+    const doc = typeof document !== "undefined" ? document : null;
+    if (doc && "startViewTransition" in doc) {
+      (doc as DocWithVT).startViewTransition(async () => {
+        expanded = next;
+        // Wait for Svelte to flush DOM updates so the "after" snapshot
+        // reflects the new state (dialog mounted/unmounted, name swapped).
+        await tick();
+      });
+    } else {
+      expanded = next;
+    }
+  }
+
   async function copyResult() {
     if (!displayedText) return;
     try {
@@ -299,7 +324,10 @@
           </div>
         </div>
         <div class="flex-1 overflow-auto px-4 pb-4">
-          <div class="relative">
+          <div
+            class="relative"
+            style:view-transition-name={expanded ? undefined : "result-output"}
+          >
             {#if payload.kind === "error"}
               <pre
                 class="border-destructive/30 bg-destructive/5 text-destructive overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{effectiveMode ===
@@ -315,7 +343,7 @@
             {/if}
             <button
               type="button"
-              onclick={() => (expanded = true)}
+              onclick={() => transitionExpanded(true)}
               title="Expand result"
               aria-label="Expand result"
               class="bg-background/80 text-muted-foreground hover:text-foreground hover:bg-muted border-border/60 absolute right-2 bottom-2 flex h-7 w-7 items-center justify-center rounded-md border shadow-sm backdrop-blur-sm transition-colors"
@@ -335,9 +363,10 @@
   {/if}
 </aside>
 
-<Dialog.Root bind:open={expanded}>
+<Dialog.Root open={expanded} onOpenChange={transitionExpanded}>
   <Dialog.Content
     class="flex max-h-[85vh] w-full flex-col gap-4 sm:max-w-3xl"
+    style={expanded ? "view-transition-name: result-output;" : undefined}
   >
     <Dialog.Header>
       <Dialog.Title class="text-base">
