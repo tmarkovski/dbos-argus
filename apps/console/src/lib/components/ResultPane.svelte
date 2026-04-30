@@ -173,19 +173,28 @@
     startViewTransition: (cb: () => void | Promise<void>) => unknown;
   };
 
+  // Safari ships startViewTransition but its close-side morph flickers (the
+  // dialog/overlay ghosts back in during the root cross-fade). Skip the
+  // morph when closing on Safari and let bits-ui's default zoom-95 fade-out
+  // play instead.
+  function isSafari(): boolean {
+    if (typeof navigator === "undefined") return false;
+    const ua = navigator.userAgent;
+    return /^((?!chrome|android).)*safari/i.test(ua);
+  }
+
   // Browser View Transitions API: when supported, wrap the open/close state
   // change so the browser interpolates the snapshots of the side-pane <pre>
   // and the dialog (matched by `view-transition-name: result-output`) — the
   // box visually grows from the small pre into the dialog and back. Firefox
-  // falls back to the bits-ui zoom-95 default.
+  // (and Safari on close) fall back to the bits-ui zoom-95 default.
   function transitionExpanded(next: boolean) {
     if (next === expanded) return;
     const doc = typeof document !== "undefined" ? document : null;
-    if (doc && "startViewTransition" in doc) {
+    const skipVT = !next && isSafari();
+    if (doc && "startViewTransition" in doc && !skipVT) {
       (doc as DocWithVT).startViewTransition(async () => {
         expanded = next;
-        // Wait for Svelte to flush DOM updates so the "after" snapshot
-        // reflects the new state (dialog mounted/unmounted, name swapped).
         await tick();
       });
     } else {
