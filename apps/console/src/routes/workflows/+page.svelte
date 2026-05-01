@@ -64,8 +64,29 @@
   let error = $state<string | null>(null);
   let timer: ReturnType<typeof setInterval> | undefined;
 
+  // `qInput` is what the user is typing right now; `filters.q` is what the
+  // backend actually filters on. We debounce input → applied so we don't
+  // round-trip per keystroke, and require at least SEARCH_MIN_CHARS before
+  // firing — single-character queries are too broad to be useful.
+  const SEARCH_DEBOUNCE_MS = 500;
+  const SEARCH_MIN_CHARS = 2;
+  let qInput = $state("");
   let filters = $state({
     q: "",
+  });
+  let qDebounce: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => {
+    const next = qInput.trim();
+    if (qDebounce) clearTimeout(qDebounce);
+    if (next.length < SEARCH_MIN_CHARS) {
+      // Below threshold (or empty): drop the filter immediately so visible
+      // data doesn't lag behind the input.
+      if (filters.q !== "") filters.q = "";
+      return;
+    }
+    qDebounce = setTimeout(() => {
+      filters.q = next;
+    }, SEARCH_DEBOUNCE_MS);
   });
   let dateRange = $state<{ start: DateValue | undefined; end: DateValue | undefined }>({
     start: undefined,
@@ -231,9 +252,11 @@
   onDestroy(() => {
     if (timer) clearInterval(timer);
     if (debounce) clearTimeout(debounce);
+    if (qDebounce) clearTimeout(qDebounce);
   });
 
   function clearFilters() {
+    qInput = "";
     filters.q = "";
     dateRange = { start: undefined, end: undefined };
     selectedStatuses = allStatuses();
@@ -455,9 +478,13 @@
         <SearchIcon />
       </InputGroup.Addon>
       <InputGroup.Input
-        type="text"
+        type="search"
         placeholder="Workflow name or ID"
-        bind:value={filters.q}
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        bind:value={qInput}
       />
     </InputGroup.Root>
 
