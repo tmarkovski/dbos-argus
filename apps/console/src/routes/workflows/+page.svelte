@@ -277,6 +277,27 @@
     return out;
   });
 
+  // Case-insensitive substring split; returns alternating non-match/match
+  // segments so the renderer can wrap the matches in <mark>. Matches the
+  // backend's ILIKE '%q%' semantics — no regex / wildcards on the client.
+  const searchTerm = $derived(filters.q.trim());
+  function highlightSegments(
+    text: string | null,
+    query: string,
+  ): { text: string; match: boolean }[] {
+    if (!text) return [];
+    if (!query) return [{ text, match: false }];
+    const lower = text.toLowerCase();
+    const q = query.toLowerCase();
+    const i = lower.indexOf(q);
+    if (i < 0) return [{ text, match: false }];
+    return [
+      { text: text.slice(0, i), match: false },
+      { text: text.slice(i, i + q.length), match: true },
+      { text: text.slice(i + q.length), match: false },
+    ];
+  }
+
   function formatRelative(iso: string): string {
     const then = new Date(iso).getTime();
     const diff = Date.now() - then;
@@ -291,6 +312,8 @@
     return `${d}d ago`;
   }
 </script>
+
+{#snippet highlighted(text: string | null, query: string)}{#each highlightSegments(text, query) as part, i (i)}{#if part.match}<mark class="bg-yellow-200 text-yellow-900 dark:bg-yellow-400/30 dark:text-yellow-100 rounded-sm">{part.text}</mark>{:else}{part.text}{/if}{/each}{/snippet}
 
 <div class="flex flex-col gap-4 p-6">
   {#if enqueued.length > 0}
@@ -613,7 +636,7 @@
                         ? 'py-2'
                         : 'py-1'} {grouped && w.depth > 0 ? 'pl-1' : ''}"
                     >
-                      {w.name ?? "—"}
+                      {#if w.name}{@render highlighted(w.name, searchTerm)}{:else}—{/if}
                     </a>
                   </div>
                 </Table.Cell>
@@ -635,7 +658,7 @@
                     title={w.workflow_id}
                     class="hover:text-foreground hover:underline"
                   >
-                    {w.workflow_id}
+                    {@render highlighted(w.workflow_id, searchTerm)}
                   </a>
                 </Table.Cell>
               {/if}
