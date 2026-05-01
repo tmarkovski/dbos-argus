@@ -17,7 +17,15 @@
 
   type Range = "24h" | "7d" | "30d";
 
-  let range = $state<Range>("7d");
+  const RANGE_STORAGE_KEY = "argus.dashboard.throughput.range";
+
+  function loadRange(): Range {
+    if (typeof localStorage === "undefined") return "7d";
+    const v = localStorage.getItem(RANGE_STORAGE_KEY);
+    return v === "24h" || v === "7d" || v === "30d" ? v : "7d";
+  }
+
+  let range = $state<Range>(loadRange());
   let data = $state<{ ts: Date; succeeded: number; errored: number; running: number }[]>([]);
   let timer: ReturnType<typeof setInterval> | undefined;
 
@@ -38,7 +46,9 @@
   }
 
   $effect(() => {
-    void range;
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(RANGE_STORAGE_KEY, range);
+    }
     refresh();
   });
 

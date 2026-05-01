@@ -772,6 +772,7 @@
     {nodeTypes}
     {colorMode}
     fitView
+    fitViewOptions={{ maxZoom: 1, padding: 0.15 }}
     nodesDraggable={false}
     nodesConnectable={false}
     elementsSelectable
