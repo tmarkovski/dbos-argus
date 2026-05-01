@@ -51,7 +51,7 @@
       const dur =
         new Date(w.updated_at).getTime() - new Date(w.started_at).getTime();
       return {
-        eyebrow: "Workflow",
+        resultLabel: "Workflow result",
         title: w.name ?? "—",
         subtitle: w.workflow_id,
         status: w.status,
@@ -65,7 +65,7 @@
         ? new Date(s.completed_at).getTime() - new Date(s.started_at).getTime()
         : null;
     return {
-      eyebrow: `Step #${s.function_id}`,
+      resultLabel: `Step #${s.function_id} result`,
       title: s.function_name,
       subtitle: s.workflow_id,
       status: null as string | null,
@@ -218,16 +218,8 @@
 <aside class="bg-card flex h-full w-full flex-col overflow-hidden">
   <div class="border-border bg-muted/30 flex min-h-10 items-center gap-2 border-b px-4 py-2.5">
     <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-      Result
+      {heading?.resultLabel ?? "Result"}
     </span>
-    {#if payload.kind !== "none" && payload.serialization}
-      <span
-        class="bg-muted text-muted-foreground ml-auto inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium"
-        title="Serialization format (DBOS `serialization` column)"
-      >
-        {payload.serialization}
-      </span>
-    {/if}
   </div>
 
   {#if !selection || !heading}
@@ -236,9 +228,6 @@
     </div>
   {:else}
     <div class="border-border flex flex-col gap-1 border-b px-4 py-3">
-      <div class="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
-        {heading.eyebrow}
-      </div>
       <div class="flex items-start gap-2">
         <span class="truncate font-mono text-sm font-medium" title={heading.title}>
           {heading.title}
@@ -287,9 +276,19 @@
         </div>
       {:else}
         <div class="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
-          <span class="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
-            {payload.kind === "error" ? "Error" : "Output"}
-          </span>
+          <div class="flex items-center gap-2">
+            <span class="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+              {payload.kind === "error" ? "Error" : "Output"}
+            </span>
+            {#if payload.serialization}
+              <span
+                class="bg-muted text-muted-foreground inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium"
+                title="Serialization format (DBOS `serialization` column)"
+              >
+                {payload.serialization}
+              </span>
+            {/if}
+          </div>
           <div class="flex items-center gap-2">
             <button
               type="button"
