@@ -120,25 +120,22 @@
 </script>
 
 <div class="flex flex-col gap-4 p-6">
-  <header class="flex flex-wrap items-baseline justify-between gap-3">
-    <h1 class="text-lg font-semibold">Notifications</h1>
-    <div class="flex items-center gap-3">
-      <p class="text-muted-foreground text-xs">
-        Messages from <code class="font-mono">DBOS.send</code>; pending ones are waiting on a
-        <code class="font-mono">DBOS.recv</code>.
-      </p>
-      <ToggleGroup.Root
-        type="single"
-        variant="outline"
-        value={view}
-        onValueChange={(v) => {
-          if (v) view = v as View;
-        }}
-      >
-        <ToggleGroup.Item value="pending">Pending</ToggleGroup.Item>
-        <ToggleGroup.Item value="all">All</ToggleGroup.Item>
-      </ToggleGroup.Root>
-    </div>
+  <header class="flex min-h-9 flex-wrap items-center justify-between gap-3">
+    <p class="text-muted-foreground text-xs">
+      Messages from <code class="font-mono">DBOS.send</code>; pending ones are waiting on a
+      <code class="font-mono">DBOS.recv</code>.
+    </p>
+    <ToggleGroup.Root
+      type="single"
+      variant="outline"
+      value={view}
+      onValueChange={(v) => {
+        if (v) view = v as View;
+      }}
+    >
+      <ToggleGroup.Item value="pending">Pending</ToggleGroup.Item>
+      <ToggleGroup.Item value="all">All</ToggleGroup.Item>
+    </ToggleGroup.Root>
   </header>
 
   {#if error}

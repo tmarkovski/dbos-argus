@@ -58,8 +58,7 @@
 </script>
 
 <div class="flex flex-col gap-4 p-6">
-  <header class="flex items-baseline justify-between">
-    <h1 class="text-lg font-semibold">Schedules</h1>
+  <header class="flex min-h-9 items-center justify-between">
     <p class="text-muted-foreground text-xs">
       Cron-style scheduled workflows registered with DBOS.
     </p>
