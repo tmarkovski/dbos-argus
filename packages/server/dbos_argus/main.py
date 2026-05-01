@@ -782,6 +782,7 @@ async def get_step_result(workflow_id: str, function_id: int) -> StepResult:
 class DashboardStats(BaseModel):
     total: int
     in_flight: int
+    enqueued: int
     failed_recent: int
     pending_notifications: int
     active_schedules: int
@@ -792,6 +793,7 @@ class DashboardStats(BaseModel):
 _EMPTY_STATS = DashboardStats(
     total=0,
     in_flight=0,
+    enqueued=0,
     failed_recent=0,
     pending_notifications=0,
     active_schedules=0,
@@ -807,6 +809,8 @@ async def get_stats() -> DashboardStats:
             (SELECT COUNT(*) FROM dbos.workflow_status) AS total,
             (SELECT COUNT(*) FROM dbos.workflow_status
                 WHERE status IN {ACTIVE_STATUSES_SQL}) AS in_flight,
+            (SELECT COUNT(*) FROM dbos.workflow_status
+                WHERE status = 'ENQUEUED') AS enqueued,
             (SELECT COUNT(*) FROM dbos.workflow_status
                 WHERE status IN {ERROR_STATUSES_SQL}
                 AND COALESCE(started_at_epoch_ms, created_at) >= :since_ms) AS failed_recent,
@@ -826,6 +830,7 @@ async def get_stats() -> DashboardStats:
     return DashboardStats(
         total=row.total,
         in_flight=row.in_flight,
+        enqueued=row.enqueued,
         failed_recent=row.failed_recent,
         pending_notifications=row.pending_notifications,
         active_schedules=row.active_schedules,

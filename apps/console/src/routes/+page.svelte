@@ -4,6 +4,7 @@
   import AlertTriangleIcon from "@lucide/svelte/icons/triangle-alert";
   import BellIcon from "@lucide/svelte/icons/bell";
   import CalendarClockIcon from "@lucide/svelte/icons/calendar-clock";
+  import ListTodoIcon from "@lucide/svelte/icons/list-todo";
   import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
   import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
@@ -24,6 +25,7 @@
   type Stats = {
     total: number;
     in_flight: number;
+    enqueued: number;
     failed_recent: number;
     pending_notifications: number;
     active_schedules: number;
@@ -71,6 +73,7 @@
   });
 
   const inFlightHref = "/workflows/?status=PENDING&status=ENQUEUED&status=DELAYED";
+  const enqueuedHref = "/workflows/?status=ENQUEUED";
   const failedHref = "/workflows/?status=ERROR&status=MAX_RECOVERY_ATTEMPTS_EXCEEDED";
 
   const connectionIndicatorState = $derived(
@@ -169,11 +172,17 @@
             {stats?.total ?? "—"}
           </a>
         </Card.Title>
-        <Card.Action>
+        <Card.Action class="flex flex-col items-end gap-1">
           <a href={inFlightHref} class="hover:opacity-80">
             <Badge variant="outline" class="gap-1">
               <ActivityIcon class="size-3" />
               {stats?.in_flight ?? "—"} in flight
+            </Badge>
+          </a>
+          <a href={enqueuedHref} class="hover:opacity-80">
+            <Badge variant="outline" class="gap-1">
+              <ListTodoIcon class="size-3" />
+              {stats?.enqueued ?? "—"} queued
             </Badge>
           </a>
         </Card.Action>
