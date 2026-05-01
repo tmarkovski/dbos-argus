@@ -5,7 +5,6 @@
   import { getLocalTimeZone, type DateValue } from "@internationalized/date";
   import FilterIcon from "@lucide/svelte/icons/list-filter";
   import SearchIcon from "@lucide/svelte/icons/search";
-  import TextIcon from "@lucide/svelte/icons/text";
   import ColumnsIcon from "@lucide/svelte/icons/columns-3";
   import XIcon from "@lucide/svelte/icons/x";
   import CheckIcon from "@lucide/svelte/icons/check";
@@ -66,8 +65,7 @@
   let timer: ReturnType<typeof setInterval> | undefined;
 
   let filters = $state({
-    workflow_id: "",
-    name: "",
+    q: "",
   });
   let dateRange = $state<{ start: DateValue | undefined; end: DateValue | undefined }>({
     start: undefined,
@@ -131,8 +129,7 @@
 
   function buildQuery(): string {
     const params = new URLSearchParams();
-    if (filters.workflow_id.trim()) params.set("workflow_id", filters.workflow_id.trim());
-    if (filters.name.trim()) params.set("name", filters.name.trim());
+    if (filters.q.trim()) params.set("q", filters.q.trim());
     if (queueName) params.set("queue_name", queueName);
     const tz = getLocalTimeZone();
     if (dateRange.start) {
@@ -192,8 +189,7 @@
 
   // Re-fetch whenever any filter/view dimension changes.
   $effect(() => {
-    filters.workflow_id;
-    filters.name;
+    filters.q;
     dateRange.start;
     dateRange.end;
     selectedStatuses;
@@ -238,8 +234,7 @@
   });
 
   function clearFilters() {
-    filters.workflow_id = "";
-    filters.name = "";
+    filters.q = "";
     dateRange = { start: undefined, end: undefined };
     selectedStatuses = allStatuses();
     setHideScheduled(false);
@@ -255,8 +250,7 @@
 
   const hasActiveFilters = $derived(
     !!(
-      filters.workflow_id.trim() ||
-      filters.name.trim() ||
+      filters.q.trim() ||
       dateRange.start ||
       dateRange.end ||
       statusNarrowed ||
@@ -433,24 +427,14 @@
       </Popover.Content>
     </Popover.Root>
 
-    <InputGroup.Root class="w-52">
+    <InputGroup.Root class="w-96">
       <InputGroup.Addon>
         <SearchIcon />
       </InputGroup.Addon>
       <InputGroup.Input
         type="text"
-        placeholder="Workflow ID"
-        bind:value={filters.workflow_id}
-      />
-    </InputGroup.Root>
-    <InputGroup.Root class="w-52">
-      <InputGroup.Addon>
-        <TextIcon />
-      </InputGroup.Addon>
-      <InputGroup.Input
-        type="text"
-        placeholder="Name (wildcard)"
-        bind:value={filters.name}
+        placeholder="Workflow name or ID"
+        bind:value={filters.q}
       />
     </InputGroup.Root>
 

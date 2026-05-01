@@ -155,50 +155,79 @@ class WorkflowListItem(BaseModel):
 # started_at DESC.
 def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str, dict[str, object]]:
     params: dict[str, object] = {"limit": filters["limit"]}
-    conditions: list[str] = []
+    # Conditions that scope what counts as a "root" in grouped mode (and match
+    # rows directly in flat mode). `q` is handled separately because in grouped
+    # mode we want it to match anywhere in the tree, not just at the root.
+    root_conditions: list[str] = []
 
-    if filters.get("workflow_id"):
-        conditions.append("workflow_uuid ILIKE :workflow_id_pat")
-        params["workflow_id_pat"] = f"%{filters['workflow_id']}%"
-    if filters.get("name"):
-        conditions.append("name ILIKE :name_pat")
-        params["name_pat"] = f"%{filters['name']}%"
     if filters.get("started_after") is not None:
-        conditions.append("COALESCE(started_at_epoch_ms, created_at) >= :started_after_ms")
+        root_conditions.append("COALESCE(started_at_epoch_ms, created_at) >= :started_after_ms")
         params["started_after_ms"] = filters["started_after"]
     if filters.get("started_before") is not None:
-        conditions.append("COALESCE(started_at_epoch_ms, created_at) <= :started_before_ms")
+        root_conditions.append("COALESCE(started_at_epoch_ms, created_at) <= :started_before_ms")
         params["started_before_ms"] = filters["started_before"]
     if filters.get("statuses"):
-        conditions.append("status = ANY(:statuses)")
+        root_conditions.append("status = ANY(:statuses)")
         params["statuses"] = filters["statuses"]
     else:
         # ENQUEUED runs are surfaced in the workflow-list page's pinned strip,
         # so the main list defaults to hiding them. An explicit `status` filter
         # opts back in (the strip uses ?status=ENQUEUED).
-        conditions.append("status <> 'ENQUEUED'")
+        root_conditions.append("status <> 'ENQUEUED'")
     if filters.get("queue_name"):
-        conditions.append("queue_name = :queue_name")
+        root_conditions.append("queue_name = :queue_name")
         params["queue_name"] = filters["queue_name"]
     # Scheduled workflow runs use the deterministic id `sched-<schedule_name>-<isoformat>`
     # (or `sched-<func_name>-<isoformat>` from the deprecated decorator path). DBOS does
     # not record an explicit "is scheduled" flag on workflow_status, so filtering by id
     # prefix is the canonical detection — see dbos/_scheduler.py:171.
     if filters.get("hide_scheduled"):
-        conditions.append("workflow_uuid NOT LIKE 'sched-%'")
+        root_conditions.append("workflow_uuid NOT LIKE 'sched-%'")
 
-    where_extra = (" AND " + " AND ".join(conditions)) if conditions else ""
+    has_q = bool(filters.get("q"))
+    if has_q:
+        params["q_pat"] = f"%{filters['q']}%"
+
+    where_extra = (" AND " + " AND ".join(root_conditions)) if root_conditions else ""
 
     # Operation counts come from a single GROUP BY scoped to the workflow_uuids
     # we're returning — much cheaper than N+1 correlated subqueries on large
     # operation_outputs tables.
     if grouped:
+        # In grouped mode `q` matches at any depth: find any workflow whose
+        # uuid/name matches, walk up parent_workflow_id to find its root, then
+        # include that root's full subtree below. Without this, searching for
+        # a child name (e.g. "dispatch") would miss roots whose own name
+        # doesn't contain the term.
+        if has_q:
+            match_ctes = """
+                upward AS (
+                    SELECT workflow_uuid, parent_workflow_id
+                    FROM dbos.workflow_status
+                    WHERE workflow_uuid ILIKE :q_pat OR name ILIKE :q_pat
+                    UNION
+                    SELECT ws.workflow_uuid, ws.parent_workflow_id
+                    FROM dbos.workflow_status ws
+                    JOIN upward u ON u.parent_workflow_id = ws.workflow_uuid
+                ),
+                matched_roots AS (
+                    SELECT DISTINCT workflow_uuid
+                    FROM upward
+                    WHERE parent_workflow_id IS NULL
+                ),
+            """
+            match_filter = (
+                " AND workflow_uuid IN (SELECT workflow_uuid FROM matched_roots)"
+            )
+        else:
+            match_ctes = ""
+            match_filter = ""
         sql = f"""
             WITH RECURSIVE
-                roots AS (
+                {match_ctes}roots AS (
                     SELECT workflow_uuid, updated_at
                     FROM dbos.workflow_status
-                    WHERE parent_workflow_id IS NULL{where_extra}
+                    WHERE parent_workflow_id IS NULL{where_extra}{match_filter}
                     ORDER BY updated_at DESC
                     LIMIT :limit
                 ),
@@ -250,7 +279,13 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
             ORDER BY t.root_updated_at DESC, t.sort_path ASC
         """
     else:
-        flat_where = f"WHERE 1=1{where_extra}" if where_extra else ""
+        # Flat mode: each row is independent, so `q` filters rows directly
+        # alongside the other conditions.
+        flat_conditions = list(root_conditions)
+        if has_q:
+            flat_conditions.append("(workflow_uuid ILIKE :q_pat OR name ILIKE :q_pat)")
+        flat_where_extra = (" AND " + " AND ".join(flat_conditions)) if flat_conditions else ""
+        flat_where = f"WHERE 1=1{flat_where_extra}" if flat_where_extra else ""
         sql = f"""
             WITH chosen AS (
                 SELECT
@@ -283,8 +318,7 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
 @app.get("/api/workflows")
 async def list_workflows(
     limit: int = Query(default=50, ge=1, le=200),
-    workflow_id: str | None = None,
-    name: str | None = None,
+    q: str | None = None,
     started_after: datetime | None = None,
     started_before: datetime | None = None,
     status: Annotated[list[str] | None, Query()] = None,
@@ -294,8 +328,7 @@ async def list_workflows(
 ) -> list[WorkflowListItem]:
     filters: dict[str, object] = {
         "limit": limit,
-        "workflow_id": workflow_id,
-        "name": name,
+        "q": q.strip() if q else None,
         "started_after": int(started_after.timestamp() * 1000) if started_after else None,
         "started_before": int(started_before.timestamp() * 1000) if started_before else None,
         "statuses": status if status else None,
