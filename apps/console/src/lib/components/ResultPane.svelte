@@ -19,14 +19,35 @@
     error_decoded: string | null;
   };
 
+  // Events published by a workflow via DBOS.setEvent. Bundled in the workflow
+  // detail response, filtered by selected workflow_id below.
+  export type EventSet = {
+    function_id: number;
+    value: string;
+    serialization: string | null;
+    value_decoded: string | null;
+    completed_at: string | null;
+  };
+
+  export type WorkflowEventEntry = {
+    workflow_id: string;
+    key: string;
+    value: string;
+    serialization: string | null;
+    value_decoded: string | null;
+    history: EventSet[];
+  };
+
   let {
     selection,
     result,
     loading = false,
+    events = [],
   }: {
     selection: FlowSelection;
     result: ResultData | null;
     loading?: boolean;
+    events?: WorkflowEventEntry[];
   } = $props();
 
   type ViewMode = "raw" | "decoded";
@@ -128,10 +149,49 @@
   type Payload =
     | { kind: "none" }
     | { kind: "error"; raw: string; decoded: string | null; serialization: string | null }
-    | { kind: "output"; raw: string; decoded: string | null; serialization: string | null };
+    | {
+        kind: "output";
+        raw: string;
+        decoded: string | null;
+        serialization: string | null;
+        label: string;
+      };
+
+  // For DBOS.setEvent steps, the operation_outputs row carries no payload
+  // (the value lives in workflow_events_history). Surface that historical
+  // value as the step's "result" so the user sees what was set without
+  // having to navigate to the workflow's events panel.
+  const setEventEntry = $derived.by<WorkflowEventEntry | null>(() => {
+    if (!selection || selection.kind !== "step") return null;
+    const s = selection.step;
+    if (s.function_name !== "DBOS.setEvent") return null;
+    return (
+      events.find(
+        (e) =>
+          e.workflow_id === s.workflow_id &&
+          e.history.some((h) => h.function_id === s.function_id),
+      ) ?? null
+    );
+  });
+
+  const setEventValue = $derived.by(() => {
+    if (!setEventEntry || !selection || selection.kind !== "step") return null;
+    const fnId = selection.step.function_id;
+    return setEventEntry.history.find((h) => h.function_id === fnId) ?? null;
+  });
 
   const payload = $derived.by<Payload>(() => {
-    if (!selection || !result) return { kind: "none" };
+    if (!selection) return { kind: "none" };
+    if (setEventValue) {
+      return {
+        kind: "output",
+        raw: setEventValue.value,
+        decoded: setEventValue.value_decoded,
+        serialization: setEventValue.serialization,
+        label: "Event value",
+      };
+    }
+    if (!result) return { kind: "none" };
     if (result.error) {
       return {
         kind: "error",
@@ -146,6 +206,7 @@
         raw: result.output,
         decoded: result.output_decoded,
         serialization: result.serialization,
+        label: "Output",
       };
     }
     return { kind: "none" };
@@ -213,6 +274,55 @@
       console.warn("clipboard write failed", e);
     }
   }
+
+  // Events are workflow-scoped state, only shown when a workflow is selected.
+  // Step selections drop the panel — the step's own metadata + result
+  // already covers what the user is looking at.
+  const visibleEvents = $derived.by<WorkflowEventEntry[]>(() => {
+    if (!selection || selection.kind !== "workflow") return [];
+    return events.filter((e) => e.workflow_id === selection.workflow.workflow_id);
+  });
+
+  function eventPreview(value: string, decoded: string | null): string {
+    return decoded !== null ? decoded : value;
+  }
+
+  function eventDisplay(value: string, decoded: string | null): string {
+    return effectiveEventMode === "decoded" && decoded !== null ? decoded : value;
+  }
+
+  let openedEvent = $state<WorkflowEventEntry | null>(null);
+  let eventPreferredMode = $state<ViewMode>("decoded");
+  let eventCopyKey = $state<string | null>(null);
+  let eventCopyTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Treat the dialog as having a decoded view available if any value (current
+  // or any historical entry) decoded successfully — even if some others fell
+  // back to raw, the toggle is still meaningful.
+  const eventAnyDecoded = $derived.by(() => {
+    if (!openedEvent) return false;
+    if (openedEvent.value_decoded !== null) return true;
+    return openedEvent.history.some((h) => h.value_decoded !== null);
+  });
+
+  const effectiveEventMode = $derived.by<ViewMode>(() => {
+    if (!openedEvent) return "raw";
+    if (eventPreferredMode === "decoded" && eventAnyDecoded) return "decoded";
+    return "raw";
+  });
+
+  async function copyEventValue(slot: string, value: string, decoded: string | null) {
+    const text = eventDisplay(value, decoded);
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      eventCopyKey = slot;
+      if (eventCopyTimer) clearTimeout(eventCopyTimer);
+      eventCopyTimer = setTimeout(() => (eventCopyKey = null), 1500);
+    } catch (e) {
+      console.warn("clipboard write failed", e);
+    }
+  }
 </script>
 
 <aside class="bg-card flex h-full w-full flex-col overflow-hidden">
@@ -265,6 +375,49 @@
       {/if}
     </div>
 
+    {#if visibleEvents.length > 0}
+      <div class="border-border flex flex-col gap-2 border-b px-4 py-3">
+        <div class="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+          Published events
+        </div>
+        <ul class="flex flex-col gap-1.5">
+          {#each visibleEvents as ev (ev.key)}
+            <li>
+              <button
+                type="button"
+                onclick={() => (openedEvent = ev)}
+                title="Open event details"
+                class="border-border bg-muted/30 hover:bg-muted hover:border-border/80 relative flex w-full flex-col gap-1 rounded-md border px-2.5 py-2 pr-10 text-left transition-colors"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <span class="truncate font-mono text-xs font-medium" title={ev.key}>
+                    {ev.key}
+                  </span>
+                  {#if ev.history.length > 1}
+                    <Badge variant="secondary" class="text-[10px]">
+                      {ev.history.length} updates
+                    </Badge>
+                  {/if}
+                </div>
+                <div
+                  class="text-muted-foreground truncate font-mono text-[11px]"
+                  title={eventPreview(ev.value, ev.value_decoded)}
+                >
+                  {eventPreview(ev.value, ev.value_decoded)}
+                </div>
+                <span
+                  aria-hidden="true"
+                  class="bg-background/80 text-muted-foreground hover:text-foreground hover:bg-muted border-border/60 absolute right-2 bottom-2 flex h-7 w-7 items-center justify-center rounded-md border shadow-sm backdrop-blur-sm"
+                >
+                  <Maximize2 class="h-3.5 w-3.5" />
+                </span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
+
     <div class="flex flex-1 flex-col overflow-hidden">
       {#if loading}
         <div class="text-muted-foreground flex flex-1 items-center justify-center p-6 text-sm">
@@ -278,7 +431,7 @@
         <div class="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
           <div class="flex items-center gap-2">
             <span class="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
-              {payload.kind === "error" ? "Error" : "Output"}
+              {payload.kind === "error" ? "Error" : payload.label}
             </span>
             {#if payload.serialization}
               <span
@@ -351,9 +504,15 @@
             {/if}
             <button
               type="button"
-              onclick={() => transitionExpanded(true)}
-              title="Expand result"
-              aria-label="Expand result"
+              onclick={() => {
+                if (setEventEntry) {
+                  openedEvent = setEventEntry;
+                } else {
+                  transitionExpanded(true);
+                }
+              }}
+              title={setEventEntry ? "Open event details" : "Expand result"}
+              aria-label={setEventEntry ? "Open event details" : "Expand result"}
               class="bg-background/80 text-muted-foreground hover:text-foreground hover:bg-muted border-border/60 absolute right-2 bottom-2 flex h-7 w-7 items-center justify-center rounded-md border shadow-sm backdrop-blur-sm transition-colors"
             >
               <Maximize2 class="h-3.5 w-3.5" />
@@ -378,7 +537,7 @@
   >
     <Dialog.Header>
       <Dialog.Title class="text-base">
-        {payload.kind === "error" ? "Error" : "Output"}{heading ? ` · ${heading.title}` : ""}
+        {payload.kind === "error" ? "Error" : payload.kind === "output" ? payload.label : "Output"}{heading ? ` · ${heading.title}` : ""}
       </Dialog.Title>
       {#if heading}
         <Dialog.Description class="break-all font-mono text-xs">
@@ -434,6 +593,120 @@
             class="border-border bg-muted/40 overflow-auto rounded-lg border p-4 font-mono text-xs whitespace-pre-wrap break-words">{displayedText}</pre>
         {/if}
       </div>
+    {/if}
+  </Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root
+  open={openedEvent !== null}
+  onOpenChange={(v) => {
+    if (!v) openedEvent = null;
+  }}
+>
+  <Dialog.Content
+    class="flex max-h-[85vh] w-full flex-col gap-4 sm:max-w-3xl"
+    onOpenAutoFocus={(e) => e.preventDefault()}
+  >
+    {#if openedEvent}
+      <Dialog.Header>
+        <Dialog.Title class="font-mono text-base">{openedEvent.key}</Dialog.Title>
+        <Dialog.Description>
+          {openedEvent.history.length === 1
+            ? "Set once"
+            : `Set ${openedEvent.history.length} times`}
+        </Dialog.Description>
+      </Dialog.Header>
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span class="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+              Current value
+            </span>
+            {#if openedEvent.serialization}
+              <span
+                class="bg-muted text-muted-foreground inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium"
+                title="Serialization format (DBOS `serialization` column)"
+              >
+                {openedEvent.serialization}
+              </span>
+            {/if}
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              onclick={() =>
+                openedEvent &&
+                copyEventValue("current", openedEvent.value, openedEvent.value_decoded)}
+              title={eventCopyKey === "current" ? "Copied!" : "Copy to clipboard"}
+              aria-label="Copy current value"
+              class="text-muted-foreground hover:text-foreground hover:bg-muted flex h-6 w-6 items-center justify-center rounded transition-colors"
+            >
+              {#if eventCopyKey === "current"}
+                <Check class="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+              {:else}
+                <Copy class="h-3.5 w-3.5" />
+              {/if}
+            </button>
+            <div class="bg-muted flex items-center rounded-md p-0.5">
+              <button
+                type="button"
+                class="rounded px-2 py-0.5 text-[11px] font-medium transition
+                  {effectiveEventMode === 'raw'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'}"
+                onclick={() => (eventPreferredMode = "raw")}
+              >
+                Raw
+              </button>
+              <button
+                type="button"
+                disabled={!eventAnyDecoded}
+                class="rounded px-2 py-0.5 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40
+                  {effectiveEventMode === 'decoded'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground enabled:hover:text-foreground'}"
+                onclick={() => (eventPreferredMode = "decoded")}
+                title={eventAnyDecoded
+                  ? "Decoded via server-side unpickler / JSON parser"
+                  : "Server couldn't decode any values — only raw available"}
+              >
+                Decoded
+              </button>
+            </div>
+          </div>
+        </div>
+        <pre
+          class="border-border bg-muted/40 max-h-48 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{eventDisplay(
+            openedEvent.value,
+            openedEvent.value_decoded,
+          )}</pre>
+      </div>
+      {#if openedEvent.history.length > 0}
+        <div class="flex min-h-0 flex-1 flex-col gap-2">
+          <div class="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+            History
+          </div>
+          <ol class="flex min-h-0 flex-1 flex-col gap-3 overflow-auto">
+            {#each openedEvent.history as h (h.function_id)}
+              <li class="flex flex-col gap-1.5">
+                <div class="text-muted-foreground flex items-center gap-2 text-[11px]">
+                  <span class="font-mono">Step #{h.function_id}</span>
+                  {#if h.completed_at}
+                    <span title={h.completed_at}>
+                      · {new Date(h.completed_at).toLocaleString()}
+                    </span>
+                  {/if}
+                </div>
+                <pre
+                  class="border-border bg-muted/40 max-h-48 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{eventDisplay(
+                    h.value,
+                    h.value_decoded,
+                  )}</pre>
+              </li>
+            {/each}
+          </ol>
+        </div>
+      {/if}
     {/if}
   </Dialog.Content>
 </Dialog.Root>

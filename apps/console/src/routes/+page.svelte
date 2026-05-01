@@ -214,7 +214,7 @@
       </Card.Header>
       <Card.Footer class="flex-col items-start gap-1.5 text-sm">
         <div class="line-clamp-1 font-medium">Unconsumed messages</div>
-        <div class="text-muted-foreground">Awaiting recv() or getEvent()</div>
+        <div class="text-muted-foreground">Sent via send(), awaiting recv()</div>
       </Card.Footer>
     </Card.Root>
 

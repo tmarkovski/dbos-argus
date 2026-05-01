@@ -71,10 +71,10 @@
     {
       "name": "workflow_events",
       "columns": [
-        {"name": "workflow_uuid", "data_type": "text", "argus": false},
-        {"name": "key", "data_type": "text", "argus": false},
-        {"name": "value", "data_type": "text", "argus": false},
-        {"name": "serialization", "data_type": "text", "argus": false}
+        {"name": "workflow_uuid", "data_type": "text", "argus": true},
+        {"name": "key", "data_type": "text", "argus": true},
+        {"name": "value", "data_type": "text", "argus": true},
+        {"name": "serialization", "data_type": "text", "argus": true}
       ]
     },
     {
@@ -83,8 +83,8 @@
         {"name": "workflow_uuid", "data_type": "text", "argus": true},
         {"name": "function_id", "data_type": "integer", "argus": true},
         {"name": "key", "data_type": "text", "argus": true},
-        {"name": "value", "data_type": "text", "argus": false},
-        {"name": "serialization", "data_type": "text", "argus": false}
+        {"name": "value", "data_type": "text", "argus": true},
+        {"name": "serialization", "data_type": "text", "argus": true}
       ]
     },
     {

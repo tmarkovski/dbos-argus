@@ -1,7 +1,10 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { page } from "$app/state";
-  import ResultPane, { type ResultData } from "$lib/components/ResultPane.svelte";
+  import ResultPane, {
+    type ResultData,
+    type WorkflowEventEntry,
+  } from "$lib/components/ResultPane.svelte";
   import WorkflowFlow, {
     type FamilyWorkflow,
     type FlowSelection,
@@ -18,6 +21,7 @@
     updated_at: string;
     family: FamilyWorkflow[];
     steps: Step[];
+    events: WorkflowEventEntry[];
   };
 
   let detail = $state<WorkflowDetail | null>(null);
@@ -224,7 +228,12 @@
       </button>
     </div>
     <div class="flex-none" style="width: {rightWidth}px">
-      <ResultPane {selection} {result} loading={resultLoading} />
+      <ResultPane
+        {selection}
+        {result}
+        loading={resultLoading}
+        events={detail.events}
+      />
     </div>
   </div>
 {/if}

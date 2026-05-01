@@ -377,6 +377,28 @@ class WorkflowFamilyItem(BaseModel):
     has_error: bool
 
 
+class EventSet(BaseModel):
+    function_id: int
+    value: str
+    serialization: str | None
+    value_decoded: str | None
+    completed_at: datetime | None
+
+
+class WorkflowEventEntry(BaseModel):
+    workflow_id: str
+    key: str
+    # Current value (from `dbos.workflow_events`). Same as the most recent
+    # entry in `history`; surfaced separately because that's what readers see.
+    value: str
+    serialization: str | None
+    value_decoded: str | None
+    # Every `setEvent(key, …)` call for this key on this workflow, ordered by
+    # function_id ASC (call order). One entry on first set; multiple entries
+    # when the workflow re-set the same key.
+    history: list[EventSet]
+
+
 class WorkflowDetail(BaseModel):
     workflow_id: str
     parent_workflow_id: str | None
@@ -392,6 +414,10 @@ class WorkflowDetail(BaseModel):
     # ordered by (workflow_id, function_id ASC). Clients group by
     # workflow_id to build per-workflow timelines.
     steps: list[WorkflowStep]
+    # Events published by any workflow in the family via `DBOS.setEvent`.
+    # Bundled here (rather than lazy-loaded) because they're typically few
+    # per workflow and shown immediately on selection.
+    events: list[WorkflowEventEntry]
 
 
 class WorkflowResult(BaseModel):
@@ -530,6 +556,31 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
         ORDER BY o.workflow_uuid, o.function_id ASC
     """
 
+    # Joins each `dbos.workflow_events` row (current value per key) to every
+    # corresponding `dbos.workflow_events_history` row (one per setEvent call)
+    # and to `dbos.operation_outputs` for the call's completed_at. One row per
+    # historical set; the current value repeats per row and is collapsed in
+    # Python below.
+    events_sql = """
+        SELECT
+            we.workflow_uuid,
+            we.key,
+            we.value AS current_value,
+            we.serialization AS current_serialization,
+            weh.function_id,
+            weh.value AS history_value,
+            weh.serialization AS history_serialization,
+            o.completed_at_epoch_ms
+        FROM dbos.workflow_events we
+        LEFT JOIN dbos.workflow_events_history weh
+            ON weh.workflow_uuid = we.workflow_uuid AND weh.key = we.key
+        LEFT JOIN dbos.operation_outputs o
+            ON o.workflow_uuid = weh.workflow_uuid
+                AND o.function_id = weh.function_id
+        WHERE we.workflow_uuid = ANY(:workflow_ids)
+        ORDER BY we.workflow_uuid, we.key, weh.function_id ASC
+    """
+
     try:
         async with engine.connect() as conn:
             result = await conn.execute(text(sql), {"workflow_id": workflow_id})
@@ -537,6 +588,8 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
             family_ids = [r.workflow_uuid for r in rows]
             steps_result = await conn.execute(text(steps_sql), {"workflow_ids": family_ids})
             step_rows = steps_result.fetchall()
+            events_result = await conn.execute(text(events_sql), {"workflow_ids": family_ids})
+            event_rows = events_result.fetchall()
     except ProgrammingError as e:
         raise HTTPException(status_code=404, detail="workflow not found") from e
 
@@ -586,6 +639,40 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
         )
         for s in step_rows
     ]
+
+    # Group event rows by (workflow_uuid, key); each group becomes one entry
+    # whose `value` is the current row from `workflow_events` and whose
+    # `history` is the per-call `workflow_events_history` rows in call order.
+    events_by_key: dict[tuple[str, str], WorkflowEventEntry] = {}
+    for e in event_rows:
+        gk = (e.workflow_uuid, e.key)
+        entry = events_by_key.get(gk)
+        if entry is None:
+            entry = WorkflowEventEntry(
+                workflow_id=e.workflow_uuid,
+                key=e.key,
+                value=e.current_value,
+                serialization=e.current_serialization,
+                value_decoded=decode_dbos_value(e.current_value, e.current_serialization),
+                history=[],
+            )
+            events_by_key[gk] = entry
+        if e.function_id is not None:
+            entry.history.append(
+                EventSet(
+                    function_id=e.function_id,
+                    value=e.history_value,
+                    serialization=e.history_serialization,
+                    value_decoded=decode_dbos_value(e.history_value, e.history_serialization),
+                    completed_at=(
+                        datetime.fromtimestamp(e.completed_at_epoch_ms / 1000, tz=UTC)
+                        if e.completed_at_epoch_ms is not None
+                        else None
+                    ),
+                )
+            )
+    events = list(events_by_key.values())
+
     self_item = next(w for w in family if w.workflow_id == workflow_id)
     return WorkflowDetail(
         workflow_id=self_item.workflow_id,
@@ -596,6 +683,7 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
         updated_at=self_item.updated_at,
         family=family,
         steps=steps,
+        events=events,
     )
 
 
