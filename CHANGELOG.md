@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.16] - 2026-05-02
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+### Changed
+- Console theme split into a generated `theme.css` (preset-controlled
+  palette/fonts/radius) and a hand-maintained `app.css` (Argus-specific
+  status/highlight/mono tokens). Swapping shadcn presets is now
+  `pnpm --filter console theme:sync <code>` plus a font-package update,
+  with no merging of token blocks. Documented in `CLAUDE.md` →
+  *Theming*. Default preset switched to `b4b3RGTOyW` (olive base,
+  yellow primary, sky charts, DM Sans + Merriweather, large radius).
+- All hardcoded palette classes swept for preset compatibility:
+  workflow status badges/dots route through `--status-*` tokens,
+  search highlights and the event-icon use `--highlight*`, and the
+  Argus eye logo picks up `--primary`. Status badges now display in
+  Title case via a shared `formatStatus()` helper that consults
+  `STATUS_LABELS` (`MAX_RECOVERY_ATTEMPTS_EXCEEDED` → `Max retries`).
+- Workflow detail flow: ambient gradient and spawn/return edges now
+  draw from `--color-chart-1` / `--color-chart-3` / `--color-chart-5`
+  so they track the active preset; child-workflow steps render the
+  Lucide `Workflow` icon (instead of a plain dot) tinted with
+  `text-chart-3`. Error/cancelled return edges moved to
+  `--status-error` / `--status-warning`.
+- Dashboard "Connected" indicator now uses `font-heading`, matching
+  the other card titles.
+- App shell: the children container clips to `md:rounded-b-2xl` so
+  the bottom corners follow the inset's curve without breaking the
+  sticky header.
+
 ## [0.0.15] - 2026-05-02
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
