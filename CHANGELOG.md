@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.14] - 2026-05-02
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+### Added
+- Sidebar nav badges driven by a shared `statsState` store (single
+  `/api/stats` poll, also consumed by the home page so there's no
+  duplicate polling). The Workflows item shows Running and Queued
+  sub-rows with colored count pills; the Notifications item shows a
+  single Pending pill on the right.
+
+### Changed
+- Workflow detail flow: container nodes are fully opaque (`bg-card`,
+  no backdrop blur) so the ambient gradient sits behind the cards
+  instead of bleeding through them. Pill-shaped step nodes, straight
+  sequential edges, hidden handles, thicker spawn/return edges, soft
+  indigo/violet radial gradient on the flow surface, rounder
+  workflow containers with border-color + shadow elevation in place
+  of the ring glow.
+- Workflows list: the enqueued strip header now reads the true total
+  from `/api/stats` when not scoped to a single queue, so it no
+  longer caps at the rendered row limit.
+- Sidebar: dropped the redundant "Navigation" group label; the Argus
+  eye logo is now fully circular.
+- Workflow list filter toolbar: Hide-scheduled and Clear-filters now
+  match the outline-pill styling of the other filters (FilterX icon
+  on Clear), and the search input is hardened against Safari contact
+  autofill.
+
 ## [0.0.13] - 2026-05-02
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
