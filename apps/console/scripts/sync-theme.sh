@@ -76,7 +76,15 @@ FONT_HEADING_FAMILY="$(echo "$FONT_HEADING_SLUG" | awk '{
   print out
 }')"
 
-EXTRACTED_WITH_FONTS="$(echo "$EXTRACTED" | awk -v fs="  --font-sans: '${FONT_FAMILY} Variable', sans-serif;" -v fh="  --font-heading: '${FONT_HEADING_FAMILY} Variable', serif;" '
+# `fontHeading: inherit` means "reuse the sans font" — emit a var() reference
+# instead of pretending there's a font called "Inherit Variable".
+if [ "$FONT_HEADING_SLUG" = "inherit" ]; then
+  FONT_HEADING_DECL="  --font-heading: var(--font-sans);"
+else
+  FONT_HEADING_DECL="  --font-heading: '${FONT_HEADING_FAMILY} Variable', serif;"
+fi
+
+EXTRACTED_WITH_FONTS="$(echo "$EXTRACTED" | awk -v fs="  --font-sans: '${FONT_FAMILY} Variable', sans-serif;" -v fh="$FONT_HEADING_DECL" '
   /^:root \{/ { in_root = 1; print; next }
   in_root && /^\}$/ { print fs; print fh; print; in_root = 0; next }
   { print }
@@ -88,7 +96,7 @@ URL="https://ui.shadcn.com/create?preset=${CODE}"
   echo "/*"
   echo " * Theme generated from shadcn preset $CODE."
   echo " *"
-  echo "$DECODE" | sed 's/^Preset/ * Preset/; t; s/^/ * /'
+  echo "$DECODE" | awk '/^Preset/ {print " *", $0; next} {print " * " $0}'
   echo " *"
   echo " * Do not edit by hand — regenerate with:"
   echo " *   pnpm --filter console theme:sync <preset-code>"
@@ -105,8 +113,14 @@ echo
 echo "Next steps:"
 echo "  1. Update font imports in apps/console/src/app.css to match:"
 echo "       @import \"@fontsource-variable/${FONT_SLUG}\";"
-echo "       @import \"@fontsource-variable/${FONT_HEADING_SLUG}\";"
+if [ "$FONT_HEADING_SLUG" != "inherit" ]; then
+  echo "       @import \"@fontsource-variable/${FONT_HEADING_SLUG}\";"
+fi
 echo "  2. Install/uninstall fontsource packages:"
-echo "       pnpm --filter console add @fontsource-variable/${FONT_SLUG} @fontsource-variable/${FONT_HEADING_SLUG}"
+if [ "$FONT_HEADING_SLUG" = "inherit" ]; then
+  echo "       pnpm --filter console add @fontsource-variable/${FONT_SLUG}"
+else
+  echo "       pnpm --filter console add @fontsource-variable/${FONT_SLUG} @fontsource-variable/${FONT_HEADING_SLUG}"
+fi
 echo "       (remove the previous fonts if no longer used)"
 echo "  3. Verify: pnpm run lint && pnpm run build"

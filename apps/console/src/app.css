@@ -9,8 +9,8 @@
 
 /* Font packages must match the --font-sans / --font-heading values declared
    in theme.css. Update these imports when swapping presets. */
-@import "@fontsource-variable/dm-sans";
-@import "@fontsource-variable/merriweather";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/roboto";
 
 @custom-variant dark (&:is(.dark *));
 
