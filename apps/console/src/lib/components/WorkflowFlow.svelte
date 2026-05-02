@@ -657,7 +657,7 @@
           id: `seq:${c.id}:${previousStepId}->${stepId}`,
           source: previousStepId,
           target: stepId,
-          type: "smoothstep",
+          type: "straight",
           style: "stroke: var(--color-border); stroke-width: 1px;",
         });
         previousStepId = stepId;
@@ -786,14 +786,16 @@
 </div>
 
 <style>
-  /* Match step/container border tone so handles read as part of the
-     same outline rather than a contrasting accent dot. */
+  /* Handles are non-interactive anchor points for edges; render them
+     invisible so connector lines terminate flush against the pill
+     outline rather than overlapping the selection ring. */
   :global(.svelte-flow__handle) {
-    width: 4px;
-    height: 4px;
-    min-width: 4px;
-    min-height: 4px;
-    background: color-mix(in oklab, var(--color-foreground) 20%, transparent);
+    width: 1px;
+    height: 1px;
+    min-width: 1px;
+    min-height: 1px;
+    background: transparent;
     border: none;
+    opacity: 0;
   }
 </style>
