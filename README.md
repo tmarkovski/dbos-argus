@@ -152,7 +152,7 @@ Principles that will guide code review:
 3. **Boring is good.** FastAPI, Postgres, SvelteKit, Svelte Flow. No clever infrastructure until there is a concrete need.
 4. **Typed contracts.** Backend ↔ frontend messages have a single source of truth.
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup. After cloning, run `uvx pre-commit install` once to enable the ruff (lint + format) git hook so CI doesn't yell at you on push.
 
 ## License
 

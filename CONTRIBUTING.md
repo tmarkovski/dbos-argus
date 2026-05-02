@@ -19,6 +19,7 @@ git clone https://github.com/tmarkovski/dbos-argus.git
 cd dbos-argus
 pnpm install
 uv sync
+uvx pre-commit install   # auto-runs ruff (lint + format) on staged files
 ```
 
 Bring up the full dev stack (Postgres + server + console):
