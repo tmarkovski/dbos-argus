@@ -676,7 +676,8 @@
         targetHandle: "spawn",
         type: "bezier",
         animated: true,
-        style: "stroke: rgb(99 102 241 / 0.8); stroke-width: 2.5px;",
+        style:
+          "stroke: color-mix(in oklab, var(--color-chart-3) 80%, transparent); stroke-width: 2.5px;",
       });
     }
 
@@ -689,11 +690,14 @@
       if (!s.child_workflow_id || !familyIds.has(s.child_workflow_id)) continue;
       const targetId = stepNodeId(s.workflow_id, s.function_id);
       const childStatus = statusByWorkflowId.get(s.child_workflow_id);
-      let edgeStyle = "stroke: rgb(99 102 241 / 0.6); stroke-width: 2.25px;";
+      let edgeStyle =
+        "stroke: color-mix(in oklab, var(--color-chart-3) 60%, transparent); stroke-width: 2.25px;";
       if (childStatus === "ERROR") {
-        edgeStyle = "stroke: rgb(239 68 68 / 0.85); stroke-width: 2.5px;";
+        edgeStyle =
+          "stroke: color-mix(in oklab, var(--color-status-error) 85%, transparent); stroke-width: 2.5px;";
       } else if (childStatus === "CANCELLED") {
-        edgeStyle = "stroke: rgb(245 158 11 / 0.85); stroke-width: 2.5px;";
+        edgeStyle =
+          "stroke: color-mix(in oklab, var(--color-status-warning) 85%, transparent); stroke-width: 2.5px;";
       }
       nextEdges.push({
         id: `return:${s.child_workflow_id}->${targetId}`,
@@ -799,19 +803,19 @@
     opacity: 0;
   }
 
-  /* Subtle ambient gradient on the flow surface — picks up the indigo
-     spawn-edge accent at upper-left and a softer violet at lower-right
-     to give the canvas depth without competing with the workflow nodes. */
+  /* Subtle ambient gradient on the flow surface — uses chart tokens so it
+     tracks the active preset's palette and gives the canvas depth without
+     competing with the workflow nodes. */
   :global(.svelte-flow) {
     background:
       radial-gradient(
         ellipse 80% 60% at 25% 0%,
-        color-mix(in oklab, rgb(99 102 241) 12%, transparent),
+        color-mix(in oklab, var(--color-chart-1) 14%, transparent),
         transparent 60%
       ),
       radial-gradient(
         ellipse 70% 55% at 100% 100%,
-        color-mix(in oklab, rgb(168 85 247) 10%, transparent),
+        color-mix(in oklab, var(--color-chart-5) 12%, transparent),
         transparent 55%
       ),
       var(--color-card) !important;

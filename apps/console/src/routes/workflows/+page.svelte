@@ -25,6 +25,7 @@
   import * as InputGroup from "$lib/components/ui/input-group/index.js";
   import {
     computeLineage,
+    formatStatus,
     statusBadgeClass,
     type TreeRow,
     type Workflow,
@@ -708,7 +709,7 @@
               {/if}
               {#if columns.status}
                 <Table.Cell class="px-4 {!grouped || w.depth === 0 ? 'py-2' : 'py-1'}">
-                  <Badge class={statusBadgeClass(w.status)}>{w.status ?? "—"}</Badge>
+                  <Badge class={statusBadgeClass(w.status)}>{formatStatus(w.status)}</Badge>
                 </Table.Cell>
               {/if}
               {#if columns.workflow_id}

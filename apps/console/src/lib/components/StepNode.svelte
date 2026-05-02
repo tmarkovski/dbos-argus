@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Handle, Position, type NodeProps } from "@xyflow/svelte";
-  import { Zap } from "@lucide/svelte";
+  import { Workflow, Zap } from "@lucide/svelte";
   import prettyMs from "pretty-ms";
 
   type StepKind = "step" | "child" | "system";
@@ -25,7 +25,6 @@
   let { data, selected }: NodeProps & { data: NodeData } = $props();
 
   const dotClass = $derived.by(() => {
-    if (data.kind === "child") return "bg-primary";
     if (data.kind === "system") return "bg-muted-foreground/40";
     switch (data.status) {
       case "error":
@@ -40,7 +39,7 @@
   });
 
   const nameClass = $derived.by(() => {
-    if (data.kind === "child") return "text-primary";
+    if (data.kind === "child") return "text-chart-3";
     if (data.kind === "system") return "text-muted-foreground";
     return "";
   });
@@ -68,9 +67,11 @@
   {/if}
   {#if data.eventDirection}
     <Zap
-      class="fill-highlight text-highlight-foreground h-3 w-3 flex-none"
+      class="fill-status-warning text-status-warning dark:fill-highlight dark:text-highlight h-3 w-3 flex-none"
       aria-hidden="true"
     />
+  {:else if data.kind === "child"}
+    <Workflow class="text-chart-3 h-3 w-3 flex-none" aria-hidden="true" />
   {:else}
     <span class="h-2 w-2 flex-none rounded-full {dotClass}" aria-hidden="true"></span>
   {/if}
@@ -91,7 +92,7 @@
     <span class="truncate font-mono text-xs" title={data.functionName}>
       <span class="text-muted-foreground">result</span>
       <span class="text-muted-foreground">←</span>
-      <span class="text-primary">{data.awaitedWorkflowName}</span>
+      <span class="text-chart-3">{data.awaitedWorkflowName}</span>
     </span>
   {:else}
     <span class="truncate font-mono text-xs {nameClass}" title={data.functionName}>

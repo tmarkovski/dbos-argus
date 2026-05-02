@@ -10,7 +10,7 @@
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
   import UnplugIcon from "@lucide/svelte/icons/unplug";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
-  import { statusBadgeClass, type Workflow } from "$lib/workflow-tree";
+  import { formatStatus, statusBadgeClass, type Workflow } from "$lib/workflow-tree";
   import { formatRelative } from "$lib/format";
   import {
     diagnosticsIssueSummary,
@@ -134,7 +134,7 @@
             <UnplugIcon class="size-5 {connectionAccentClass}" />
           {/if}
         </div>
-        <span class="text-2xl font-semibold @[250px]/card:text-3xl {connectionAccentClass}">
+        <span class="font-heading text-2xl font-semibold @[250px]/card:text-3xl {connectionAccentClass}">
           {connectionLabel}
         </span>
       </div>
@@ -276,7 +276,7 @@
             {#each recents as w (w.workflow_id)}
               <Table.Row>
                 <Table.Cell class="px-4">
-                  <Badge class={statusBadgeClass(w.status)}>{w.status ?? "—"}</Badge>
+                  <Badge class={statusBadgeClass(w.status)}>{formatStatus(w.status)}</Badge>
                 </Table.Cell>
                 <Table.Cell class="font-mono">
                   <a

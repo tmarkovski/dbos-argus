@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Handle, Position, type NodeProps } from "@xyflow/svelte";
   import ChevronsUp from "@lucide/svelte/icons/chevrons-up";
-  import { statusBadgeClass, type Workflow } from "$lib/workflow-tree";
+  import { formatStatus, statusBadgeClass, type Workflow } from "$lib/workflow-tree";
   import { Badge } from "$lib/components/ui/badge/index.js";
 
   type NodeData = {
@@ -47,7 +47,7 @@
       {data.workflow.name ?? "—"}
     </span>
     <Badge class="ml-auto {statusBadgeClass(data.workflow.status)}">
-      {data.workflow.status ?? "—"}
+      {formatStatus(data.workflow.status)}
     </Badge>
   </div>
   <div

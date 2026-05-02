@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from "svelte";
   import type { FlowSelection } from "./WorkflowFlow.svelte";
-  import { statusBadgeClass } from "$lib/workflow-tree";
+  import { formatStatus, statusBadgeClass } from "$lib/workflow-tree";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import Copy from "@lucide/svelte/icons/copy";
@@ -381,7 +381,7 @@
         </span>
         {#if heading.status}
           <Badge class="ml-auto {statusBadgeClass(heading.status)}">
-            {heading.status}
+            {formatStatus(heading.status)}
           </Badge>
         {/if}
       </div>

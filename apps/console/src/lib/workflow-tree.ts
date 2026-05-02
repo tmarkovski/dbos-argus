@@ -1,3 +1,5 @@
+import { STATUS_LABELS, type WorkflowStatus } from "./workflow-status";
+
 export type Workflow = {
   workflow_id: string;
   parent_workflow_id: string | null;
@@ -73,6 +75,21 @@ export function statusBadgeClass(status: string | null): string {
   if (s === "ERROR" || s === "MAX_RECOVERY_ATTEMPTS_EXCEEDED")
     return "bg-status-error/15 text-status-error";
   return "bg-muted text-muted-foreground";
+}
+
+// Display label for a workflow status. Routes known DBOS statuses through
+// STATUS_LABELS (so e.g. MAX_RECOVERY_ATTEMPTS_EXCEEDED → "Max retries");
+// falls back to title-casing the raw value. Returns "—" for null/empty.
+export function formatStatus(status: string | null | undefined): string {
+  if (!status) return "—";
+  const known = STATUS_LABELS[status as WorkflowStatus];
+  if (known) return known;
+  return status
+    .toLowerCase()
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
 export function statusDotClass(status: string | null): string {

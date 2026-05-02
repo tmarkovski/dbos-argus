@@ -4,6 +4,7 @@
   import * as Card from "$lib/components/ui/card/index.js";
   import * as Table from "$lib/components/ui/table/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
+  import { formatStatus } from "$lib/workflow-tree";
 
   type WorkflowSchedule = {
     schedule_id: string;
@@ -93,7 +94,7 @@
           {#each schedules as s (s.schedule_id)}
             <Table.Row>
               <Table.Cell class="px-4 py-2">
-                <Badge class={statusClass(s.status)}>{s.status}</Badge>
+                <Badge class={statusClass(s.status)}>{formatStatus(s.status)}</Badge>
               </Table.Cell>
               <Table.Cell class="px-4 py-2 font-mono">{s.schedule_name}</Table.Cell>
               <Table.Cell
