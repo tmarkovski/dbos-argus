@@ -387,7 +387,7 @@
                 type="button"
                 onclick={() => (openedEvent = ev)}
                 title="Open event details"
-                class="border-border bg-muted/30 hover:bg-muted hover:border-border/80 relative flex w-full flex-col gap-1 rounded-md border px-2.5 py-2 pr-10 text-left transition-colors"
+                class="border-border bg-muted/30 hover:bg-muted hover:border-primary/50 relative flex w-full flex-col gap-1 rounded-md border px-2.5 py-2 pr-10 text-left transition-colors"
               >
                 <div class="flex items-center justify-between gap-2">
                   <span class="truncate font-mono text-xs font-medium" title={ev.key}>
@@ -485,39 +485,40 @@
           </div>
         </div>
         <div class="flex-1 overflow-auto px-4 pb-4">
-          <div
-            class="relative"
+          <button
+            type="button"
+            onclick={() => {
+              if (setEventEntry) {
+                openedEvent = setEventEntry;
+              } else {
+                transitionExpanded(true);
+              }
+            }}
+            title={setEventEntry ? "Open event details" : "Expand result"}
+            aria-label={setEventEntry ? "Open event details" : "Expand result"}
+            class="group relative block w-full text-left"
             style:view-transition-name={expanded ? undefined : "result-output"}
           >
             {#if payload.kind === "error"}
               <pre
-                class="border-destructive/30 bg-destructive/5 text-destructive overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{effectiveMode ===
+                class="border-destructive/30 bg-destructive/5 text-destructive group-hover:border-destructive/70 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words transition-colors">{effectiveMode ===
                 "decoded" && payload.decoded !== null
                   ? payload.decoded
                   : payload.raw}</pre>
             {:else}
               <pre
-                class="border-border bg-muted/40 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{effectiveMode ===
+                class="border-border bg-muted/40 group-hover:border-primary/50 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words transition-colors">{effectiveMode ===
                 "decoded" && payload.decoded !== null
                   ? payload.decoded
                   : payload.raw}</pre>
             {/if}
-            <button
-              type="button"
-              onclick={() => {
-                if (setEventEntry) {
-                  openedEvent = setEventEntry;
-                } else {
-                  transitionExpanded(true);
-                }
-              }}
-              title={setEventEntry ? "Open event details" : "Expand result"}
-              aria-label={setEventEntry ? "Open event details" : "Expand result"}
-              class="bg-background/80 text-muted-foreground hover:text-foreground hover:bg-muted border-border/60 absolute right-2 bottom-2 flex h-7 w-7 items-center justify-center rounded-md border shadow-sm backdrop-blur-sm transition-colors"
+            <span
+              aria-hidden="true"
+              class="bg-background/80 text-muted-foreground group-hover:text-foreground group-hover:bg-muted border-border/60 absolute right-2 bottom-2 flex h-7 w-7 items-center justify-center rounded-md border shadow-sm backdrop-blur-sm transition-colors"
             >
               <Maximize2 class="h-3.5 w-3.5" />
-            </button>
-          </div>
+            </span>
+          </button>
           {#if payload.decoded === null && payload.serialization && payload.serialization.toLowerCase().includes("pickle")}
             <p class="text-muted-foreground mt-2 text-[11px]">
               Pickled Python value couldn't be decoded safely (likely a custom class). Showing
@@ -536,52 +537,66 @@
     style={expanded ? "view-transition-name: result-output;" : undefined}
   >
     <Dialog.Header>
-      <Dialog.Title class="text-base">
-        {payload.kind === "error" ? "Error" : payload.kind === "output" ? payload.label : "Output"}{heading ? ` · ${heading.title}` : ""}
-      </Dialog.Title>
-      {#if heading}
-        <Dialog.Description class="break-all font-mono text-xs">
-          {heading.subtitle}
+      <Dialog.Title class="font-mono text-base">{heading?.title ?? ""}</Dialog.Title>
+      {#if selection}
+        <Dialog.Description>
+          {selection.kind === "step" ? `Step #${selection.step.function_id}` : "Workflow"}
         </Dialog.Description>
       {/if}
     </Dialog.Header>
     {#if payload.kind !== "none"}
-      <div class="flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onclick={copyResult}
-          title={justCopied ? "Copied!" : "Copy to clipboard"}
-          aria-label="Copy result"
-          class="text-muted-foreground hover:text-foreground hover:bg-muted flex h-7 w-7 items-center justify-center rounded transition-colors"
-        >
-          {#if justCopied}
-            <Check class="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-          {:else}
-            <Copy class="h-3.5 w-3.5" />
+      <div class="flex min-h-0 flex-1 flex-col gap-2">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+            {payload.kind === "error" ? "Error" : payload.label}
+          </span>
+          {#if payload.serialization}
+            <span
+              class="bg-muted text-muted-foreground inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium"
+              title="Serialization format (DBOS `serialization` column)"
+            >
+              {payload.serialization}
+            </span>
           {/if}
-        </button>
-        <div class="bg-muted flex items-center rounded-md p-0.5">
+        </div>
+        <div class="flex items-center gap-2">
           <button
             type="button"
-            class="rounded px-2 py-0.5 text-[11px] font-medium transition
-              {effectiveMode === 'raw'
-                ? 'bg-background text-foreground shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'}"
-            onclick={() => (preferredMode = "raw")}
+            onclick={copyResult}
+            title={justCopied ? "Copied!" : "Copy to clipboard"}
+            aria-label="Copy result"
+            class="text-muted-foreground hover:text-foreground hover:bg-muted flex h-7 w-7 items-center justify-center rounded transition-colors"
           >
-            Raw
+            {#if justCopied}
+              <Check class="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+            {:else}
+              <Copy class="h-3.5 w-3.5" />
+            {/if}
           </button>
-          <button
-            type="button"
-            disabled={payload.decoded === null}
-            class="rounded px-2 py-0.5 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40
-              {effectiveMode === 'decoded'
-                ? 'bg-background text-foreground shadow-xs'
-                : 'text-muted-foreground enabled:hover:text-foreground'}"
-            onclick={() => (preferredMode = "decoded")}
-          >
-            Decoded
-          </button>
+          <div class="bg-muted flex items-center rounded-md p-0.5">
+            <button
+              type="button"
+              class="rounded px-2 py-0.5 text-[11px] font-medium transition
+                {effectiveMode === 'raw'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'}"
+              onclick={() => (preferredMode = "raw")}
+            >
+              Raw
+            </button>
+            <button
+              type="button"
+              disabled={payload.decoded === null}
+              class="rounded px-2 py-0.5 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40
+                {effectiveMode === 'decoded'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground enabled:hover:text-foreground'}"
+              onclick={() => (preferredMode = "decoded")}
+            >
+              Decoded
+            </button>
+          </div>
         </div>
       </div>
       <div class="min-h-0 flex-1 overflow-auto">
@@ -592,6 +607,7 @@
           <pre
             class="border-border bg-muted/40 overflow-auto rounded-lg border p-4 font-mono text-xs whitespace-pre-wrap break-words">{displayedText}</pre>
         {/if}
+      </div>
       </div>
     {/if}
   </Dialog.Content>
@@ -612,8 +628,8 @@
         <Dialog.Title class="font-mono text-base">{openedEvent.key}</Dialog.Title>
         <Dialog.Description>
           {openedEvent.history.length === 1
-            ? "Set once"
-            : `Set ${openedEvent.history.length} times`}
+            ? "Event set once"
+            : `Event set ${openedEvent.history.length} times`}
         </Dialog.Description>
       </Dialog.Header>
       <div class="flex flex-col gap-2">
