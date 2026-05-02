@@ -296,6 +296,43 @@
   let eventCopyKey = $state<string | null>(null);
   let eventCopyTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // Tracks which side-pane card is acting as the View Transition anchor.
+  // Multiple cards can be visible, so we tag exactly one with the shared
+  // `result-event` name — set right before snapshotting (open) and kept
+  // through the close so the morph reverses into the same card.
+  let pendingEventKey = $state<string | null>(null);
+
+  async function transitionOpenEvent(target: WorkflowEventEntry | null) {
+    if ((target?.key ?? null) === (openedEvent?.key ?? null)) return;
+    const doc = typeof document !== "undefined" ? document : null;
+    // Same Safari treatment as the output dialog: skip morph on close.
+    const skipVT = target === null && isSafari();
+
+    pendingEventKey = target ? target.key : (openedEvent?.key ?? null);
+
+    if (doc && "startViewTransition" in doc && !skipVT) {
+      // Let the new pendingEventKey land in the DOM so the OLD snapshot
+      // has the right card tagged before the browser captures it.
+      await tick();
+      const transition = (doc as DocWithVT).startViewTransition(async () => {
+        openedEvent = target;
+        await tick();
+      });
+      const finished = (transition as { finished?: Promise<unknown> }).finished;
+      const clear = () => {
+        pendingEventKey = null;
+      };
+      if (finished && typeof finished.finally === "function") {
+        finished.finally(clear);
+      } else {
+        requestAnimationFrame(() => requestAnimationFrame(clear));
+      }
+    } else {
+      openedEvent = target;
+      pendingEventKey = null;
+    }
+  }
+
   // Treat the dialog as having a decoded view available if any value (current
   // or any historical entry) decoded successfully — even if some others fell
   // back to raw, the toggle is still meaningful.
@@ -385,9 +422,13 @@
             <li>
               <button
                 type="button"
-                onclick={() => (openedEvent = ev)}
+                onclick={() => transitionOpenEvent(ev)}
                 title="Open event details"
                 class="border-border bg-muted/30 hover:bg-muted hover:border-primary/50 relative flex w-full flex-col gap-1 rounded-md border px-2.5 py-2 pr-10 text-left transition-colors"
+                style:view-transition-name={pendingEventKey === ev.key &&
+                openedEvent?.key !== ev.key
+                  ? "result-event"
+                  : undefined}
               >
                 <div class="flex items-center justify-between gap-2">
                   <span class="truncate font-mono text-xs font-medium" title={ev.key}>
@@ -489,7 +530,7 @@
             type="button"
             onclick={() => {
               if (setEventEntry) {
-                openedEvent = setEventEntry;
+                transitionOpenEvent(setEventEntry);
               } else {
                 transitionExpanded(true);
               }
@@ -497,7 +538,13 @@
             title={setEventEntry ? "Open event details" : "Expand result"}
             aria-label={setEventEntry ? "Open event details" : "Expand result"}
             class="group relative block w-full text-left"
-            style:view-transition-name={expanded ? undefined : "result-output"}
+            style:view-transition-name={expanded
+              ? undefined
+              : setEventEntry
+                ? openedEvent
+                  ? undefined
+                  : "result-event"
+                : "result-output"}
           >
             {#if payload.kind === "error"}
               <pre
@@ -616,12 +663,13 @@
 <Dialog.Root
   open={openedEvent !== null}
   onOpenChange={(v) => {
-    if (!v) openedEvent = null;
+    if (!v) transitionOpenEvent(null);
   }}
 >
   <Dialog.Content
     class="flex max-h-[85vh] w-full flex-col gap-4 sm:max-w-3xl"
     onOpenAutoFocus={(e) => e.preventDefault()}
+    style={openedEvent ? "view-transition-name: result-event;" : undefined}
   >
     {#if openedEvent}
       <Dialog.Header>
