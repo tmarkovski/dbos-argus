@@ -60,8 +60,8 @@
 </script>
 
 <div
-  class="bg-background flex h-full w-full cursor-pointer items-center gap-2 rounded-full border border-foreground/20 px-3 py-1
-    {selected ? 'ring-primary ring-2 ring-inset border-primary' : ''}"
+  class="bg-muted flex h-full w-full cursor-pointer items-center gap-2 rounded-full px-3 py-1
+    {selected ? 'ring-primary ring-2 ring-inset' : ''}"
 >
   {#if !data.isFirst}
     <Handle type="target" position={Position.Top} isConnectable={false} />

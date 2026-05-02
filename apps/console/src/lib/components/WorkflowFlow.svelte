@@ -676,7 +676,7 @@
         targetHandle: "spawn",
         type: "bezier",
         animated: true,
-        style: "stroke: rgb(99 102 241 / 0.8); stroke-width: 1.5px;",
+        style: "stroke: rgb(99 102 241 / 0.8); stroke-width: 2.5px;",
       });
     }
 
@@ -689,11 +689,11 @@
       if (!s.child_workflow_id || !familyIds.has(s.child_workflow_id)) continue;
       const targetId = stepNodeId(s.workflow_id, s.function_id);
       const childStatus = statusByWorkflowId.get(s.child_workflow_id);
-      let edgeStyle = "stroke: rgb(99 102 241 / 0.6); stroke-width: 1.25px;";
+      let edgeStyle = "stroke: rgb(99 102 241 / 0.6); stroke-width: 2.25px;";
       if (childStatus === "ERROR") {
-        edgeStyle = "stroke: rgb(239 68 68 / 0.85); stroke-width: 1.5px;";
+        edgeStyle = "stroke: rgb(239 68 68 / 0.85); stroke-width: 2.5px;";
       } else if (childStatus === "CANCELLED") {
-        edgeStyle = "stroke: rgb(245 158 11 / 0.85); stroke-width: 1.5px;";
+        edgeStyle = "stroke: rgb(245 158 11 / 0.85); stroke-width: 2.5px;";
       }
       nextEdges.push({
         id: `return:${s.child_workflow_id}->${targetId}`,
