@@ -38,9 +38,9 @@ export function getConnectionIndicatorState({
 }
 
 export function connectionIndicatorClass(state: ConnectionIndicatorState): string {
-  if (state === "connected") return "text-green-500";
-  if (state === "issues") return "text-amber-500";
-  return "text-red-500";
+  if (state === "connected") return "text-status-success";
+  if (state === "issues") return "text-status-warning";
+  return "text-status-error";
 }
 
 export function connectionIndicatorLabel(state: ConnectionIndicatorState): string {

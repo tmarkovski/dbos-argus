@@ -81,11 +81,9 @@
       : (connectionState.health?.database_url ?? ""),
   );
   const connectionAccentClass = $derived.by(() => {
-    if (connectionIndicatorState === "connected")
-      return "text-emerald-600 dark:text-emerald-400";
-    if (connectionIndicatorState === "issues")
-      return "text-amber-600 dark:text-amber-400";
-    return "text-rose-600 dark:text-rose-400";
+    if (connectionIndicatorState === "connected") return "text-status-success";
+    if (connectionIndicatorState === "issues") return "text-status-warning";
+    return "text-status-error";
   });
   const connectionLabel = $derived.by(() => {
     if (connectionIndicatorState === "connected") return "Connected";
@@ -100,10 +98,10 @@
   });
   const connectionHoverClass = $derived.by(() => {
     if (connectionIndicatorState === "connected")
-      return "cursor-pointer hover:ring-2 hover:ring-emerald-500/60 hover:from-emerald-500/20! hover:shadow-xl hover:shadow-emerald-500/30 dark:hover:ring-emerald-400/50 dark:hover:from-emerald-400/15! dark:hover:shadow-emerald-400/25";
+      return "cursor-pointer hover:ring-2 hover:ring-status-success/60 hover:from-status-success/20! hover:shadow-xl hover:shadow-status-success/25";
     if (connectionIndicatorState === "issues")
-      return "cursor-pointer hover:ring-2 hover:ring-amber-500/60 hover:from-amber-500/20! hover:shadow-xl hover:shadow-amber-500/30 dark:hover:ring-amber-400/50 dark:hover:from-amber-400/15! dark:hover:shadow-amber-400/25";
-    return "cursor-pointer hover:ring-2 hover:ring-rose-500/60 hover:from-rose-500/20! hover:shadow-xl hover:shadow-rose-500/30 dark:hover:ring-rose-400/50 dark:hover:from-rose-400/15! dark:hover:shadow-rose-400/25";
+      return "cursor-pointer hover:ring-2 hover:ring-status-warning/60 hover:from-status-warning/20! hover:shadow-xl hover:shadow-status-warning/25";
+    return "cursor-pointer hover:ring-2 hover:ring-status-error/60 hover:from-status-error/20! hover:shadow-xl hover:shadow-status-error/25";
   });
 </script>
 

@@ -339,25 +339,25 @@
   }
 </script>
 
-{#snippet highlighted(text: string | null, query: string)}{#each highlightSegments(text, query) as part, i (i)}{#if part.match}<mark class="bg-yellow-200 text-yellow-900 dark:bg-yellow-400/30 dark:text-yellow-100 rounded-sm">{part.text}</mark>{:else}{part.text}{/if}{/each}{/snippet}
+{#snippet highlighted(text: string | null, query: string)}{#each highlightSegments(text, query) as part, i (i)}{#if part.match}<mark class="bg-highlight/40 text-highlight-foreground dark:bg-highlight/30 rounded-sm">{part.text}</mark>{:else}{part.text}{/if}{/each}{/snippet}
 
 <div class="flex flex-col gap-4 p-6">
   {#if enqueued.length > 0}
     <div
-      class="border-violet-200 bg-violet-50/60 dark:border-violet-500/20 dark:bg-violet-500/5 overflow-hidden rounded-lg border"
+      class="border-status-queued/30 bg-status-queued/5 overflow-hidden rounded-lg border"
     >
       <button
         type="button"
         onclick={toggleEnqueuedCollapsed}
         aria-expanded={!enqueuedCollapsed}
         aria-controls="enqueued-list"
-        class="hover:bg-violet-100/40 dark:hover:bg-violet-500/10 flex w-full items-center gap-2 px-4 py-2 text-xs font-medium tracking-wide uppercase text-violet-700 transition-colors dark:text-violet-300 {enqueuedCollapsed
+        class="text-status-queued hover:bg-status-queued/10 flex w-full items-center gap-2 px-4 py-2 text-xs font-medium tracking-wide uppercase transition-colors {enqueuedCollapsed
           ? ''
-          : 'border-violet-200 dark:border-violet-500/20 border-b'}"
+          : 'border-status-queued/20 border-b'}"
       >
-        <span class="inline-block h-2 w-2 animate-pulse rounded-full bg-violet-500"></span>
+        <span class="bg-status-queued inline-block h-2 w-2 animate-pulse rounded-full"></span>
         Enqueued
-        <span class="text-violet-600/70 dark:text-violet-400/70 normal-case tracking-normal">
+        <span class="text-status-queued/70 normal-case tracking-normal">
           {!queueName && statsState.data && statsState.data.enqueued > enqueued.length
             ? statsState.data.enqueued
             : enqueued.length} waiting to run
@@ -373,7 +373,7 @@
           <table class="w-full text-left text-sm">
             <thead>
               <tr
-                class="border-violet-200/60 dark:border-violet-500/10 text-violet-700/70 dark:text-violet-300/70 border-b text-[10px] font-medium tracking-wide uppercase"
+                class="border-status-queued/15 text-status-queued/70 border-b text-[10px] font-medium tracking-wide uppercase"
               >
                 <th class="px-4 py-1.5 font-medium">Queue</th>
                 <th class="px-4 py-1.5 text-right font-medium" title="Lower runs first">
@@ -388,13 +388,13 @@
               {#each enqueued as w (w.workflow_id)}
                 {@const isScheduled = w.workflow_id.startsWith("sched-")}
                 <tr
-                  class="hover:bg-violet-100/40 dark:hover:bg-violet-500/10 border-violet-200/60 dark:border-violet-500/10 border-t first:border-t-0"
+                  class="hover:bg-status-queued/10 border-status-queued/15 border-t first:border-t-0"
                 >
                   <td class="w-1 px-4 py-1.5 whitespace-nowrap">
                     {#if w.queue_name}
                       <a
                         href="/workflows/?queue_name={encodeURIComponent(w.queue_name)}"
-                        class="font-mono text-xs text-violet-700 hover:underline dark:text-violet-300"
+                        class="text-status-queued font-mono text-xs hover:underline"
                         title="Filter by queue {w.queue_name}"
                       >
                         {w.queue_name}
@@ -410,7 +410,7 @@
                     <span class="inline-flex items-center gap-1.5">
                       {#if isScheduled}
                         <CalendarClockIcon
-                          class="size-3.5 shrink-0 text-violet-600 dark:text-violet-400"
+                          class="text-status-queued size-3.5 shrink-0"
                           aria-label="Scheduled workflow"
                         />
                       {/if}

@@ -61,30 +61,26 @@ export function computeLineage(workflows: Workflow[]): TreeRow[] {
 
 // Status colors. Inputs are the literal strings from the API — see
 // `./workflow-status.ts` for the canonical set (`WorkflowStatus`). Unknown
-// values fall through to a neutral muted style.
-// Soft-tinted status pills used inside the shadcn `<Badge>` component.
-// Just background + text — Badge keeps its default transparent border slot.
+// values fall through to a neutral muted style. Both helpers route through
+// the `--status-*` design tokens (see app.css) so themed presets cascade.
 export function statusBadgeClass(status: string | null): string {
   const s = (status ?? "").toUpperCase();
-  if (s === "SUCCESS")
-    return "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-400";
-  if (s === "ENQUEUED")
-    return "bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-400";
+  if (s === "SUCCESS") return "bg-status-success/15 text-status-success";
+  if (s === "ENQUEUED") return "bg-status-queued/15 text-status-queued";
   if (s === "PENDING" || s === "DELAYED")
-    return "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-400";
-  if (s === "CANCELLED")
-    return "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-400";
+    return "bg-status-running/15 text-status-running";
+  if (s === "CANCELLED") return "bg-status-warning/15 text-status-warning";
   if (s === "ERROR" || s === "MAX_RECOVERY_ATTEMPTS_EXCEEDED")
-    return "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-400";
+    return "bg-status-error/15 text-status-error";
   return "bg-muted text-muted-foreground";
 }
 
 export function statusDotClass(status: string | null): string {
   const s = (status ?? "").toUpperCase();
-  if (s === "SUCCESS") return "bg-green-500";
-  if (s === "ENQUEUED") return "bg-violet-500";
-  if (s === "PENDING" || s === "DELAYED") return "bg-blue-500";
-  if (s === "CANCELLED") return "bg-amber-500";
-  if (s === "ERROR" || s === "MAX_RECOVERY_ATTEMPTS_EXCEEDED") return "bg-red-500";
+  if (s === "SUCCESS") return "bg-status-success";
+  if (s === "ENQUEUED") return "bg-status-queued";
+  if (s === "PENDING" || s === "DELAYED") return "bg-status-running";
+  if (s === "CANCELLED") return "bg-status-warning";
+  if (s === "ERROR" || s === "MAX_RECOVERY_ATTEMPTS_EXCEEDED") return "bg-status-error";
   return "bg-muted-foreground/40";
 }

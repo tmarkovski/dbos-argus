@@ -37,9 +37,8 @@
     badges?: () => Pill[];
   };
 
-  const PILL_BLUE = "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-400";
-  const PILL_VIOLET =
-    "bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-400";
+  const PILL_RUNNING = "bg-status-running/15 text-status-running";
+  const PILL_QUEUED = "bg-status-queued/15 text-status-queued";
 
   const NAV: NavItem[] = [
     {
@@ -53,8 +52,8 @@
         // double-count each other.
         const running = Math.max(0, s.in_flight - s.enqueued);
         return [
-          { count: running, class: PILL_BLUE, dotClass: "bg-blue-500", label: "Running" },
-          { count: s.enqueued, class: PILL_VIOLET, dotClass: "bg-violet-500", label: "Queued" },
+          { count: running, class: PILL_RUNNING, dotClass: "bg-status-running", label: "Running" },
+          { count: s.enqueued, class: PILL_QUEUED, dotClass: "bg-status-queued", label: "Queued" },
         ];
       },
     },
@@ -67,7 +66,7 @@
         const n = statsState.data?.pending_notifications;
         if (n == null) return [];
         return [
-          { count: n, class: PILL_BLUE, dotClass: "bg-blue-500", label: "Pending" },
+          { count: n, class: PILL_RUNNING, dotClass: "bg-status-running", label: "Pending" },
         ];
       },
     },
@@ -169,7 +168,7 @@
             {#snippet child({ props })}
               <a href="/" {...props}>
                 <div
-                  class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-full"
+                  class="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-full"
                 >
                   <Eye class="size-4" />
                 </div>
@@ -295,7 +294,7 @@
                     {#if connectionState.diagnosticsLoading}
                       <p class="text-muted-foreground text-sm">Checking the dbos schema…</p>
                     {:else if connectionState.diagnosticsError}
-                      <p class="text-sm text-red-600 dark:text-red-400">{connectionState.diagnosticsError}</p>
+                      <p class="text-destructive text-sm">{connectionState.diagnosticsError}</p>
                     {:else if connectionState.diagnostics}
                       {#if connectionState.diagnostics.ok}
                         <p class="text-sm">

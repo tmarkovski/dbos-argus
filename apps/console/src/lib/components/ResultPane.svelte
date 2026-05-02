@@ -492,7 +492,7 @@
               class="text-muted-foreground hover:text-foreground hover:bg-muted flex h-6 w-6 items-center justify-center rounded transition-colors"
             >
               {#if justCopied}
-                <Check class="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                <Check class="text-status-success h-3.5 w-3.5" />
               {:else}
                 <Copy class="h-3.5 w-3.5" />
               {/if}
@@ -616,7 +616,7 @@
             class="text-muted-foreground hover:text-foreground hover:bg-muted flex h-7 w-7 items-center justify-center rounded transition-colors"
           >
             {#if justCopied}
-              <Check class="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+              <Check class="text-status-success h-3.5 w-3.5" />
             {:else}
               <Copy class="h-3.5 w-3.5" />
             {/if}
@@ -706,7 +706,7 @@
               class="text-muted-foreground hover:text-foreground hover:bg-muted flex h-6 w-6 items-center justify-center rounded transition-colors"
             >
               {#if eventCopyKey === "current"}
-                <Check class="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                <Check class="text-status-success h-3.5 w-3.5" />
               {:else}
                 <Copy class="h-3.5 w-3.5" />
               {/if}

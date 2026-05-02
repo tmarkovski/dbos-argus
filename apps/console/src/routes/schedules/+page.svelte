@@ -51,8 +51,7 @@
   });
 
   function statusClass(status: string): string {
-    if (status === "ACTIVE")
-      return "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-400";
+    if (status === "ACTIVE") return "bg-status-success/15 text-status-success";
     return "bg-muted text-muted-foreground";
   }
 </script>

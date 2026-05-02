@@ -47,7 +47,7 @@ describe("connection diagnostics helpers", () => {
         diagnostics,
       }),
     ).toBe("issues");
-    expect(connectionIndicatorClass("issues")).toBe("text-amber-500");
+    expect(connectionIndicatorClass("issues")).toBe("text-status-warning");
     expect(connectionIndicatorLabel("issues")).toBe("Connected");
     expect(diagnosticsIssueSummary(diagnostics)).toBe("1 schema issue found");
   });
@@ -68,7 +68,7 @@ describe("connection diagnostics helpers", () => {
         diagnostics: { ok: true, issues: [] },
       }),
     ).toBe("connected");
-    expect(connectionIndicatorClass("connected")).toBe("text-green-500");
+    expect(connectionIndicatorClass("connected")).toBe("text-status-success");
     expect(connectionIndicatorLabel("connected")).toBe("Connected");
     expect(diagnosticsIssueSummary({ ok: true, issues: [] })).toBeNull();
   });

@@ -25,22 +25,22 @@
   let { data, selected }: NodeProps & { data: NodeData } = $props();
 
   const dotClass = $derived.by(() => {
-    if (data.kind === "child") return "bg-indigo-500";
+    if (data.kind === "child") return "bg-primary";
     if (data.kind === "system") return "bg-muted-foreground/40";
     switch (data.status) {
       case "error":
-        return "bg-red-500";
+        return "bg-status-error";
       case "running":
-        return "bg-blue-500 animate-pulse";
+        return "bg-status-running animate-pulse";
       case "success":
-        return "bg-green-500";
+        return "bg-status-success";
       default:
         return "bg-muted-foreground/40";
     }
   });
 
   const nameClass = $derived.by(() => {
-    if (data.kind === "child") return "text-indigo-700 dark:text-indigo-400";
+    if (data.kind === "child") return "text-primary";
     if (data.kind === "system") return "text-muted-foreground";
     return "";
   });
@@ -68,7 +68,7 @@
   {/if}
   {#if data.eventDirection}
     <Zap
-      class="h-3 w-3 flex-none fill-yellow-400 text-yellow-500 dark:fill-yellow-300 dark:text-yellow-400"
+      class="fill-highlight text-highlight-foreground h-3 w-3 flex-none"
       aria-hidden="true"
     />
   {:else}
@@ -77,7 +77,7 @@
   <span class="text-muted-foreground flex-none font-mono text-[10px]">#{data.functionId}</span>
   {#if data.eventDirection}
     <span class="truncate font-mono text-xs" title={data.functionName}>
-      <span class="text-yellow-700 dark:text-yellow-400">{data.eventDirection}</span>
+      <span class="text-highlight-foreground dark:text-highlight">{data.eventDirection}</span>
       <span class="text-muted-foreground">
         {data.eventDirection === "set" ? "→" : "←"}
       </span>
@@ -91,7 +91,7 @@
     <span class="truncate font-mono text-xs" title={data.functionName}>
       <span class="text-muted-foreground">result</span>
       <span class="text-muted-foreground">←</span>
-      <span class="text-indigo-700 dark:text-indigo-400">{data.awaitedWorkflowName}</span>
+      <span class="text-primary">{data.awaitedWorkflowName}</span>
     </span>
   {:else}
     <span class="truncate font-mono text-xs {nameClass}" title={data.functionName}>

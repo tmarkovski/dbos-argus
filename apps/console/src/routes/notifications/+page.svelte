@@ -227,9 +227,7 @@
                 {#if n.consumed}
                   <Badge variant="secondary">Consumed</Badge>
                 {:else}
-                  <Badge
-                    class="bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-400"
-                  >
+                  <Badge class="bg-status-running/15 text-status-running">
                     Pending
                   </Badge>
                 {/if}
@@ -274,9 +272,7 @@
           {#if selected.consumed}
             <Badge variant="secondary">Consumed</Badge>
           {:else}
-            <Badge
-              class="bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-400"
-            >
+            <Badge class="bg-status-running/15 text-status-running">
               Pending
             </Badge>
           {/if}
@@ -396,7 +392,7 @@
                   class="text-muted-foreground hover:text-foreground hover:bg-muted flex h-6 w-6 items-center justify-center rounded transition-colors"
                 >
                   {#if justCopied}
-                    <Check class="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                    <Check class="text-status-success h-3.5 w-3.5" />
                   {:else}
                     <Copy class="h-3.5 w-3.5" />
                   {/if}
