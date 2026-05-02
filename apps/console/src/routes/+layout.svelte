@@ -433,7 +433,7 @@
         {/if}
       </Button>
     </header>
-    <div class="flex flex-1 flex-col">
+    <div class="flex flex-1 flex-col overflow-hidden md:rounded-b-2xl">
       {@render children()}
     </div>
   </Sidebar.Inset>

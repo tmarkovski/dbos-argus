@@ -9,10 +9,13 @@
     "preview": "vite preview --host 0.0.0.0 --port 5173",
     "lint": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --threshold warning",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "theme:sync": "scripts/sync-theme.sh"
   },
   "dependencies": {
     "@dbos-argus/ui": "workspace:*",
+    "@fontsource-variable/dm-sans": "^5.2.8",
+    "@fontsource-variable/merriweather": "^5.2.6",
     "@internationalized/date": "^3.12.1",
     "@xyflow/svelte": "^1.2.0",
     "bits-ui": "^2.18.0",
@@ -22,8 +25,6 @@
     "pretty-ms": "^9.3.0"
   },
   "devDependencies": {
-    "@fontsource-variable/inter": "^5.2.8",
-    "@fontsource-variable/roboto-slab": "^5.2.8",
     "@lucide/svelte": "^1.11.0",
     "@playwright/test": "^1.48.0",
     "@sveltejs/adapter-static": "^3.0.10",

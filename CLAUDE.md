@@ -80,6 +80,24 @@ The `/api/sql-diagnostics` endpoint diffs the live schema against `packages/serv
 - **SvelteKit adapter-static** with `fallback: 'index.html'` — the console builds to a static SPA and is served by FastAPI via a catch-all route in `packages/server/dbos_argus/main.py`. No Node process in production.
 - **SQLAlchemy 2.x async** + asyncpg, reading directly from the DBOS system schema (`dbos.*`).
 
+## Theming
+
+The console's visual theme is split into two files so shadcn presets can be swapped without touching app code:
+
+- **`apps/console/src/theme.css`** — generated. Holds the preset's `:root` and `.dark` blocks: base palette (background/foreground/card/popover/muted/accent/border/input/ring), `--primary`, `--secondary`, `--destructive`, `--chart-1..5`, sidebar tokens, `--radius`, `--font-sans`, `--font-heading`. Header comment records the preset code. **Do not hand-edit.**
+- **`apps/console/src/app.css`** — hand-maintained. Imports `theme.css`, declares Argus-specific tokens that survive preset swaps (`--status-success/running/queued/warning/error`, `--highlight*`, `--font-mono`), registers everything in `@theme inline`, and holds `@layer base`.
+
+To swap to a new preset:
+
+1. Pick a preset at https://ui.shadcn.com/create — the URL ends with `?preset=<code>`.
+2. `pnpm --filter console theme:sync <code>` — regenerates `theme.css` and prints the font packages to install.
+3. Update the `@fontsource-variable/<name>` `@import` lines in `app.css` to match the new `--font-sans` / `--font-heading`, and `pnpm --filter console add/remove` the corresponding fontsource packages.
+4. Verify with `pnpm run lint && pnpm run build`.
+
+The script (`apps/console/scripts/sync-theme.sh`) decodes the preset, spawns a scratch Next.js project, runs `npx shadcn apply --preset <code> --only theme`, and copies the resulting `:root`/`.dark` blocks into `theme.css`. The scratch project exists because the React shadcn CLI requires a Next/Vite project structure that `shadcn-svelte`'s `components.json` doesn't satisfy.
+
+Workflow status colors (`--status-*`) are intentionally outside the preset so SUCCESS stays green, ERROR stays red, etc. across themes. If a preset's primary clashes badly with a status hue, override the status block in `app.css`.
+
 ## CI
 
 Three GitHub Actions workflows:
