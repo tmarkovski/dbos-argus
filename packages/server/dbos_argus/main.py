@@ -218,9 +218,7 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
                     WHERE parent_workflow_id IS NULL
                 ),
             """
-            match_filter = (
-                " AND workflow_uuid IN (SELECT workflow_uuid FROM matched_roots)"
-            )
+            match_filter = " AND workflow_uuid IN (SELECT workflow_uuid FROM matched_roots)"
         else:
             match_ctes = ""
             match_filter = ""
