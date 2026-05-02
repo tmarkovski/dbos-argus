@@ -31,6 +31,7 @@
   } from "$lib/workflow-tree";
   import { STATUS_LABELS, WORKFLOW_STATUSES } from "$lib/workflow-status";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
+  import { statsState } from "$lib/stats.svelte";
 
   const queueName = $derived(page.url.searchParams.get("queue_name") ?? "");
 
@@ -357,7 +358,9 @@
         <span class="inline-block h-2 w-2 animate-pulse rounded-full bg-violet-500"></span>
         Enqueued
         <span class="text-violet-600/70 dark:text-violet-400/70 normal-case tracking-normal">
-          {enqueued.length} waiting to run
+          {!queueName && statsState.data && statsState.data.enqueued > enqueued.length
+            ? statsState.data.enqueued
+            : enqueued.length} waiting to run
         </span>
         <ChevronDownIcon
           class="ml-auto h-4 w-4 transition-transform duration-200 {enqueuedCollapsed

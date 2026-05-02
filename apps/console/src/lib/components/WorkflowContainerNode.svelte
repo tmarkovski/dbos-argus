@@ -21,7 +21,7 @@
 </script>
 
 <div
-  class="bg-card/60 relative flex h-full w-full cursor-pointer flex-col rounded-2xl border backdrop-blur-sm
+  class="bg-card relative flex h-full w-full cursor-pointer flex-col rounded-2xl border
     {selected
       ? 'border-primary shadow-md'
       : data.isCurrent

@@ -18,6 +18,7 @@
     getConnectionIndicatorState,
   } from "$lib/connection-diagnostics";
   import { connectionState } from "$lib/connection-state.svelte";
+  import { statsState } from "$lib/stats.svelte";
   import { statusDotClass } from "$lib/workflow-tree";
   import * as Sidebar from "$lib/components/ui/sidebar/index.js";
   import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
@@ -28,17 +29,53 @@
 
   let { children } = $props();
 
+  type Pill = { count: number; class: string; dotClass: string; label: string };
   type NavItem = {
     href: string;
     label: string;
     icon: typeof Workflow;
+    badges?: () => Pill[];
   };
 
+  const PILL_BLUE = "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-400";
+  const PILL_VIOLET =
+    "bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-400";
+
   const NAV: NavItem[] = [
-    { href: "/workflows/", label: "Workflows", icon: Workflow },
+    {
+      href: "/workflows/",
+      label: "Workflows",
+      icon: Workflow,
+      badges: () => {
+        const s = statsState.data;
+        if (!s) return [];
+        // in_flight already includes ENQUEUED — split so the two counts don't
+        // double-count each other.
+        const running = Math.max(0, s.in_flight - s.enqueued);
+        return [
+          { count: running, class: PILL_BLUE, dotClass: "bg-blue-500", label: "Running" },
+          { count: s.enqueued, class: PILL_VIOLET, dotClass: "bg-violet-500", label: "Queued" },
+        ];
+      },
+    },
     { href: "/schedules/", label: "Schedules", icon: CalendarClock },
-    { href: "/notifications/", label: "Notifications", icon: Bell },
+    {
+      href: "/notifications/",
+      label: "Notifications",
+      icon: Bell,
+      badges: () => {
+        const n = statsState.data?.pending_notifications;
+        if (n == null) return [];
+        return [
+          { count: n, class: PILL_BLUE, dotClass: "bg-blue-500", label: "Pending" },
+        ];
+      },
+    },
   ];
+
+  function formatBadge(n: number): string {
+    return n > 99 ? "99+" : String(n);
+  }
 
   const pathname = $derived(page.url.pathname);
   function isActive(href: string): boolean {
@@ -68,7 +105,11 @@
       await connectionState.refreshHealth();
       await connectionState.ensureDiagnostics();
     })();
-    timer = setInterval(() => connectionState.refreshHealth(), 5000);
+    void statsState.refresh();
+    timer = setInterval(() => {
+      void connectionState.refreshHealth();
+      void statsState.refresh();
+    }, 5000);
   });
 
   function persistSidebarOpen(value: boolean) {
@@ -128,7 +169,7 @@
             {#snippet child({ props })}
               <a href="/" {...props}>
                 <div
-                  class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"
+                  class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-full"
                 >
                   <Eye class="size-4" />
                 </div>
@@ -147,10 +188,11 @@
 
     <Sidebar.Content>
       <Sidebar.Group>
-        <Sidebar.GroupLabel>Navigation</Sidebar.GroupLabel>
         <Sidebar.GroupContent>
           <Sidebar.Menu class="gap-1">
             {#each NAV as item (item.href)}
+              {@const pills = (item.badges?.() ?? []).filter((p) => p.count > 0)}
+              {@const useUnderLabels = pills.length > 1}
               <Sidebar.MenuItem>
                 <Sidebar.MenuButton
                   isActive={isActive(item.href)}
@@ -163,6 +205,32 @@
                     </a>
                   {/snippet}
                 </Sidebar.MenuButton>
+                {#if pills.length > 0 && !useUnderLabels}
+                  <Sidebar.MenuBadge
+                    class="top-1/2! right-2 -translate-y-1/2 {pills[0].class}"
+                    title={pills[0].label}
+                  >
+                    {formatBadge(pills[0].count)}
+                  </Sidebar.MenuBadge>
+                {/if}
+                {#if useUnderLabels}
+                  <div
+                    class="mt-0.5 flex flex-col group-data-[collapsible=icon]:hidden"
+                  >
+                    {#each pills as pill (pill.label)}
+                      <div
+                        class="text-muted-foreground flex h-6 items-center justify-between pr-2 pl-9 text-[11px]"
+                      >
+                        <span>{pill.label}</span>
+                        <span
+                          class="flex h-4 min-w-4 items-center justify-center rounded-xl px-1 text-[11px] font-medium tabular-nums select-none {pill.class}"
+                        >
+                          {formatBadge(pill.count)}
+                        </span>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
               </Sidebar.MenuItem>
             {/each}
           </Sidebar.Menu>

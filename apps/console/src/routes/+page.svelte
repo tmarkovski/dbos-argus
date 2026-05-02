@@ -17,24 +17,17 @@
     getConnectionIndicatorState,
   } from "$lib/connection-diagnostics";
   import { connectionState } from "$lib/connection-state.svelte";
+  import { statsState } from "$lib/stats.svelte";
   import * as Card from "$lib/components/ui/card/index.js";
   import * as Table from "$lib/components/ui/table/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import WorkflowThroughputChart from "$lib/components/WorkflowThroughputChart.svelte";
 
-  type Stats = {
-    total: number;
-    in_flight: number;
-    enqueued: number;
-    failed_recent: number;
-    pending_notifications: number;
-    active_schedules: number;
-  };
-
-  let stats = $state<Stats | null>(null);
   let recents = $state<Workflow[] | null>(null);
   let error = $state<string | null>(null);
   let timer: ReturnType<typeof setInterval> | undefined;
+
+  const stats = $derived(statsState.data);
 
   $effect(() => {
     breadcrumb.items = [{ label: "Home", icon: "home" }];
@@ -45,19 +38,15 @@
 
   async function refresh() {
     try {
-      const [s, w] = await Promise.all([
-        fetch("/api/stats").then((r) => {
-          if (!r.ok) throw new Error(`stats HTTP ${r.status}`);
-          return r.json() as Promise<Stats>;
-        }),
+      const [, w] = await Promise.all([
+        statsState.refresh(),
         fetch("/api/workflows?limit=8&grouped=false").then((r) => {
           if (!r.ok) throw new Error(`workflows HTTP ${r.status}`);
           return r.json() as Promise<Workflow[]>;
         }),
       ]);
-      stats = s;
       recents = w;
-      error = null;
+      error = statsState.error;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     }
