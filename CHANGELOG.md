@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.15] - 2026-05-02
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+### Developer experience
+- Added a `.pre-commit-config.yaml` running `ruff-check --fix` and
+  `ruff-format` on staged files (pinned to ruff 0.15.11). Contributors
+  enable it once with `uvx pre-commit install`; CONTRIBUTING.md
+  documents the step.
+
 ## [0.0.14] - 2026-05-02
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
