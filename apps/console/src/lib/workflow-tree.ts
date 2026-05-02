@@ -5,6 +5,7 @@ export type Workflow = {
   status: string | null;
   queue_name: string | null;
   executor_id: string | null;
+  priority: number;
   started_at: string;
   updated_at: string;
   depth: number;

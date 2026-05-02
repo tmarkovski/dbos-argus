@@ -138,6 +138,8 @@ class WorkflowListItem(BaseModel):
     status: str | None
     queue_name: str | None
     executor_id: str | None
+    # DBOS queue priority — lower runs first. Defaults to 0 when unset.
+    priority: int
     started_at: datetime
     updated_at: datetime
     depth: int
@@ -239,6 +241,7 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
                         ws.status,
                         ws.queue_name,
                         ws.executor_id,
+                        ws.priority,
                         COALESCE(ws.started_at_epoch_ms, ws.created_at) AS started_ms,
                         ws.updated_at AS updated_ms,
                         0 AS depth,
@@ -256,6 +259,7 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
                         c.status,
                         c.queue_name,
                         c.executor_id,
+                        c.priority,
                         COALESCE(c.started_at_epoch_ms, c.created_at),
                         c.updated_at,
                         t.depth + 1,
@@ -272,7 +276,8 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
                 )
             SELECT
                 t.workflow_uuid, t.parent_workflow_id, t.name, t.status,
-                t.queue_name, t.executor_id, t.started_ms, t.updated_ms, t.depth,
+                t.queue_name, t.executor_id, t.priority,
+                t.started_ms, t.updated_ms, t.depth,
                 COALESCE(oc.op_count, 0)::bigint AS op_count
             FROM tree t
             LEFT JOIN op_counts oc ON oc.workflow_uuid = t.workflow_uuid
@@ -290,6 +295,7 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
             WITH chosen AS (
                 SELECT
                     workflow_uuid, parent_workflow_id, name, status, queue_name, executor_id,
+                    priority,
                     COALESCE(started_at_epoch_ms, created_at) AS started_ms,
                     updated_at AS updated_ms
                 FROM dbos.workflow_status
@@ -305,7 +311,8 @@ def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str,
             )
             SELECT
                 c.workflow_uuid, c.parent_workflow_id, c.name, c.status,
-                c.queue_name, c.executor_id, c.started_ms, c.updated_ms,
+                c.queue_name, c.executor_id, c.priority,
+                c.started_ms, c.updated_ms,
                 0 AS depth,
                 COALESCE(oc.op_count, 0)::bigint AS op_count
             FROM chosen c
@@ -351,6 +358,7 @@ async def list_workflows(
             status=r.status,
             queue_name=r.queue_name,
             executor_id=r.executor_id,
+            priority=r.priority or 0,
             started_at=datetime.fromtimestamp(r.started_ms / 1000, tz=UTC),
             updated_at=datetime.fromtimestamp(r.updated_ms / 1000, tz=UTC),
             depth=r.depth,

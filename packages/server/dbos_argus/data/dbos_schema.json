@@ -129,7 +129,7 @@
         {"name": "inputs", "data_type": "text", "argus": false},
         {"name": "started_at_epoch_ms", "data_type": "bigint", "argus": true},
         {"name": "deduplication_id", "data_type": "text", "argus": false},
-        {"name": "priority", "data_type": "integer", "argus": false},
+        {"name": "priority", "data_type": "integer", "argus": true},
         {"name": "queue_partition_key", "data_type": "text", "argus": false},
         {"name": "forked_from", "data_type": "text", "argus": false},
         {"name": "owner_xid", "data_type": "text", "argus": false},

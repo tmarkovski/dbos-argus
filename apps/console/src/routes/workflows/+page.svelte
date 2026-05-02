@@ -10,6 +10,7 @@
   import CheckIcon from "@lucide/svelte/icons/check";
   import ListChecksIcon from "@lucide/svelte/icons/list-checks";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
+  import CalendarClockIcon from "@lucide/svelte/icons/calendar-clock";
   import { slide } from "svelte/transition";
   import DateRangePicker from "$lib/components/DateRangePicker.svelte";
   import { Button } from "$lib/components/ui/button";
@@ -366,8 +367,22 @@
       {#if !enqueuedCollapsed}
         <div id="enqueued-list" transition:slide={{ duration: 200 }}>
           <table class="w-full text-left text-sm">
+            <thead>
+              <tr
+                class="border-violet-200/60 dark:border-violet-500/10 text-violet-700/70 dark:text-violet-300/70 border-b text-[10px] font-medium tracking-wide uppercase"
+              >
+                <th class="px-4 py-1.5 font-medium">Queue</th>
+                <th class="px-4 py-1.5 text-right font-medium" title="Lower runs first">
+                  Prio
+                </th>
+                <th class="px-4 py-1.5 font-medium">Name</th>
+                <th class="px-4 py-1.5 font-medium">Workflow ID</th>
+                <th class="px-4 py-1.5 text-right font-medium">Enqueued</th>
+              </tr>
+            </thead>
             <tbody>
               {#each enqueued as w (w.workflow_id)}
+                {@const isScheduled = w.workflow_id.startsWith("sched-")}
                 <tr
                   class="hover:bg-violet-100/40 dark:hover:bg-violet-500/10 border-violet-200/60 dark:border-violet-500/10 border-t first:border-t-0"
                 >
@@ -384,13 +399,25 @@
                       <span class="text-muted-foreground text-xs">—</span>
                     {/if}
                   </td>
+                  <td class="text-muted-foreground w-1 px-4 py-1.5 text-right font-mono text-xs whitespace-nowrap">
+                    {w.priority}
+                  </td>
                   <td class="px-4 py-1.5 font-mono">
-                    <a
-                      href="/workflows/{encodeURIComponent(w.workflow_id)}/"
-                      class="hover:underline"
-                    >
-                      {w.name ?? "—"}
-                    </a>
+                    <span class="inline-flex items-center gap-1.5">
+                      {#if isScheduled}
+                        <CalendarClockIcon
+                          class="size-3.5 shrink-0 text-violet-600 dark:text-violet-400"
+                          aria-label="Scheduled workflow"
+                        />
+                      {/if}
+                      <a
+                        href="/workflows/{encodeURIComponent(w.workflow_id)}/"
+                        class="hover:underline"
+                        title={isScheduled ? "Scheduled (cron) firing" : undefined}
+                      >
+                        {w.name ?? "—"}
+                      </a>
+                    </span>
                   </td>
                   <td class="text-muted-foreground px-4 py-1.5 font-mono text-xs">
                     <a
