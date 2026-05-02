@@ -2,7 +2,6 @@
   import { onDestroy, onMount, untrack } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import {
-    Background,
     Controls,
     SvelteFlow,
     type ColorMode,
@@ -782,7 +781,6 @@
     onnodeclick={handleNodeClick}
     onpaneclick={handlePaneClick}
   >
-    <Background />
     <Controls showLock={false} />
   </SvelteFlow>
 </div>
