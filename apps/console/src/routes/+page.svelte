@@ -6,7 +6,7 @@
   import CalendarClockIcon from "@lucide/svelte/icons/calendar-clock";
   import ListTodoIcon from "@lucide/svelte/icons/list-todo";
   import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
-  import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
+  import PlugZapIcon from "@lucide/svelte/icons/plug-zap";
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
   import UnplugIcon from "@lucide/svelte/icons/unplug";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
@@ -140,7 +140,7 @@
         <div class="flex items-start justify-between gap-3">
           <span class="text-muted-foreground text-sm">Database</span>
           {#if connectionIndicatorState === "connected"}
-            <CircleCheckIcon class="size-5 {connectionAccentClass}" />
+            <PlugZapIcon class="size-5 {connectionAccentClass}" />
           {:else if connectionIndicatorState === "issues"}
             <CircleAlertIcon class="size-5 {connectionAccentClass}" />
           {:else}
