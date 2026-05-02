@@ -9,6 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.13] - 2026-05-02
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+### Added
+- Workflows list: when the enqueued strip is expanded, render table
+  headers (Queue / Prio / Name / Workflow ID / Enqueued), surface the
+  DBOS queue **priority** column (lower runs first), and tag
+  cron-scheduled workflows with a calendar-clock glyph next to the
+  name (detected via the `sched-` workflow_uuid prefix).
+- Dashboard: total-workflows card now shows the queued count next
+  to the in-flight count.
+
+### Changed
+- Result pane: aligned the output dialog with the event dialog —
+  step name as title with `Step #N` description, OUTPUT label inline
+  with the action row, matching gap between buttons and code block.
+  Side-pane output area is fully clickable and both the event cards
+  and the output code block fade in a colored hover border to
+  signal they're reactive.
+- Result pane: event dialog now uses the same View Transitions
+  morph as the output dialog — cards morph into the dialog on open
+  and back on close, with the same Safari close-side skip.
+- Event dialog text: `Set once` / `Set N times` are now `Event set
+  once` / `Event set N times` so the source is unambiguous.
+- Dashboard: connected indicator is now a plug-zap icon (paired
+  with the existing unplug for disconnected) instead of a checkmark.
+- Workflow detail flow: dropped the dotted xyflow background for a
+  clean pane.
+
+### Schema
+- `dbos.workflow_status.priority` flipped from `argus: false` to
+  `argus: true` (now read by the workflows list endpoint).
+
 ## [0.0.12] - 2026-04-30
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
