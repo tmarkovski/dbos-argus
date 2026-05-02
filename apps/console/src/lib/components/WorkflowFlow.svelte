@@ -798,4 +798,22 @@
     border: none;
     opacity: 0;
   }
+
+  /* Subtle ambient gradient on the flow surface — picks up the indigo
+     spawn-edge accent at upper-left and a softer violet at lower-right
+     to give the canvas depth without competing with the workflow nodes. */
+  :global(.svelte-flow) {
+    background:
+      radial-gradient(
+        ellipse 80% 60% at 25% 0%,
+        color-mix(in oklab, rgb(99 102 241) 12%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        ellipse 70% 55% at 100% 100%,
+        color-mix(in oklab, rgb(168 85 247) 10%, transparent),
+        transparent 55%
+      ),
+      var(--color-card) !important;
+  }
 </style>

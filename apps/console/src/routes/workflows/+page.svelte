@@ -4,6 +4,7 @@
   import { goto } from "$app/navigation";
   import { getLocalTimeZone, type DateValue } from "@internationalized/date";
   import FilterIcon from "@lucide/svelte/icons/list-filter";
+  import FilterXIcon from "@lucide/svelte/icons/filter-x";
   import SearchIcon from "@lucide/svelte/icons/search";
   import ColumnsIcon from "@lucide/svelte/icons/columns-3";
   import XIcon from "@lucide/svelte/icons/x";
@@ -506,11 +507,15 @@
       </InputGroup.Addon>
       <InputGroup.Input
         type="search"
+        name="workflow-search"
         placeholder="Workflow name or ID"
         autocomplete="off"
         autocorrect="off"
         autocapitalize="off"
         spellcheck="false"
+        data-form-type="other"
+        data-1p-ignore
+        data-lpignore="true"
         bind:value={qInput}
       />
     </InputGroup.Root>
@@ -518,7 +523,7 @@
     <DateRangePicker bind:value={dateRange} placeholder="Started" />
 
     <label
-      class="hover:bg-muted text-foreground flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-sm select-none"
+      class="border-border bg-background hover:bg-muted hover:text-foreground text-foreground flex h-9 cursor-pointer items-center gap-1.5 rounded-4xl border px-3 text-sm font-medium select-none dark:bg-transparent dark:hover:bg-input/30"
       title="Hide scheduled-workflow runs (workflow IDs starting with 'sched-')"
     >
       <Checkbox checked={hideScheduled} onCheckedChange={(v) => setHideScheduled(!!v)} />
@@ -527,7 +532,10 @@
 
     {#if hasActiveFilters}
       <Separator orientation="vertical" class="!h-6" />
-      <Button variant="ghost" onclick={clearFilters}>Clear filters</Button>
+      <Button variant="outline" onclick={clearFilters}>
+        <FilterXIcon />
+        Clear filters
+      </Button>
     {/if}
 
     <ToggleGroup.Root
