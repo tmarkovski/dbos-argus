@@ -1,20 +1,20 @@
 /*
- * Theme generated from shadcn preset b1hX8z5YJv.
+ * Theme generated from shadcn preset b5qCEZ1fVo.
  *
  * Preset
- *   code         b1hX8z5YJv
+ *   code         b5qCEZ1fVo
  *   version      b
- *   style        vega
+ *   style        luma
  *   baseColor    neutral
- *   theme        red
- *   chartColor   teal
- *   iconLibrary  phosphor
+ *   theme        lime
+ *   chartColor   fuchsia
+ *   iconLibrary  lucide
  *   font         inter
- *   fontHeading  roboto
+ *   fontHeading  oxanium
  *   radius       medium
  *   menuAccent   subtle
- *   menuColor    inverted-translucent
- *   url          https://ui.shadcn.com/create?preset=b1hX8z5YJv
+ *   menuColor    default
+ *   url          https://ui.shadcn.com/create?preset=b5qCEZ1fVo
  *
  * Do not edit by hand — regenerate with:
  *   pnpm --filter console theme:sync <preset-code>
@@ -30,8 +30,8 @@
     --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.505 0.213 27.518);
-    --primary-foreground: oklch(0.971 0.013 17.38);
+    --primary: oklch(0.841 0.238 128.85);
+    --primary-foreground: oklch(0.405 0.101 131.063);
     --secondary: oklch(0.967 0.001 286.375);
     --secondary-foreground: oklch(0.21 0.006 285.885);
     --muted: oklch(0.97 0 0);
@@ -42,22 +42,22 @@
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
     --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.855 0.138 181.071);
-    --chart-2: oklch(0.704 0.14 182.503);
-    --chart-3: oklch(0.6 0.118 184.704);
-    --chart-4: oklch(0.511 0.096 186.391);
-    --chart-5: oklch(0.437 0.078 188.216);
+    --chart-1: oklch(0.833 0.145 321.434);
+    --chart-2: oklch(0.667 0.295 322.15);
+    --chart-3: oklch(0.591 0.293 322.896);
+    --chart-4: oklch(0.518 0.253 323.949);
+    --chart-5: oklch(0.452 0.211 324.591);
     --radius: 0.625rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.577 0.245 27.325);
-    --sidebar-primary-foreground: oklch(0.971 0.013 17.38);
+    --sidebar-primary: oklch(0.648 0.2 131.684);
+    --sidebar-primary-foreground: oklch(0.986 0.031 120.757);
     --sidebar-accent: oklch(0.97 0 0);
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
   --font-sans: 'Inter Variable', sans-serif;
-  --font-heading: 'Roboto Variable', serif;
+  --font-heading: 'Oxanium Variable', serif;
 }
 .dark {
     --background: oklch(0.145 0 0);
@@ -66,8 +66,8 @@
     --card-foreground: oklch(0.985 0 0);
     --popover: oklch(0.205 0 0);
     --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.444 0.177 26.899);
-    --primary-foreground: oklch(0.971 0.013 17.38);
+    --primary: oklch(0.768 0.233 130.85);
+    --primary-foreground: oklch(0.405 0.101 131.063);
     --secondary: oklch(0.274 0.006 286.033);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.269 0 0);
@@ -78,15 +78,15 @@
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.855 0.138 181.071);
-    --chart-2: oklch(0.704 0.14 182.503);
-    --chart-3: oklch(0.6 0.118 184.704);
-    --chart-4: oklch(0.511 0.096 186.391);
-    --chart-5: oklch(0.437 0.078 188.216);
+    --chart-1: oklch(0.833 0.145 321.434);
+    --chart-2: oklch(0.667 0.295 322.15);
+    --chart-3: oklch(0.591 0.293 322.896);
+    --chart-4: oklch(0.518 0.253 323.949);
+    --chart-5: oklch(0.452 0.211 324.591);
     --sidebar: oklch(0.205 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.637 0.237 25.331);
-    --sidebar-primary-foreground: oklch(0.971 0.013 17.38);
+    --sidebar-primary: oklch(0.768 0.233 130.85);
+    --sidebar-primary-foreground: oklch(0.274 0.072 132.109);
     --sidebar-accent: oklch(0.269 0 0);
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);

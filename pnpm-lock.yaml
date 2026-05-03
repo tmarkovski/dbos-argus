@@ -23,9 +23,9 @@ importers:
       '@fontsource-variable/inter':
         specifier: ^5.2.8
         version: 5.2.8
-      '@fontsource-variable/roboto':
-        specifier: ^5.2.10
-        version: 5.2.10
+      '@fontsource-variable/oxanium':
+        specifier: ^5.2.8
+        version: 5.2.8
       '@internationalized/date':
         specifier: ^3.12.1
         version: 3.12.1
@@ -287,8 +287,8 @@ packages:
   '@fontsource-variable/inter@5.2.8':
     resolution: {integrity: sha512-kOfP2D+ykbcX/P3IFnokOhVRNoTozo5/JxhAIVYLpea/UBmCQ/YWPBfWIDuBImXX/15KH+eKh4xpEUyS2sQQGQ==}
 
-  '@fontsource-variable/roboto@5.2.10':
-    resolution: {integrity: sha512-LJ0iLg6aHbLzN515gyHzmdTqJzd9NlI95cCg1DW0F5G7KkFqRLBBKBbqEJx4nSu4aby3IKmw3ZH6Fe928IfaSQ==}
+  '@fontsource-variable/oxanium@5.2.8':
+    resolution: {integrity: sha512-W3HWxRLXVB6yox3dgm1DIGOp98pz8KglwiM6/2BsMopvZrg98mXI9citFWz2pUX0FOOLwf8fmHxX+KrIn+6BoA==}
 
   '@internationalized/date@3.12.1':
     resolution: {integrity: sha512-6IedsVWXyq4P9Tj+TxuU8WGWM70hYLl12nbYU8jkikVpa6WXapFazPUcHUMDMoWftIDE2ILDkFFte6W2nFCkRQ==}
@@ -1492,7 +1492,7 @@ snapshots:
 
   '@fontsource-variable/inter@5.2.8': {}
 
-  '@fontsource-variable/roboto@5.2.10': {}
+  '@fontsource-variable/oxanium@5.2.8': {}
 
   '@internationalized/date@3.12.1':
     dependencies:
