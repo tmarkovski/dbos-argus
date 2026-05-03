@@ -190,8 +190,9 @@
         <Sidebar.GroupContent>
           <Sidebar.Menu class="gap-1">
             {#each NAV as item (item.href)}
-              {@const pills = (item.badges?.() ?? []).filter((p) => p.count > 0)}
-              {@const useUnderLabels = pills.length > 1}
+              {@const allBadges = item.badges?.() ?? []}
+              {@const pills = allBadges.filter((p) => p.count > 0)}
+              {@const useUnderLabels = allBadges.length > 1 && pills.length > 0}
               <Sidebar.MenuItem>
                 <Sidebar.MenuButton
                   isActive={isActive(item.href)}

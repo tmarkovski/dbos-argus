@@ -1,8 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import { scaleUtc } from "d3-scale";
-  import { Area, AreaChart } from "layerchart";
-  import { curveNatural } from "d3-shape";
+  import { BarChart } from "layerchart";
   import * as Card from "$lib/components/ui/card/index.js";
   import * as Chart from "$lib/components/ui/chart/index.js";
   import * as Select from "$lib/components/ui/select/index.js";
@@ -136,11 +134,10 @@
       config={chartConfig}
       class="aspect-auto h-[250px] w-full [&_.lc-legend-container]:pb-2"
     >
-      <AreaChart
+      <BarChart
         legend
         {data}
         x="ts"
-        xScale={scaleUtc()}
         series={[
           { key: "succeeded", label: "Succeeded", color: chartConfig.succeeded.color },
           { key: "errored", label: "Errored", color: chartConfig.errored.color },
@@ -149,46 +146,17 @@
         seriesLayout="stack"
         props={{
           xAxis: {
-            ticks: range === "24h" ? 6 : range === "7d" ? 7 : undefined,
+            ticks: range === "24h" ? 6 : range === "7d" ? 7 : 6,
             format: xFormat,
           },
           yAxis: { format: () => "" },
+          bars: { strokeWidth: 0 },
         }}
       >
-        {#snippet marks({ context }: { context: { series: { visibleSeries: { key: string }[] } } })}
-          <defs>
-            <linearGradient id="fillSucceeded" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stop-color="var(--color-succeeded)" stop-opacity={0.9} />
-              <stop offset="95%" stop-color="var(--color-succeeded)" stop-opacity={0.1} />
-            </linearGradient>
-            <linearGradient id="fillErrored" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stop-color="var(--color-errored)" stop-opacity={0.9} />
-              <stop offset="95%" stop-color="var(--color-errored)" stop-opacity={0.1} />
-            </linearGradient>
-            <linearGradient id="fillRunning" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stop-color="var(--color-running)" stop-opacity={0.9} />
-              <stop offset="95%" stop-color="var(--color-running)" stop-opacity={0.1} />
-            </linearGradient>
-          </defs>
-          {#each context.series.visibleSeries as s (s.key)}
-            <Area
-              seriesKey={s.key}
-              curve={curveNatural}
-              fillOpacity={0.4}
-              line={{ class: "stroke-1" }}
-              motion="tween"
-              fill={s.key === "succeeded"
-                ? "url(#fillSucceeded)"
-                : s.key === "errored"
-                  ? "url(#fillErrored)"
-                  : "url(#fillRunning)"}
-            />
-          {/each}
-        {/snippet}
         {#snippet tooltip()}
-          <Chart.Tooltip labelFormatter={tooltipLabelFormat} indicator="line" />
+          <Chart.Tooltip labelFormatter={tooltipLabelFormat} indicator="dashed" />
         {/snippet}
-      </AreaChart>
+      </BarChart>
     </Chart.Container>
   </Card.Content>
 </Card.Root>
