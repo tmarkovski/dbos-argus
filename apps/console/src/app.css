@@ -10,7 +10,7 @@
 /* Font packages must match the --font-sans / --font-heading values declared
    in theme.css. Update these imports when swapping presets. */
 @import "@fontsource-variable/inter";
-@import "@fontsource-variable/oxanium";
+@import "@fontsource-variable/roboto-slab";
 
 @custom-variant dark (&:is(.dark *));
 
