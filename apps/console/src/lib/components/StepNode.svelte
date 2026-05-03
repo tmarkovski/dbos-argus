@@ -39,7 +39,7 @@
   });
 
   const nameClass = $derived.by(() => {
-    if (data.kind === "child") return "text-chart-3";
+    if (data.kind === "child") return "text-workflow-accent";
     if (data.kind === "system") return "text-muted-foreground";
     return "";
   });
@@ -71,7 +71,7 @@
       aria-hidden="true"
     />
   {:else if data.kind === "child"}
-    <Workflow class="text-chart-3 h-3 w-3 flex-none" aria-hidden="true" />
+    <Workflow class="text-workflow-accent h-3 w-3 flex-none" aria-hidden="true" />
   {:else}
     <span class="h-2 w-2 flex-none rounded-full {dotClass}" aria-hidden="true"></span>
   {/if}
@@ -92,7 +92,7 @@
     <span class="truncate font-mono text-xs" title={data.functionName}>
       <span class="text-muted-foreground">result</span>
       <span class="text-muted-foreground">←</span>
-      <span class="text-chart-3">{data.awaitedWorkflowName}</span>
+      <span class="text-workflow-accent">{data.awaitedWorkflowName}</span>
     </span>
   {:else}
     <span class="truncate font-mono text-xs {nameClass}" title={data.functionName}>

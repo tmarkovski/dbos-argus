@@ -26,6 +26,10 @@
   --highlight: oklch(0.92 0.16 95);
   --highlight-foreground: oklch(0.3 0.1 80);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* Accent for workflow-graph child names + spawn/return edges. Tracks
+     --primary in light, brightens it in dark where some presets pick a
+     deeper primary that reads dim against the dark card surface. */
+  --workflow-accent: var(--primary);
 }
 
 .dark {
@@ -36,6 +40,7 @@
   --status-error: oklch(0.7 0.2 25);
   --highlight: oklch(0.85 0.18 95);
   --highlight-foreground: oklch(0.2 0.05 80);
+  --workflow-accent: oklch(from var(--primary) 0.82 calc(c + 0.06) h);
 }
 
 body {
@@ -53,6 +58,7 @@ body {
   --color-status-error: var(--status-error);
   --color-highlight: var(--highlight);
   --color-highlight-foreground: var(--highlight-foreground);
+  --color-workflow-accent: var(--workflow-accent);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

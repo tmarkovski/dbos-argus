@@ -677,7 +677,7 @@
         type: "bezier",
         animated: true,
         style:
-          "stroke: color-mix(in oklab, var(--color-chart-3) 80%, transparent); stroke-width: 2.5px;",
+          "stroke: color-mix(in oklab, var(--color-workflow-accent) 80%, transparent); stroke-width: 2.5px;",
       });
     }
 
@@ -691,7 +691,7 @@
       const targetId = stepNodeId(s.workflow_id, s.function_id);
       const childStatus = statusByWorkflowId.get(s.child_workflow_id);
       let edgeStyle =
-        "stroke: color-mix(in oklab, var(--color-chart-3) 60%, transparent); stroke-width: 2.25px;";
+        "stroke: color-mix(in oklab, var(--color-workflow-accent) 60%, transparent); stroke-width: 2.25px;";
       if (childStatus === "ERROR") {
         edgeStyle =
           "stroke: color-mix(in oklab, var(--color-status-error) 85%, transparent); stroke-width: 2.5px;";
@@ -812,6 +812,11 @@
         ellipse 80% 60% at 25% 0%,
         color-mix(in oklab, var(--color-chart-1) 14%, transparent),
         transparent 60%
+      ),
+      radial-gradient(
+        ellipse 65% 50% at 0% 100%,
+        color-mix(in oklab, var(--color-chart-2) 12%, transparent),
+        transparent 55%
       ),
       radial-gradient(
         ellipse 70% 55% at 100% 100%,
