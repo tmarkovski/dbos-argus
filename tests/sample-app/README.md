@@ -1,10 +1,11 @@
 # sample-app
 
-Standalone DBOS Transact app used as a dev fixture for Argus. It ships **three** processes that talk to the same Postgres but run under **different DBOS executor IDs**, so DBOS recovery never crosses between them:
+Standalone DBOS Transact app used as a dev fixture for Argus. It ships **four** processes that talk to the same Postgres but run under **different DBOS executor IDs**, so DBOS recovery never crosses between them:
 
 - `argus-runner` (executor_id `argus-runner`) — long-running. Hosts the example workflows and stays idle so recv-blocking workflows remain awaitable.
 - `argus-ops` (executor_id `argus-ops`) — short-lived CLI. Sends notifications, cancels, resumes, and lists workflows. Cross-executor send/cancel/resume are plain DB ops, so they reach the runner's workflows just fine.
-- `argus-scheduler` (executor_id `argus-scheduler`) — long-running. Owns the cron heartbeat workflow. Run it on its own so you can stop/restart `argus-runner` (or run other sample variants) without dragging the schedule along.
+- `argus-scheduler` (executor_id `argus-scheduler`) — long-running. Owns the cron tick loop. Each tick **enqueues** a `heartbeat_check` workflow onto the `argus-heartbeats` queue rather than running it locally.
+- `argus-heartbeat-runner` (executor_id `argus-heartbeat-runner`) — long-running. Subscribes as a worker for the `argus-heartbeats` queue and executes the workflow body. Stop it and heartbeats pile up in `ENQUEUED`; start it and DBOS drains them.
 
 ## Setup
 
@@ -14,7 +15,7 @@ This package is a uv workspace member, so a single root sync wires everything up
 uv sync                        # from the repo root
 ```
 
-That installs `argus-runner`, `argus-ops`, and `argus-scheduler` into the root `.venv/bin`.
+That installs `argus-runner`, `argus-ops`, `argus-scheduler`, and `argus-heartbeat-runner` into the root `.venv/bin`.
 
 ## Demo flow
 
@@ -66,13 +67,23 @@ uv run argus-ops ops-signoff     fulfill-d76077a9   # completes fulfill_order
 
 ## `argus-scheduler`
 
-Long-running process that idles and ticks the heartbeat schedule defined in `scheduled.py` (`*/10 * * * *` by default). The schedule row in `dbos.workflow_schedules` is persisted across restarts; this process just owns the in-memory tick loop. Stop it and ticks stop; start it and they resume.
+Long-running process that idles and ticks the heartbeat schedule defined in `scheduled.py` (`* * * * *` by default). The schedule row in `dbos.workflow_schedules` is persisted across restarts; this process just owns the in-memory tick loop. Stop it and ticks stop; start it and they resume.
 
 ```bash
 uv run argus-scheduler
 ```
 
-Run it independently of `argus-runner` so you can restart the runner (or swap in another sample variant) without disturbing the cadence of the heartbeat.
+The schedule is registered with `queue_name="argus-heartbeats"`, so each tick writes an `ENQUEUED` workflow row instead of running it locally. The scheduler does **not** subscribe as a worker for that queue — execution happens in `argus-heartbeat-runner`. Run scheduler and heartbeat-runner independently of `argus-runner` so you can restart any of them without disturbing the others.
+
+## `argus-heartbeat-runner`
+
+Long-running queue worker for `argus-heartbeats`. Drains whatever the scheduler has enqueued.
+
+```bash
+uv run argus-heartbeat-runner
+```
+
+Run zero, one, or many of these. With zero, you can watch heartbeats accumulate in `ENQUEUED` in the dashboard; with one or more, DBOS distributes the work.
 
 ## Environment
 

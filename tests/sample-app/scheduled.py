@@ -1,8 +1,10 @@
 """Scheduled workflows for the Argus dev fixture.
 
-Imported only by the runner — `create_schedule(...)` is a one-time DB write
-(idempotent here via a list-then-create check), and the runner is the
-worker that should host the schedule's executions.
+`argus-scheduler` imports this module to own the cron tick loop and the
+`workflow_schedules` row. The schedule is registered with a `queue_name`,
+so each tick enqueues a `heartbeat_check` row onto `argus-heartbeats`
+rather than running it locally — execution is picked up by whichever
+process registers itself as a worker for that queue (`argus-heartbeat-runner`).
 
 Uses the modern `DBOS.create_schedule(...)` API. The decorator-based
 `@DBOS.scheduled(...)` form is deprecated upstream and doesn't persist to
@@ -21,6 +23,7 @@ from workflows import audit, log_event
 
 HEARTBEAT_SCHEDULE_NAME = "argus-demo-heartbeat"
 HEARTBEAT_SCHEDULE = "* * * * *"
+HEARTBEAT_QUEUE_NAME = "argus-heartbeats"
 
 HEARTBEAT_JITTER_MIN_SEC = 1
 HEARTBEAT_JITTER_MAX_SEC = 30
@@ -53,12 +56,20 @@ def heartbeat_check(scheduled_at: datetime, context: Any = None) -> None:
 
 
 def register_schedules() -> None:
-    """Idempotent — register the heartbeat schedule at the configured cadence."""
+    """Idempotent — register the heartbeat schedule at the configured cadence.
+
+    Routes through `HEARTBEAT_QUEUE_NAME` so ticks enqueue rather than run
+    on the scheduler. If the persisted schedule row predates the queue
+    (cadence matches but `queue_name` is unset/different), it's recreated.
+    """
     existing = DBOS.list_schedules(schedule_name_prefix=HEARTBEAT_SCHEDULE_NAME)
     for schedule in existing:
         if schedule["schedule_name"] != HEARTBEAT_SCHEDULE_NAME:
             continue
-        if schedule["schedule"] == HEARTBEAT_SCHEDULE:
+        if (
+            schedule["schedule"] == HEARTBEAT_SCHEDULE
+            and schedule.get("queue_name") == HEARTBEAT_QUEUE_NAME
+        ):
             return
         DBOS.delete_schedule(HEARTBEAT_SCHEDULE_NAME)
         break
@@ -66,4 +77,5 @@ def register_schedules() -> None:
         schedule_name=HEARTBEAT_SCHEDULE_NAME,
         workflow_fn=heartbeat_check,
         schedule=HEARTBEAT_SCHEDULE,
+        queue_name=HEARTBEAT_QUEUE_NAME,
     )

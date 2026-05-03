@@ -23,7 +23,7 @@ import time
 
 import click
 from _dbos_setup import init_dbos
-from dbos import DBOS
+from dbos import DBOS, Queue
 
 LOG = logging.getLogger("argus-scheduler")
 
@@ -32,6 +32,11 @@ EXECUTOR_ID = "argus-scheduler"
 init_dbos(EXECUTOR_ID)
 
 import scheduled  # noqa: E402  — defines `heartbeat_check` workflow + register_schedules()
+
+# Declare the heartbeats queue so `create_schedule(..., queue_name=...)` accepts
+# it, but with `worker_concurrency=0` so this process never dequeues. Heartbeat
+# execution belongs to `argus-heartbeat-runner`.
+Queue(scheduled.HEARTBEAT_QUEUE_NAME, worker_concurrency=0)
 
 
 @click.command()

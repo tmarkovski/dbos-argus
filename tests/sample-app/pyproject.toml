@@ -13,6 +13,7 @@ dependencies = [
 argus-runner = "runner:main"
 argus-ops = "ops:cli"
 argus-scheduler = "scheduler:main"
+argus-heartbeat-runner = "heartbeat_runner:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -20,4 +21,4 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
-include = ["runner.py", "ops.py", "workflows.py", "scheduled.py", "scheduler.py", "_dbos_setup.py"]
+include = ["runner.py", "ops.py", "workflows.py", "scheduled.py", "scheduler.py", "heartbeat_runner.py", "_dbos_setup.py"]

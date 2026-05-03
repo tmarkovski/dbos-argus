@@ -17,7 +17,7 @@ Mixed-language monorepo: **pnpm workspaces** for JS/TS, **uv workspaces** for Py
 | `apps/console` | `console` (private) | SvelteKit web UI. Only client of the backend. |
 | `packages/server` | `dbos-argus` (PyPI) | FastAPI backend. Reads the DBOS system tables directly. |
 | `packages/ui` | `@dbos-argus/ui` | Svelte 5 component stubs consumed by the console. |
-| `tests/sample-app` | `argus-sample-app` | DBOS dev fixture. Provides three CLI scripts (`argus-runner`, `argus-ops`, `argus-scheduler`) installed into the root `.venv` — runner hosts the example workflows, ops drives them (send/cancel/list), scheduler owns the cron heartbeat under its own executor_id. Workspace member; root `uv sync` resolves `dbos` for the whole repo. |
+| `tests/sample-app` | `argus-sample-app` | DBOS dev fixture. Provides four CLI scripts (`argus-runner`, `argus-ops`, `argus-scheduler`, `argus-heartbeat-runner`) installed into the root `.venv` — runner hosts the example workflows, ops drives them (send/cancel/list), scheduler ticks the cron and enqueues heartbeats onto the `argus-heartbeats` queue, heartbeat-runner subscribes as a worker for that queue and executes them. Each runs under its own executor_id. Workspace member; root `uv sync` resolves `dbos` for the whole repo. |
 
 ## Common commands
 
