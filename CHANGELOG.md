@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.18] - 2026-05-03
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+### Changed
+- Workflow detail flow: child-step Workflow icon, child step name,
+  awaited-name in `result ← <child>`, and the spawn / default-return
+  edges all moved off `--chart-3` and onto a new
+  `--workflow-accent` token. The token tracks `--primary` in light
+  mode, and in dark mode lifts L to `0.82` and bumps chroma by
+  `+0.06` via relative-color syntax (`oklch(from var(--primary) ...)`)
+  so presets that pick a deep primary (current teal is L=0.437)
+  still read as a clear accent against the dark card. Error /
+  cancelled return edges keep their `--status-error` /
+  `--status-warning` strokes.
+- Workflow detail flow: ambient gradient gained a third point at
+  bottom-left (`--color-chart-2`, 12% mix), so the canvas reads as
+  a balanced three-corner wash instead of a single diagonal sweep.
+
 ## [0.0.17] - 2026-05-03
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
@@ -340,7 +359,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.17...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.18...HEAD
+[0.0.18]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.18
 [0.0.17]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.17
 [0.0.16]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.16
 [0.0.15]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.15
