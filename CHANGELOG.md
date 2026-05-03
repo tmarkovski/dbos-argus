@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.17] - 2026-05-03
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+### Changed
+- Dashboard **workflow throughput chart** switched from stacked area to
+  stacked bar (layerchart `BarChart` with `seriesLayout="stack"`,
+  `bars: { strokeWidth: 0 }` to drop the segment outlines). 30-day
+  range tick count capped at 6 so day labels no longer overlap.
+- Sidebar nav badges: when a multi-category item (Workflows: Running +
+  Queued) has only one non-zero count, it still renders the labeled
+  sub-row instead of collapsing to an unlabeled single pill, so the
+  category is unambiguous. Single-category items (Notifications) keep
+  the right-aligned single pill.
+- Default preset switched to `b5XSmcsWXI` (teal primary, Inter sans +
+  Roboto Slab heading) via `pnpm --filter console theme:sync`.
+- Console favicon: white-eye-on-teal-circle generated from the same
+  Lucide glyph as the brand mark — shipped as `favicon.svg`, plus
+  rasterized `favicon-16.png` / `favicon-32.png` (Safari prefers PNG
+  for tab favicons and trips a contrast-tile heuristic on some SVGs)
+  and an `apple-touch-icon.png` (180×180) for iOS / Safari Start Page.
+
+### Added
+- Sample app gained a fourth process: `argus-heartbeat-runner`. The
+  scheduled `heartbeat_check` workflow is now registered with
+  `queue_name="argus-heartbeats"`, so each tick **enqueues** a
+  workflow row instead of running it locally. The new runner
+  subscribes as a worker for that queue and executes the body — run
+  zero, one, or many of them. Lets you watch heartbeats accumulate
+  in `ENQUEUED` (with no runner) or distribute the work (with
+  several). `argus-scheduler` declares the queue with
+  `worker_concurrency=0` so the scheduler never dequeues its own
+  ticks. Migration logic in `register_schedules()` rewrites
+  pre-existing un-queued schedule rows on first launch.
+
 ## [0.0.16] - 2026-05-02
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
@@ -305,7 +340,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.12...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.17...HEAD
+[0.0.17]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.17
+[0.0.16]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.16
+[0.0.15]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.15
+[0.0.14]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.14
+[0.0.13]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.13
 [0.0.12]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.12
 [0.0.10]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.10
 [0.0.9]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.9
