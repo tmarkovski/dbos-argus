@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dbos_argus.db.base import ArgusDB
 from dbos_argus.db.rows import NotificationFilters, WorkflowFilters
+from dbos_argus.sql_diagnostics import inspect_dbos_schema
 
 # Type alias for the (adapter, seed) tuple yielded by `populated_db`.
 DB = tuple[ArgusDB, dict[str, object]]
@@ -34,6 +35,19 @@ async def test_reflect_schema_returns_dbos_tables(populated_db: DB) -> None:
         "workflow_events_history",
         "workflow_schedules",
     } <= names
+
+
+async def test_live_schema_matches_pinned_snapshot(populated_db: DB) -> None:
+    """`/api/sql-diagnostics` must report `ok: true` after a fresh DBOS
+    migration on either backend. Effectively asserts that
+    `data/dbos_schema.json` (the single PG-vocabulary snapshot, regenerated
+    daily by the watchdog) covers both the Postgres and SQLite migration
+    outputs. If DBOS ever ships an argus-tracked column to one dialect but
+    not the other, the matrix leg pointing at the affected backend will
+    fail here — surfacing drift the PG-only watchdog can't see."""
+    db, _ = populated_db
+    issues = await inspect_dbos_schema(db)
+    assert issues == [], "schema drift: " + "; ".join(i.detail for i in issues)
 
 
 async def test_list_workflows_grouped_returns_full_tree(populated_db: DB) -> None:
