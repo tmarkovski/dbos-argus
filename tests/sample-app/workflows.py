@@ -176,9 +176,9 @@ def reconcile_inventory(order_id: str) -> dict:
         # Demo of the cancellation feature: ops cancels `stock_check` and
         # the parent observes it here. Swallow so reconcile keeps going.
         LOG.warning("stock_check was cancelled: %s", e)
-    # 7d sleep keeps this workflow PENDING in the dashboard. `fulfill_order`
-    # never awaits it, so the parent can move on.
-    DBOS.sleep(86400 * 7)
+    # 2m sleep keeps this workflow PENDING long enough to be visible in the
+    # dashboard. `fulfill_order` never awaits it, so the parent can move on.
+    DBOS.sleep(120)
     return {"kind": "reconcile", "order_id": order_id, "completed": True}
 
 
