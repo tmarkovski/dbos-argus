@@ -26,13 +26,15 @@ class Settings(BaseSettings):
 
     @field_validator("database_url")
     @classmethod
-    def _force_asyncpg_driver(cls, v: str) -> str:
-        # Argus only ships asyncpg. Rewrite bare postgres URLs so users can
-        # paste a standard libpq connection string without hitting a psycopg2
-        # ImportError from SQLAlchemy's default driver pick.
+    def _force_async_driver(cls, v: str) -> str:
+        # Argus ships asyncpg + aiosqlite. Rewrite bare scheme URLs so users
+        # can paste a standard libpq / DBOS-style connection string without
+        # hitting a sync-driver ImportError from SQLAlchemy's default pick.
         for prefix in ("postgresql://", "postgres://"):
             if v.startswith(prefix):
                 return "postgresql+asyncpg://" + v[len(prefix) :]
+        if v.startswith("sqlite://") and not v.startswith("sqlite+"):
+            return "sqlite+aiosqlite://" + v[len("sqlite://") :]
         return v
 
     def asyncpg_engine_args(self) -> tuple[str, dict[str, Any]]:

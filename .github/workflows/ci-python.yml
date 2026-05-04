@@ -19,24 +19,22 @@ on:
   workflow_dispatch:
 
 jobs:
-  python:
+  # Static checks run once per change. The test matrix below brings up DB
+  # services, so keeping lint separate avoids paying that cost twice.
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install uv
-        # setup-uv stopped publishing major-version tags (no `@v8`) for supply-chain
-        # reasons — see release notes for v8.0.0. Pin a specific version instead.
-        uses: astral-sh/setup-uv@v8.1.0
+      # setup-uv stopped publishing major-version tags (no `@v8`) for supply-chain
+      # reasons — see release notes for v8.0.0. Pin a specific version instead.
+      - uses: astral-sh/setup-uv@v8.1.0
         with:
           version: "latest"
           enable-cache: true
 
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install workspace
-        run: uv sync --all-extras
+      - run: uv python install 3.12
+      - run: uv sync --all-extras
 
       - name: Lint
         run: uv run ruff check packages/server tests/sample-app
@@ -44,5 +42,54 @@ jobs:
       - name: Format check
         run: uv run ruff format --check packages/server tests/sample-app
 
-      - name: Test
+  # Unit + integration tests run once per backend. The integration suite
+  # under packages/server/tests/integration/ runs DBOS migrations against
+  # ARGUS_TEST_DATABASE_URL, seeds a small fixture, and exercises every
+  # `ArgusDB` adapter method. With the URL unset (the `sqlite` matrix dim)
+  # the conftest falls back to a tempfile, so both adapters get the same
+  # battery of tests.
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - db: sqlite
+            test_url: ""
+          - db: postgres
+            test_url: postgresql+asyncpg://argus:argus@localhost:5432/argus
+
+    services:
+      # Always provisioned so the matrix can stay flat. The sqlite leg
+      # ignores it; cost is a few seconds of container startup.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: argus
+          POSTGRES_PASSWORD: argus
+          POSTGRES_DB: argus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      ARGUS_TEST_DATABASE_URL: ${{ matrix.test_url }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - run: uv python install 3.12
+      - run: uv sync --all-extras
+
+      - name: Test (${{ matrix.db }})
         run: uv run pytest packages/server

@@ -18,11 +18,18 @@ from typing import Literal
 
 from .schema_dump import SchemaDump
 
-# information_schema reports these three as distinct `data_type` values, but
-# they're functionally interchangeable for read-only consumers like Argus.
-# Any other type-equivalence the diff should tolerate goes here.
+# information_schema reports these as distinct `data_type` values, but each
+# group is functionally interchangeable for read-only consumers like Argus.
+#
+# `integer`/`bigint` is included because SQLite's INTEGER storage class is
+# variable-width and indistinguishable at reflection time from a PG `bigint`,
+# while DBOS' SQLite migration declares some `int4` columns (e.g.
+# `operation_outputs.function_id`) as plain `INTEGER`. The runtime cost of
+# treating them as equivalent is nil — Python ints span both ranges — and the
+# CI watchdog still tracks any upstream type changes via the snapshot file.
 _TYPE_SYNONYMS: tuple[frozenset[str], ...] = (
     frozenset({"text", "character varying", "character"}),
+    frozenset({"integer", "bigint"}),
 )
 
 
