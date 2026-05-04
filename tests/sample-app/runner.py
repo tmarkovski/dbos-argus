@@ -17,6 +17,7 @@ Run:
 from __future__ import annotations
 
 import logging
+import os
 import signal
 import time
 import uuid
@@ -114,10 +115,20 @@ def idle() -> None:
 
 def _idle() -> None:
     LOG.info("idle — workflows owned by executor_id=%s; ctrl-C to exit", EXECUTOR_ID)
-    stop = {"now": False}
+    stop = {"now": False, "count": 0}
 
+    # First SIGINT requests graceful shutdown. `DBOS.destroy()` waits for
+    # in-flight workflow threads to drain — a workflow mid-`DBOS.sleep(N)`
+    # holds the process for up to N seconds because DBOS.sleep is not
+    # interruptible. A second SIGINT escalates to a hard exit so the user
+    # is never stuck staring at "shutting down".
     def _on_signal(_signum, _frame):
+        stop["count"] += 1
+        if stop["count"] >= 2:
+            LOG.warning("force exit (second ctrl-C)")
+            os._exit(130)
         stop["now"] = True
+        LOG.info("shutdown requested — ctrl-C again to force exit")
 
     signal.signal(signal.SIGINT, _on_signal)
     signal.signal(signal.SIGTERM, _on_signal)
