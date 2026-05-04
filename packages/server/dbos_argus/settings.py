@@ -24,6 +24,21 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     log_level: str = "INFO"
 
+    # Realtime (WebSocket) layer. The /ws endpoint runs server-side polling
+    # tasks and broadcasts deltas to subscribed clients. Disable to fall back
+    # to client-side REST polling.
+    realtime_enabled: bool = True
+    # Default tick interval for data channels (workflows, stats, schedules,
+    # notifications). Health uses its own slower interval. Pollers gate the
+    # heavy query behind a cheap "did anything change?" cursor query, so this
+    # is roughly the upper bound on update latency, not query rate.
+    realtime_interval_ms: int = 2000
+    realtime_health_interval_ms: int = 5000
+    # Cap subscriptions per client connection. A misbehaving (or compromised)
+    # client otherwise could open one socket and spin up unlimited keyed
+    # pollers by sending distinct param hashes.
+    realtime_max_subs_per_conn: int = 64
+
     @field_validator("database_url")
     @classmethod
     def _force_async_driver(cls, v: str) -> str:

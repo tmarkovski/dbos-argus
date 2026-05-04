@@ -709,3 +709,80 @@ class PostgresArgusDB(ArgusDB):
             for ar in ancestor_rows
         ]
         return NotificationsRows(notifications=notifications, ancestors=ancestors)
+
+    async def workflows_cursor(self) -> tuple:
+        sql = """
+            SELECT
+                (SELECT MAX(updated_at) FROM dbos.workflow_status) AS max_updated,
+                (SELECT COUNT(*) FROM dbos.workflow_status) AS wf_count,
+                (SELECT COUNT(*) FROM dbos.operation_outputs) AS op_count
+        """
+        try:
+            async with self.engine.connect() as conn:
+                row = (await conn.execute(text(sql))).fetchone()
+        except ProgrammingError:
+            return ("empty",)
+        if row is None:
+            return ("empty",)
+        return (row.max_updated, row.wf_count, row.op_count)
+
+    async def stats_cursor(self) -> tuple:
+        sql = """
+            SELECT
+                (SELECT COUNT(*) FROM dbos.workflow_status) AS total,
+                (SELECT MAX(updated_at) FROM dbos.workflow_status) AS max_updated,
+                (SELECT COUNT(*) FROM dbos.notifications WHERE consumed = false) AS pending
+        """
+        try:
+            async with self.engine.connect() as conn:
+                row = (await conn.execute(text(sql))).fetchone()
+        except ProgrammingError:
+            return ("empty",)
+        if row is None:
+            return ("empty",)
+        return (row.total, row.max_updated, row.pending)
+
+    async def schedules_cursor(self) -> tuple:
+        sql = """
+            SELECT MAX(last_fired_at) AS max_fired, COUNT(*) AS count_all
+            FROM dbos.workflow_schedules
+        """
+        try:
+            async with self.engine.connect() as conn:
+                row = (await conn.execute(text(sql))).fetchone()
+        except ProgrammingError:
+            return ("empty",)
+        if row is None:
+            return ("empty",)
+        return (row.max_fired, row.count_all)
+
+    async def notifications_cursor(self) -> tuple:
+        sql = """
+            SELECT
+                MAX(created_at_epoch_ms) AS max_created,
+                COUNT(*) AS count_all,
+                COUNT(*) FILTER (WHERE consumed = false) AS count_pending
+            FROM dbos.notifications
+        """
+        try:
+            async with self.engine.connect() as conn:
+                row = (await conn.execute(text(sql))).fetchone()
+        except ProgrammingError:
+            return ("empty",)
+        if row is None:
+            return ("empty",)
+        return (row.max_created, row.count_all, row.count_pending)
+
+    async def timeseries_cursor(self) -> tuple:
+        sql = """
+            SELECT COUNT(*) AS count_all, MAX(created_at) AS max_created
+            FROM dbos.workflow_status
+        """
+        try:
+            async with self.engine.connect() as conn:
+                row = (await conn.execute(text(sql))).fetchone()
+        except ProgrammingError:
+            return ("empty",)
+        if row is None:
+            return ("empty",)
+        return (row.count_all, row.max_created)

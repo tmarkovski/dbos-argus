@@ -5,6 +5,7 @@
   import * as Table from "$lib/components/ui/table/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { formatStatus } from "$lib/workflow-tree";
+  import { realtimeClient, type SubscriptionHandle } from "$lib/realtime";
 
   type WorkflowSchedule = {
     schedule_id: string;
@@ -21,7 +22,7 @@
 
   let schedules = $state<WorkflowSchedule[] | null>(null);
   let error = $state<string | null>(null);
-  let timer: ReturnType<typeof setInterval> | undefined;
+  let handle: SubscriptionHandle | null = null;
 
   $effect(() => {
     breadcrumb.items = [{ label: "Schedules", icon: "schedules" }];
@@ -30,25 +31,27 @@
     };
   });
 
-  async function refresh() {
-    try {
-      const res = await fetch("/api/schedules");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      schedules = (await res.json()) as WorkflowSchedule[];
-      error = null;
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-      schedules = null;
-    }
-  }
-
   onMount(() => {
-    refresh();
-    timer = setInterval(refresh, 10000);
+    handle = realtimeClient.subscribe("schedules", undefined, {
+      onSnapshot: (data) => {
+        if (Array.isArray(data)) {
+          schedules = data as WorkflowSchedule[];
+          error = null;
+        }
+      },
+      onUpdate: (data) => {
+        if (Array.isArray(data)) {
+          schedules = data as WorkflowSchedule[];
+        }
+      },
+      onError: (_code, message) => {
+        error = message;
+      },
+    });
   });
 
   onDestroy(() => {
-    if (timer) clearInterval(timer);
+    handle?.dispose();
   });
 
   function statusClass(status: string): string {

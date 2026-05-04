@@ -71,6 +71,7 @@ The `/api/sql-diagnostics` endpoint diffs the live schema against `packages/serv
 1. **Argus is read-only.** The server only reads from DBOS Transact's `dbos.*` system tables. New features should stay on the read path unless the project scope explicitly changes.
 2. **The console is a client of the Argus backend, never of Postgres directly.**
 3. **No app-side SDK.** All UI actions are server-mediated. There is no `@dbos-argus/client` package and no WS-app-registry protocol.
+4. **Realtime channels mirror REST shapes and go through `ArgusDB`.** Each channel in `packages/server/dbos_argus/realtime/channels/` lazy-imports a `fetch_*` helper from `main.py` (the same helper the REST route calls) so the two transports never drift. Snapshots and cursors run through `db.<method>()` — no raw SQL in channels — so SQLite + Postgres stay supported in lockstep.
 
 ## Stack notes that matter
 

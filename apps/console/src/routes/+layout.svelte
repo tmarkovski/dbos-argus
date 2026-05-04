@@ -82,7 +82,6 @@
     return pathname === href || pathname === base || pathname.startsWith(base + "/");
   }
 
-  let timer: ReturnType<typeof setInterval> | undefined;
   let isDark = $state(false);
   // Sidebar collapsed/expanded state survives reloads. SSR has no window, so
   // we default to expanded and correct on hydrate. The shadcn provider also
@@ -100,15 +99,11 @@
       // localStorage may be unavailable (private mode, sandboxed) — fall
       // back to the default expanded state.
     }
-    void (async () => {
-      await connectionState.refreshHealth();
-      await connectionState.ensureDiagnostics();
-    })();
-    void statsState.refresh();
-    timer = setInterval(() => {
-      void connectionState.refreshHealth();
-      void statsState.refresh();
-    }, 5000);
+    // Realtime subscriptions: the server pushes health + stats; no client
+    // polling needed. Diagnostics auto-fetch from connectionState once the
+    // first up-health snapshot lands.
+    connectionState.start();
+    statsState.start();
   });
 
   function persistSidebarOpen(value: boolean) {
@@ -120,7 +115,8 @@
   }
 
   onDestroy(() => {
-    if (timer) clearInterval(timer);
+    connectionState.stop();
+    statsState.stop();
   });
 
   function toggleTheme() {
