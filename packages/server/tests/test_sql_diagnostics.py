@@ -35,7 +35,7 @@ def test_diff_reports_missing_table_column_and_type_mismatch() -> None:
         ("workflow_events_history", [("key", "text")]),
     )
     actual = _dump(
-        ("workflow_status", [("workflow_uuid", "text"), ("created_at", "integer")]),
+        ("workflow_status", [("workflow_uuid", "text"), ("created_at", "numeric")]),
         ("notifications", []),
     )
 
@@ -44,10 +44,18 @@ def test_diff_reports_missing_table_column_and_type_mismatch() -> None:
     assert [
         (i.kind, i.table_name, i.column_name, i.expected_type, i.actual_type) for i in issues
     ] == [
-        ("wrong_type", "workflow_status", "created_at", "bigint", "integer"),
+        ("wrong_type", "workflow_status", "created_at", "bigint", "numeric"),
         ("missing_column", "notifications", "consumed", "boolean", None),
         ("missing_table", "workflow_events_history", None, None, None),
     ]
+
+
+def test_diff_treats_integer_and_bigint_as_equivalent() -> None:
+    # SQLite reflection cannot distinguish int4 from int8 columns; the diff
+    # therefore accepts either.
+    expected = _dump(("t", [("c", "integer")]))
+    actual = _dump(("t", [("c", "bigint")]))
+    assert diff_schemas(expected, actual) == []
 
 
 def test_diff_treats_pg_string_synonyms_as_equivalent() -> None:
@@ -102,19 +110,6 @@ def test_load_full_dump_is_self_consistent() -> None:
     assert diff_schemas(argus_only(full), full) == []
 
 
-class _FakeConnectionContext:
-    async def __aenter__(self) -> object:
-        return object()
-
-    async def __aexit__(self, exc_type, exc, tb) -> bool:
-        return False
-
-
-class _FakeEngine:
-    def connect(self) -> _FakeConnectionContext:
-        return _FakeConnectionContext()
-
-
 def test_version_endpoint_includes_tested_dbos_version() -> None:
     with TestClient(app) as client:
         response = client.get("/version")
@@ -127,7 +122,7 @@ def test_version_endpoint_includes_tested_dbos_version() -> None:
 
 
 def test_sql_diagnostics_endpoint_returns_schema_issues(monkeypatch) -> None:
-    async def fake_inspect_dbos_schema(_conn: object) -> list[SchemaIssue]:
+    async def fake_inspect_dbos_schema(_db: object) -> list[SchemaIssue]:
         return [
             SchemaIssue(
                 kind="missing_table",
@@ -139,7 +134,6 @@ def test_sql_diagnostics_endpoint_returns_schema_issues(monkeypatch) -> None:
             )
         ]
 
-    monkeypatch.setattr(main, "engine", _FakeEngine())
     monkeypatch.setattr(main, "inspect_dbos_schema", fake_inspect_dbos_schema)
 
     with TestClient(app) as client:

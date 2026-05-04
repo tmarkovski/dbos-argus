@@ -39,3 +39,10 @@ packages/server/dbos_argus/_console/
 
 # Logs
 *.log
+
+# SQLite test fixtures — sample-app may materialize a local sqlite system DB
+# when DBOS_SYSTEM_DATABASE_URL points at one. Always rebuilt; never tracked.
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm

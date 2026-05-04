@@ -9,19 +9,19 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import text
-from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
 
 from . import __version__
-from .db import engine
+from .db import db
+from .db.rows import (
+    NotificationFilters,
+    StepRow,
+    WorkflowFilters,
+)
 from .decoding import decode_dbos_value
 from .schema_dump import load_full_dump
 from .settings import settings
 from .sql_diagnostics import inspect_dbos_schema
-from .workflow_status import (
-    ACTIVE_STATUSES_SQL,
-    ERROR_STATUSES_SQL,
-)
 
 logging.basicConfig(level=settings.log_level)
 logger = logging.getLogger("dbos_argus")
@@ -66,15 +66,14 @@ async def healthz() -> dict[str, str]:
     db_up = True
     db_error: str | None = None
     try:
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
+        await db.healthcheck()
     except Exception as e:
         db_up = False
         db_error = str(e)
     body: dict[str, str] = {
         "status": "ok" if db_up else "degraded",
         "database": "up" if db_up else "down",
-        "database_url": engine.url.render_as_string(hide_password=True),
+        "database_url": db.display_url,
     }
     if db_error is not None:
         body["database_error"] = db_error
@@ -111,8 +110,7 @@ class SqlDiagnostics(BaseModel):
 @app.get("/api/sql-diagnostics")
 async def get_sql_diagnostics() -> SqlDiagnostics:
     try:
-        async with engine.connect() as conn:
-            issues = await inspect_dbos_schema(conn)
+        issues = await inspect_dbos_schema(db)
     except SQLAlchemyError as e:
         raise HTTPException(status_code=503, detail="database diagnostics unavailable") from e
     return SqlDiagnostics(
@@ -148,178 +146,6 @@ class WorkflowListItem(BaseModel):
     operation_count: int
 
 
-# In grouped mode, filters apply to the `roots` CTE only — matching roots come
-# along with their entire descendant tree. Each row's sort_path is the
-# accumulated started_ms from root down to itself — Postgres array ordering
-# then yields a DFS traversal with children sitting directly under their parent.
-#
-# In flat mode, filters apply to all workflows; no recursion, ordered by
-# started_at DESC.
-def _build_workflow_sql(grouped: bool, filters: dict[str, object]) -> tuple[str, dict[str, object]]:
-    params: dict[str, object] = {"limit": filters["limit"]}
-    # Conditions that scope what counts as a "root" in grouped mode (and match
-    # rows directly in flat mode). `q` is handled separately because in grouped
-    # mode we want it to match anywhere in the tree, not just at the root.
-    root_conditions: list[str] = []
-
-    if filters.get("started_after") is not None:
-        root_conditions.append("COALESCE(started_at_epoch_ms, created_at) >= :started_after_ms")
-        params["started_after_ms"] = filters["started_after"]
-    if filters.get("started_before") is not None:
-        root_conditions.append("COALESCE(started_at_epoch_ms, created_at) <= :started_before_ms")
-        params["started_before_ms"] = filters["started_before"]
-    if filters.get("statuses"):
-        root_conditions.append("status = ANY(:statuses)")
-        params["statuses"] = filters["statuses"]
-    else:
-        # ENQUEUED runs are surfaced in the workflow-list page's pinned strip,
-        # so the main list defaults to hiding them. An explicit `status` filter
-        # opts back in (the strip uses ?status=ENQUEUED).
-        root_conditions.append("status <> 'ENQUEUED'")
-    if filters.get("queue_name"):
-        root_conditions.append("queue_name = :queue_name")
-        params["queue_name"] = filters["queue_name"]
-    # Scheduled workflow runs use the deterministic id `sched-<schedule_name>-<isoformat>`
-    # (or `sched-<func_name>-<isoformat>` from the deprecated decorator path). DBOS does
-    # not record an explicit "is scheduled" flag on workflow_status, so filtering by id
-    # prefix is the canonical detection — see dbos/_scheduler.py:171.
-    if filters.get("hide_scheduled"):
-        root_conditions.append("workflow_uuid NOT LIKE 'sched-%'")
-
-    has_q = bool(filters.get("q"))
-    if has_q:
-        params["q_pat"] = f"%{filters['q']}%"
-
-    where_extra = (" AND " + " AND ".join(root_conditions)) if root_conditions else ""
-
-    # Operation counts come from a single GROUP BY scoped to the workflow_uuids
-    # we're returning — much cheaper than N+1 correlated subqueries on large
-    # operation_outputs tables.
-    if grouped:
-        # In grouped mode `q` matches at any depth: find any workflow whose
-        # uuid/name matches, walk up parent_workflow_id to find its root, then
-        # include that root's full subtree below. Without this, searching for
-        # a child name (e.g. "dispatch") would miss roots whose own name
-        # doesn't contain the term.
-        if has_q:
-            match_ctes = """
-                upward AS (
-                    SELECT workflow_uuid, parent_workflow_id
-                    FROM dbos.workflow_status
-                    WHERE workflow_uuid ILIKE :q_pat OR name ILIKE :q_pat
-                    UNION
-                    SELECT ws.workflow_uuid, ws.parent_workflow_id
-                    FROM dbos.workflow_status ws
-                    JOIN upward u ON u.parent_workflow_id = ws.workflow_uuid
-                ),
-                matched_roots AS (
-                    SELECT DISTINCT workflow_uuid
-                    FROM upward
-                    WHERE parent_workflow_id IS NULL
-                ),
-            """
-            match_filter = " AND workflow_uuid IN (SELECT workflow_uuid FROM matched_roots)"
-        else:
-            match_ctes = ""
-            match_filter = ""
-        sql = f"""
-            WITH RECURSIVE
-                {match_ctes}roots AS (
-                    SELECT workflow_uuid, updated_at
-                    FROM dbos.workflow_status
-                    WHERE parent_workflow_id IS NULL{where_extra}{match_filter}
-                    ORDER BY updated_at DESC
-                    LIMIT :limit
-                ),
-                tree AS (
-                    SELECT
-                        ws.workflow_uuid,
-                        ws.parent_workflow_id,
-                        ws.name,
-                        ws.status,
-                        ws.queue_name,
-                        ws.executor_id,
-                        ws.priority,
-                        COALESCE(ws.started_at_epoch_ms, ws.created_at) AS started_ms,
-                        ws.updated_at AS updated_ms,
-                        0 AS depth,
-                        r.updated_at AS root_updated_at,
-                        ARRAY[COALESCE(ws.started_at_epoch_ms, ws.created_at)] AS sort_path
-                    FROM dbos.workflow_status ws
-                    JOIN roots r ON ws.workflow_uuid = r.workflow_uuid
-
-                    UNION ALL
-
-                    SELECT
-                        c.workflow_uuid,
-                        c.parent_workflow_id,
-                        c.name,
-                        c.status,
-                        c.queue_name,
-                        c.executor_id,
-                        c.priority,
-                        COALESCE(c.started_at_epoch_ms, c.created_at),
-                        c.updated_at,
-                        t.depth + 1,
-                        t.root_updated_at,
-                        t.sort_path || COALESCE(c.started_at_epoch_ms, c.created_at)
-                    FROM dbos.workflow_status c
-                    JOIN tree t ON c.parent_workflow_id = t.workflow_uuid
-                ),
-                op_counts AS (
-                    SELECT workflow_uuid, COUNT(*)::bigint AS op_count
-                    FROM dbos.operation_outputs
-                    WHERE workflow_uuid IN (SELECT workflow_uuid FROM tree)
-                    GROUP BY workflow_uuid
-                )
-            SELECT
-                t.workflow_uuid, t.parent_workflow_id, t.name, t.status,
-                t.queue_name, t.executor_id, t.priority,
-                t.started_ms, t.updated_ms, t.depth,
-                COALESCE(oc.op_count, 0)::bigint AS op_count
-            FROM tree t
-            LEFT JOIN op_counts oc ON oc.workflow_uuid = t.workflow_uuid
-            ORDER BY t.root_updated_at DESC, t.sort_path ASC
-        """
-    else:
-        # Flat mode: each row is independent, so `q` filters rows directly
-        # alongside the other conditions.
-        flat_conditions = list(root_conditions)
-        if has_q:
-            flat_conditions.append("(workflow_uuid ILIKE :q_pat OR name ILIKE :q_pat)")
-        flat_where_extra = (" AND " + " AND ".join(flat_conditions)) if flat_conditions else ""
-        flat_where = f"WHERE 1=1{flat_where_extra}" if flat_where_extra else ""
-        sql = f"""
-            WITH chosen AS (
-                SELECT
-                    workflow_uuid, parent_workflow_id, name, status, queue_name, executor_id,
-                    priority,
-                    COALESCE(started_at_epoch_ms, created_at) AS started_ms,
-                    updated_at AS updated_ms
-                FROM dbos.workflow_status
-                {flat_where}
-                ORDER BY COALESCE(started_at_epoch_ms, created_at) DESC
-                LIMIT :limit
-            ),
-            op_counts AS (
-                SELECT workflow_uuid, COUNT(*)::bigint AS op_count
-                FROM dbos.operation_outputs
-                WHERE workflow_uuid IN (SELECT workflow_uuid FROM chosen)
-                GROUP BY workflow_uuid
-            )
-            SELECT
-                c.workflow_uuid, c.parent_workflow_id, c.name, c.status,
-                c.queue_name, c.executor_id, c.priority,
-                c.started_ms, c.updated_ms,
-                0 AS depth,
-                COALESCE(oc.op_count, 0)::bigint AS op_count
-            FROM chosen c
-            LEFT JOIN op_counts oc ON oc.workflow_uuid = c.workflow_uuid
-            ORDER BY c.started_ms DESC
-        """
-    return sql, params
-
-
 @app.get("/api/workflows")
 async def list_workflows(
     limit: int = Query(default=50, ge=1, le=200),
@@ -331,23 +157,17 @@ async def list_workflows(
     grouped: bool = True,
     hide_scheduled: bool = False,
 ) -> list[WorkflowListItem]:
-    filters: dict[str, object] = {
-        "limit": limit,
-        "q": q.strip() if q else None,
-        "started_after": int(started_after.timestamp() * 1000) if started_after else None,
-        "started_before": int(started_before.timestamp() * 1000) if started_before else None,
-        "statuses": status if status else None,
-        "queue_name": queue_name,
-        "hide_scheduled": hide_scheduled,
-    }
-    sql, params = _build_workflow_sql(grouped, filters)
-    try:
-        async with engine.connect() as conn:
-            result = await conn.execute(text(sql), params)
-            rows = result.fetchall()
-    except ProgrammingError:
-        # dbos schema hasn't been created yet — no app has connected.
-        return []
+    filters = WorkflowFilters(
+        limit=limit,
+        q=q.strip() if q else None,
+        started_after_ms=int(started_after.timestamp() * 1000) if started_after else None,
+        started_before_ms=int(started_before.timestamp() * 1000) if started_before else None,
+        statuses=status if status else None,
+        queue_name=queue_name,
+        hide_scheduled=hide_scheduled,
+        grouped=grouped,
+    )
+    rows = await db.list_workflows(filters)
     return [
         WorkflowListItem(
             workflow_id=r.workflow_uuid,
@@ -486,18 +306,18 @@ class StepResult(BaseModel):
 # the row's `started_at` gives the originally requested duration in ms,
 # independent of how long the sleep actually elapsed in wall time. Returns
 # None for non-sleep rows or when the value isn't parseable as a float.
-def _sleep_requested_ms(
-    function_name: str | None,
-    sleep_output_raw: str | None,
-    started_at_epoch_ms: int | None,
-) -> int | None:
-    if function_name != "DBOS.sleep" or not sleep_output_raw or started_at_epoch_ms is None:
+def _sleep_requested_ms(step: StepRow) -> int | None:
+    if (
+        step.function_name != "DBOS.sleep"
+        or not step.sleep_output_raw
+        or step.started_at_epoch_ms is None
+    ):
         return None
     try:
-        wake_ms = float(sleep_output_raw) * 1000
+        wake_ms = float(step.sleep_output_raw) * 1000
     except (TypeError, ValueError):
         return None
-    requested = round(wake_ms - started_at_epoch_ms)
+    requested = round(wake_ms - step.started_at_epoch_ms)
     return int(requested) if requested >= 0 else None
 
 
@@ -506,133 +326,8 @@ def _sleep_requested_ms(
 # DFS order — matching how the list endpoint groups trees.
 @app.get("/api/workflows/{workflow_id}")
 async def get_workflow(workflow_id: str) -> WorkflowDetail:
-    sql = """
-        WITH RECURSIVE
-            up AS (
-                SELECT workflow_uuid, parent_workflow_id, 0 AS lvl
-                FROM dbos.workflow_status
-                WHERE workflow_uuid = :workflow_id
-
-                UNION ALL
-
-                SELECT ws.workflow_uuid, ws.parent_workflow_id, u.lvl + 1
-                FROM dbos.workflow_status ws
-                JOIN up u ON ws.workflow_uuid = u.parent_workflow_id
-            ),
-            root AS (
-                SELECT workflow_uuid
-                FROM up
-                ORDER BY lvl DESC
-                LIMIT 1
-            ),
-            tree AS (
-                SELECT
-                    ws.workflow_uuid,
-                    ws.parent_workflow_id,
-                    ws.name,
-                    ws.status,
-                    ws.queue_name,
-                    ws.executor_id,
-                    ws.recovery_attempts,
-                    ws.workflow_timeout_ms,
-                    ws.output IS NOT NULL AS has_output,
-                    ws.error IS NOT NULL AS has_error,
-                    COALESCE(ws.started_at_epoch_ms, ws.created_at) AS started_ms,
-                    ws.updated_at AS updated_ms,
-                    0 AS depth,
-                    ARRAY[COALESCE(ws.started_at_epoch_ms, ws.created_at)] AS sort_path
-                FROM dbos.workflow_status ws
-                JOIN root r ON ws.workflow_uuid = r.workflow_uuid
-
-                UNION ALL
-
-                SELECT
-                    c.workflow_uuid,
-                    c.parent_workflow_id,
-                    c.name,
-                    c.status,
-                    c.queue_name,
-                    c.executor_id,
-                    c.recovery_attempts,
-                    c.workflow_timeout_ms,
-                    c.output IS NOT NULL,
-                    c.error IS NOT NULL,
-                    COALESCE(c.started_at_epoch_ms, c.created_at),
-                    c.updated_at,
-                    t.depth + 1,
-                    t.sort_path || COALESCE(c.started_at_epoch_ms, c.created_at)
-                FROM dbos.workflow_status c
-                JOIN tree t ON c.parent_workflow_id = t.workflow_uuid
-            )
-        SELECT
-            workflow_uuid, parent_workflow_id, name, status, queue_name, executor_id,
-            recovery_attempts, workflow_timeout_ms,
-            has_output, has_error, started_ms, updated_ms, depth
-        FROM tree
-        ORDER BY sort_path ASC
-    """
-    # Sleep rows store the raw wakeup-time string in `output`. We carry it
-    # through under a dedicated alias so we can compute sleep_requested_ms
-    # in Python without shipping every step's payload to the client.
-    steps_sql = """
-        SELECT
-            o.workflow_uuid,
-            o.function_id,
-            o.function_name,
-            o.output IS NOT NULL AS has_output,
-            o.error IS NOT NULL AS has_error,
-            o.child_workflow_id,
-            o.started_at_epoch_ms,
-            o.completed_at_epoch_ms,
-            seh.key AS event_key,
-            CASE WHEN o.function_name = 'DBOS.sleep' THEN o.output END AS sleep_output_raw
-        FROM dbos.operation_outputs o
-        LEFT JOIN dbos.workflow_events_history seh
-            ON o.function_name = 'DBOS.setEvent'
-            AND seh.workflow_uuid = o.workflow_uuid
-            AND seh.function_id = o.function_id
-        WHERE o.workflow_uuid = ANY(:workflow_ids)
-        ORDER BY o.workflow_uuid, o.function_id ASC
-    """
-
-    # Joins each `dbos.workflow_events` row (current value per key) to every
-    # corresponding `dbos.workflow_events_history` row (one per setEvent call)
-    # and to `dbos.operation_outputs` for the call's completed_at. One row per
-    # historical set; the current value repeats per row and is collapsed in
-    # Python below.
-    events_sql = """
-        SELECT
-            we.workflow_uuid,
-            we.key,
-            we.value AS current_value,
-            we.serialization AS current_serialization,
-            weh.function_id,
-            weh.value AS history_value,
-            weh.serialization AS history_serialization,
-            o.completed_at_epoch_ms
-        FROM dbos.workflow_events we
-        LEFT JOIN dbos.workflow_events_history weh
-            ON weh.workflow_uuid = we.workflow_uuid AND weh.key = we.key
-        LEFT JOIN dbos.operation_outputs o
-            ON o.workflow_uuid = weh.workflow_uuid
-                AND o.function_id = weh.function_id
-        WHERE we.workflow_uuid = ANY(:workflow_ids)
-        ORDER BY we.workflow_uuid, we.key, weh.function_id ASC
-    """
-
-    try:
-        async with engine.connect() as conn:
-            result = await conn.execute(text(sql), {"workflow_id": workflow_id})
-            rows = result.fetchall()
-            family_ids = [r.workflow_uuid for r in rows]
-            steps_result = await conn.execute(text(steps_sql), {"workflow_ids": family_ids})
-            step_rows = steps_result.fetchall()
-            events_result = await conn.execute(text(events_sql), {"workflow_ids": family_ids})
-            event_rows = events_result.fetchall()
-    except ProgrammingError as e:
-        raise HTTPException(status_code=404, detail="workflow not found") from e
-
-    if not rows:
+    detail = await db.get_workflow_detail(workflow_id)
+    if not detail.family:
         raise HTTPException(status_code=404, detail="workflow not found")
 
     family = [
@@ -651,7 +346,7 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
             updated_at=datetime.fromtimestamp(r.updated_ms / 1000, tz=UTC),
             depth=r.depth,
         )
-        for r in rows
+        for r in detail.family
     ]
     steps = [
         WorkflowStep(
@@ -672,18 +367,16 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
                 else None
             ),
             event_key=s.event_key,
-            sleep_requested_ms=_sleep_requested_ms(
-                s.function_name, s.sleep_output_raw, s.started_at_epoch_ms
-            ),
+            sleep_requested_ms=_sleep_requested_ms(s),
         )
-        for s in step_rows
+        for s in detail.steps
     ]
 
     # Group event rows by (workflow_uuid, key); each group becomes one entry
     # whose `value` is the current row from `workflow_events` and whose
     # `history` is the per-call `workflow_events_history` rows in call order.
     events_by_key: dict[tuple[str, str], WorkflowEventEntry] = {}
-    for e in event_rows:
+    for e in detail.events:
         gk = (e.workflow_uuid, e.key)
         entry = events_by_key.get(gk)
         if entry is None:
@@ -731,16 +424,7 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
 # a family contains many workflows with multi-MB pickled outputs.
 @app.get("/api/workflows/{workflow_id}/result")
 async def get_workflow_result(workflow_id: str) -> WorkflowResult:
-    sql = """
-        SELECT output, error, serialization
-        FROM dbos.workflow_status
-        WHERE workflow_uuid = :workflow_id
-    """
-    try:
-        async with engine.connect() as conn:
-            row = (await conn.execute(text(sql), {"workflow_id": workflow_id})).fetchone()
-    except ProgrammingError as e:
-        raise HTTPException(status_code=404, detail="workflow not found") from e
+    row = await db.get_workflow_result(workflow_id)
     if row is None:
         raise HTTPException(status_code=404, detail="workflow not found")
     return WorkflowResult(
@@ -757,21 +441,7 @@ async def get_workflow_result(workflow_id: str) -> WorkflowResult:
 # result endpoint — same lazy-load pattern, indexed by (workflow_uuid, function_id).
 @app.get("/api/workflows/{workflow_id}/steps/{function_id}/result")
 async def get_step_result(workflow_id: str, function_id: int) -> StepResult:
-    sql = """
-        SELECT output, error, serialization
-        FROM dbos.operation_outputs
-        WHERE workflow_uuid = :workflow_id AND function_id = :function_id
-    """
-    try:
-        async with engine.connect() as conn:
-            row = (
-                await conn.execute(
-                    text(sql),
-                    {"workflow_id": workflow_id, "function_id": function_id},
-                )
-            ).fetchone()
-    except ProgrammingError as e:
-        raise HTTPException(status_code=404, detail="step not found") from e
+    row = await db.get_step_result(workflow_id, function_id)
     if row is None:
         raise HTTPException(status_code=404, detail="step not found")
     return StepResult(
@@ -794,45 +464,10 @@ class DashboardStats(BaseModel):
     active_schedules: int
 
 
-# All-zero rollup returned when the dbos schema doesn't exist yet — keeps the
-# overview page rendering even before any DBOS app has connected.
-_EMPTY_STATS = DashboardStats(
-    total=0,
-    in_flight=0,
-    enqueued=0,
-    failed_recent=0,
-    pending_notifications=0,
-    active_schedules=0,
-)
-
-
 @app.get("/api/stats")
 async def get_stats() -> DashboardStats:
-    # Status literals come from `workflow_status.py` — single source of truth
-    # mirroring `dbos.WorkflowStatusString`.
-    sql = f"""
-        SELECT
-            (SELECT COUNT(*) FROM dbos.workflow_status) AS total,
-            (SELECT COUNT(*) FROM dbos.workflow_status
-                WHERE status IN {ACTIVE_STATUSES_SQL}) AS in_flight,
-            (SELECT COUNT(*) FROM dbos.workflow_status
-                WHERE status = 'ENQUEUED') AS enqueued,
-            (SELECT COUNT(*) FROM dbos.workflow_status
-                WHERE status IN {ERROR_STATUSES_SQL}
-                AND COALESCE(started_at_epoch_ms, created_at) >= :since_ms) AS failed_recent,
-            (SELECT COUNT(*) FROM dbos.notifications
-                WHERE consumed = false) AS pending_notifications,
-            (SELECT COUNT(*) FROM dbos.workflow_schedules
-                WHERE status = 'ACTIVE') AS active_schedules
-    """
     since_ms = int(datetime.now(UTC).timestamp() * 1000) - 86_400_000
-    try:
-        async with engine.connect() as conn:
-            row = (await conn.execute(text(sql), {"since_ms": since_ms})).fetchone()
-    except ProgrammingError:
-        return _EMPTY_STATS
-    if row is None:
-        return _EMPTY_STATS
+    row = await db.get_stats(since_ms)
     return DashboardStats(
         total=row.total,
         in_flight=row.in_flight,
@@ -850,9 +485,10 @@ class ThroughputBucket(BaseModel):
     running: int
 
 
-# Range → (date_trunc unit, lookback ms). The unit is interpolated directly
-# into SQL, so the set must stay closed to these literals.
-_THROUGHPUT_RANGES: dict[str, tuple[str, int]] = {
+# Range → (bucket unit, lookback ms). The unit is interpolated directly into
+# adapter SQL via a closed mapping, so the set must stay closed to these
+# literals.
+_THROUGHPUT_RANGES: dict[str, tuple[Literal["hour", "day"], int]] = {
     "24h": ("hour", 24 * 3_600_000),
     "7d": ("day", 7 * 86_400_000),
     "30d": ("day", 30 * 86_400_000),
@@ -866,45 +502,7 @@ async def get_throughput(
     bucket, lookback_ms = _THROUGHPUT_RANGES[range]
     until_ms = int(datetime.now(UTC).timestamp() * 1000)
     since_ms = until_ms - lookback_ms
-    # Bucket unit comes from a closed literal set above — safe to interpolate.
-    sql = f"""
-        WITH params AS (
-            SELECT
-                CAST(:since_ms AS bigint) AS since_ms,
-                CAST(:until_ms AS bigint) AS until_ms
-        ),
-        buckets AS (
-            SELECT generate_series(
-                date_trunc('{bucket}', to_timestamp(p.since_ms / 1000.0)),
-                date_trunc('{bucket}', to_timestamp(p.until_ms / 1000.0)),
-                '1 {bucket}'::interval
-            ) AS ts
-            FROM params p
-        ),
-        events AS (
-            SELECT
-                date_trunc('{bucket}', to_timestamp(ws.created_at / 1000.0)) AS ts,
-                ws.status
-            FROM dbos.workflow_status ws, params p
-            WHERE ws.created_at >= p.since_ms AND ws.created_at <= p.until_ms
-        )
-        SELECT
-            b.ts AS ts,
-            COUNT(e.*) FILTER (WHERE e.status = 'SUCCESS') AS succeeded,
-            COUNT(e.*) FILTER (WHERE e.status IN {ERROR_STATUSES_SQL}) AS errored,
-            COUNT(e.*) FILTER (WHERE e.status IN {ACTIVE_STATUSES_SQL}) AS running
-        FROM buckets b
-        LEFT JOIN events e ON e.ts = b.ts
-        GROUP BY b.ts
-        ORDER BY b.ts ASC
-    """
-    try:
-        async with engine.connect() as conn:
-            rows = (
-                await conn.execute(text(sql), {"since_ms": since_ms, "until_ms": until_ms})
-            ).fetchall()
-    except ProgrammingError:
-        return []
+    rows = await db.get_throughput(since_ms=since_ms, until_ms=until_ms, bucket=bucket)
     return [
         ThroughputBucket(
             ts=r.ts,
@@ -931,19 +529,7 @@ class WorkflowSchedule(BaseModel):
 
 @app.get("/api/schedules")
 async def list_schedules() -> list[WorkflowSchedule]:
-    sql = """
-        SELECT
-            schedule_id, schedule_name, workflow_name, workflow_class_name,
-            schedule, status, last_fired_at, automatic_backfill,
-            cron_timezone, queue_name
-        FROM dbos.workflow_schedules
-        ORDER BY schedule_name ASC
-    """
-    try:
-        async with engine.connect() as conn:
-            rows = (await conn.execute(text(sql))).fetchall()
-    except ProgrammingError:
-        return []
+    rows = await db.list_schedules()
     return [
         WorkflowSchedule(
             schedule_id=r.schedule_id,
@@ -989,72 +575,16 @@ async def list_notifications(
     topic: str | None = None,
     limit: int = Query(default=200, ge=1, le=500),
 ) -> list[NotificationItem]:
-    conditions: list[str] = []
-    params: dict[str, object] = {"limit": limit}
-    if consumed is not None:
-        conditions.append("consumed = :consumed")
-        params["consumed"] = consumed
-    if destination_uuid:
-        conditions.append("destination_uuid = :destination_uuid")
-        params["destination_uuid"] = destination_uuid
-    if topic:
-        conditions.append("topic = :topic")
-        params["topic"] = topic
-    where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
-    sql = f"""
-        SELECT message_uuid, destination_uuid, topic, consumed, created_at_epoch_ms,
-               message, serialization
-        FROM dbos.notifications
-        {where}
-        ORDER BY created_at_epoch_ms DESC
-        LIMIT :limit
-    """
-    # Walks parent_workflow_id from each destination up to the topmost
-    # ancestor in one set-based recursive CTE. Tracks the seed destination so
-    # results can be grouped per-notification client-side.
-    ancestors_sql = """
-        WITH RECURSIVE up AS (
-            SELECT
-                ws.workflow_uuid AS seed_id,
-                ws.workflow_uuid,
-                ws.parent_workflow_id,
-                ws.name,
-                ws.status,
-                0 AS lvl
-            FROM dbos.workflow_status ws
-            WHERE ws.workflow_uuid = ANY(:destination_ids)
-
-            UNION ALL
-
-            SELECT
-                u.seed_id,
-                ws.workflow_uuid,
-                ws.parent_workflow_id,
-                ws.name,
-                ws.status,
-                u.lvl + 1
-            FROM dbos.workflow_status ws
-            JOIN up u ON ws.workflow_uuid = u.parent_workflow_id
+    result = await db.list_notifications(
+        NotificationFilters(
+            limit=limit,
+            consumed=consumed,
+            destination_uuid=destination_uuid,
+            topic=topic,
         )
-        SELECT seed_id, workflow_uuid, name, status, lvl
-        FROM up
-        ORDER BY seed_id, lvl DESC
-    """
-    try:
-        async with engine.connect() as conn:
-            rows = (await conn.execute(text(sql), params)).fetchall()
-            destination_ids = list({r.destination_uuid for r in rows})
-            ancestor_rows = (
-                (
-                    await conn.execute(text(ancestors_sql), {"destination_ids": destination_ids})
-                ).fetchall()
-                if destination_ids
-                else []
-            )
-    except ProgrammingError:
-        return []
+    )
     ancestors_by_seed: dict[str, list[WorkflowAncestor]] = {}
-    for ar in ancestor_rows:
+    for ar in result.ancestors:
         ancestors_by_seed.setdefault(ar.seed_id, []).append(
             WorkflowAncestor(workflow_id=ar.workflow_uuid, name=ar.name, status=ar.status)
         )
@@ -1070,7 +600,7 @@ async def list_notifications(
             message_decoded=decode_dbos_value(r.message, r.serialization),
             destination_ancestors=ancestors_by_seed.get(r.destination_uuid, []),
         )
-        for r in rows
+        for r in result.notifications
     ]
 
 
