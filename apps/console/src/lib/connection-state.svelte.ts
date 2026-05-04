@@ -23,12 +23,13 @@ class ConnectionState {
     const apply = (data: unknown) => {
       this.health = data as Health;
       this.fetchError = null;
-      // Auto-fetch SQL diagnostics on the first up-health snapshot. The
-      // original code did this in the layout's onMount after the awaited
-      // refreshHealth(); preserving that here keeps the indicator turning
-      // yellow on schema drift without extra wiring at every callsite.
       if (this.health.database === "up" && !this.diagnostics && !this.diagnosticsLoading) {
-        void this.ensureDiagnostics();
+        // First-paint fetch only — the recovery loop in `connInterval` below
+        // handles re-polling when the schema starts missing and later
+        // materializes (e.g. a fresh DB that a DBOS app connects to mid-
+        // session). The health channel dedupes identical snapshots, so we
+        // can't rely on update frames as the recovery trigger.
+        void this.refreshDiagnostics();
       }
     };
     this.handle = realtimeClient.subscribe("health", undefined, {
@@ -40,20 +41,35 @@ class ConnectionState {
         this.fetchError = message;
       },
     });
-    // Surface persistent disconnects as fetchError so the connection
-    // indicator turns red. Polled rather than effect-driven because the
-    // realtime client's `connectionStatus` is a `$state` only meaningful
-    // inside Svelte reactivity contexts; this loop is portable.
+    // Two responsibilities folded into one ticker:
+    // 1. Surface persistent WS disconnects as `fetchError` so the indicator
+    //    turns red. Polled rather than effect-driven because the realtime
+    //    client's `connectionStatus` is a `$state` only meaningful inside
+    //    Svelte reactivity contexts.
+    // 2. Re-poll `/api/sql-diagnostics` on a 5s cadence while the last
+    //    result reported issues — the health channel dedupes identical
+    //    snapshots, so we can't piggyback the recovery on update frames.
+    let diagTickCounter = 0;
     this.connInterval = setInterval(() => {
       const status = realtimeClient.connectionStatus;
-      if (status === "open") {
-        // Snapshot will follow shortly; `onSnapshot` clears the error.
+      if (status !== "open") {
+        if (!this.health) {
+          this.fetchError = realtimeClient.lastError ?? "websocket disconnected";
+        }
         return;
       }
-      // We've been closed/connecting AND we have no recent health — surface
-      // as a fetch error. Once a snapshot lands, onSnapshot clears this.
-      if (!this.health) {
-        this.fetchError = realtimeClient.lastError ?? "websocket disconnected";
+      // Snapshot will follow shortly; `onSnapshot` clears any prior error.
+      // While issues are reported, retry every 5 ticks (≈5s) — this is the
+      // "DBOS app just connected, schema is now there" recovery path.
+      diagTickCounter += 1;
+      if (
+        diagTickCounter % 5 === 0
+        && this.diagnostics
+        && !this.diagnostics.ok
+        && this.health?.database === "up"
+        && !this.diagnosticsLoading
+      ) {
+        void this.refreshDiagnostics();
       }
     }, 1000);
   }
@@ -69,7 +85,14 @@ class ConnectionState {
 
   async ensureDiagnostics(): Promise<void> {
     if (this.health?.database !== "up" || this.diagnosticsLoading || this.diagnostics) return;
+    await this.refreshDiagnostics();
+  }
 
+  // Force a re-fetch even when `diagnostics` is already populated. Used by
+  // the health-update path to converge the schema indicator after the dbos.*
+  // tables come into existence on a previously-empty DB.
+  async refreshDiagnostics(): Promise<void> {
+    if (this.health?.database !== "up" || this.diagnosticsLoading) return;
     this.diagnosticsError = null;
     this.diagnosticsLoading = true;
     try {
