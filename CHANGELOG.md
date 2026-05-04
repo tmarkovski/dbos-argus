@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.20] - 2026-05-04
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+> **Note:** v0.0.19 was published to PyPI but the docker/release jobs
+> in the release pipeline failed — `pip install dbos-argus==0.0.19`
+> inside the Dockerfile raced PyPI's CDN propagation on the arm64
+> runner and died with "No matching distribution found", which then
+> cancelled the rest of the matrix. v0.0.20 carries the same intended
+> changes plus the pipeline fix, so the Docker image and GitHub
+> Release exist for this tag.
+
+### Fixed
+- Release pipeline: each `docker-build` arch now polls PyPI's simple
+  index for the freshly published version (via `pip download --no-deps`,
+  60 attempts × 5s) before invoking buildx, so a wheel that hasn't yet
+  propagated to every Fastly edge can no longer race the in-Dockerfile
+  `pip install`.
+
 ## [0.0.19] - 2026-05-04
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
@@ -374,7 +393,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.19...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.20...HEAD
+[0.0.20]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.20
 [0.0.19]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.19
 [0.0.18]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.18
 [0.0.17]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.17

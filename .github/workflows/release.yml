@@ -5,9 +5,11 @@ name: release
 #   2. docker  — pull from PyPI into a slim image, push multi-arch to Docker Hub
 #   3. release — create the matching GitHub Release with auto-generated notes
 #
-# Docker depends on PyPI so the `pip install dbos-argus==<ver>` in the image
-# can never race against the upload. Release depends on both — it only fires
-# once both artifacts are live.
+# Docker depends on PyPI, but PyPI's CDN can take a few seconds to expose a
+# freshly published version on every edge — long enough for `pip install` in
+# the Dockerfile to race the upload (this bit v0.0.19 on arm64). Each docker
+# build job polls PyPI for the new version before invoking buildx. Release
+# depends on both — it only fires once both artifacts are live.
 
 on:
   push:
@@ -92,6 +94,29 @@ jobs:
       - name: Compute version (strip leading v)
         id: ver
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      # The `pypi` job finishes ~30s before this step runs, but PyPI's CDN
+      # (Fastly) can take longer to propagate the new version to every edge.
+      # Without this wait, `pip install dbos-argus==X.Y.Z` inside the Dockerfile
+      # races the upload and dies with "No matching distribution found" — which
+      # is exactly what bit v0.0.19 on the arm64 runner. Poll from each arch
+      # runner so we catch regional propagation lag too.
+      - name: Wait for PyPI propagation
+        run: |
+          version="${{ steps.ver.outputs.version }}"
+          echo "Waiting for dbos-argus==${version} on PyPI..."
+          for i in $(seq 1 60); do
+            if pip download --no-deps --quiet \
+                 --dest "${RUNNER_TEMP}/pypi-check" \
+                 "dbos-argus==${version}" 2>/dev/null; then
+              echo "Available on attempt ${i}"
+              exit 0
+            fi
+            echo "Attempt ${i}/60: not yet, sleeping 5s..."
+            sleep 5
+          done
+          echo "Timeout: dbos-argus==${version} not found on PyPI after 5 minutes"
+          exit 1
 
       - name: Build and push by digest
         id: build
