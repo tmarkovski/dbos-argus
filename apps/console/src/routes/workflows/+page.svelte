@@ -2,7 +2,7 @@
   import { onDestroy, onMount } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
-  import { getLocalTimeZone, type DateValue } from "@internationalized/date";
+  import { getLocalTimeZone, parseDate, type DateValue } from "@internationalized/date";
   import FilterIcon from "@lucide/svelte/icons/list-filter";
   import FilterXIcon from "@lucide/svelte/icons/filter-x";
   import SearchIcon from "@lucide/svelte/icons/search";
@@ -68,15 +68,90 @@
   let error = $state<string | null>(null);
   let timer: ReturnType<typeof setInterval> | undefined;
 
+  // Filter options derived from the canonical status list — adding a new DBOS
+  // workflow status only requires editing `$lib/workflow-status.ts`. ENQUEUED
+  // is intentionally omitted: those rows live in the pinned strip above the
+  // main list, not as a filterable status here.
+  const STATUS_OPTIONS = WORKFLOW_STATUSES.filter((s) => s !== "ENQUEUED").map((value) => ({
+    value,
+    label: STATUS_LABELS[value],
+  }));
+  const allStatuses = () => new Set(STATUS_OPTIONS.map((o) => o.value));
+
+  // Filter persistence: search/date-range/statuses survive reloads. The
+  // existing hideScheduled and enqueuedCollapsed keys follow the same scheme.
+  // `ssr = false` in +layout.ts means localStorage is available at script
+  // init, so we can hydrate state directly instead of patching it in onMount.
+  const Q_KEY = "argus.workflows.q";
+  const DATE_RANGE_KEY = "argus.workflows.dateRange";
+  const STATUSES_KEY = "argus.workflows.statuses";
+
+  function readStored(key: string): string | null {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      // localStorage may be unavailable (private mode, sandboxed) — fall back
+      // to defaults.
+      return null;
+    }
+  }
+  function writeStored(key: string, value: string) {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // see readStored note
+    }
+  }
+  function removeStored(key: string) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // see readStored note
+    }
+  }
+
+  function hydrateDateRange(): { start: DateValue | undefined; end: DateValue | undefined } {
+    const raw = readStored(DATE_RANGE_KEY);
+    if (!raw) return { start: undefined, end: undefined };
+    try {
+      const parsed = JSON.parse(raw) as { start?: string | null; end?: string | null };
+      const start = parsed.start ? parseDate(parsed.start) : undefined;
+      const end = parsed.end ? parseDate(parsed.end) : undefined;
+      return { start, end };
+    } catch {
+      return { start: undefined, end: undefined };
+    }
+  }
+  function hydrateStatuses(): Set<string> {
+    const raw = readStored(STATUSES_KEY);
+    if (raw === null) return allStatuses();
+    try {
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return allStatuses();
+      const valid = new Set<string>(STATUS_OPTIONS.map((o) => o.value));
+      return new Set(arr.filter((v): v is string => typeof v === "string" && valid.has(v)));
+    } catch {
+      return allStatuses();
+    }
+  }
+
   // `qInput` is what the user is typing right now; `filters.q` is what the
   // backend actually filters on. We debounce input → applied so we don't
   // round-trip per keystroke, and require at least SEARCH_MIN_CHARS before
   // firing — single-character queries are too broad to be useful.
   const SEARCH_DEBOUNCE_MS = 500;
   const SEARCH_MIN_CHARS = 2;
-  let qInput = $state("");
+  // Read the persisted query into a local first so we can seed both `qInput`
+  // and `filters.q` without reading `$state` during construction (which Svelte
+  // warns about — the initializer wouldn't update if the underlying state
+  // changed later).
+  const persistedQ = readStored(Q_KEY) ?? "";
+  let qInput = $state(persistedQ);
   let filters = $state({
-    q: "",
+    // Seed `filters.q` directly from the hydrated input so the first refresh
+    // already includes the persisted search instead of waiting one debounce
+    // tick to apply it.
+    q: persistedQ.trim().length >= SEARCH_MIN_CHARS ? persistedQ.trim() : "",
   });
   let qDebounce: ReturnType<typeof setTimeout> | undefined;
   $effect(() => {
@@ -92,21 +167,35 @@
       filters.q = next;
     }, SEARCH_DEBOUNCE_MS);
   });
-  let dateRange = $state<{ start: DateValue | undefined; end: DateValue | undefined }>({
-    start: undefined,
-    end: undefined,
-  });
-  // Filter options derived from the canonical status list — adding a new DBOS
-  // workflow status only requires editing `$lib/workflow-status.ts`. ENQUEUED
-  // is intentionally omitted: those rows live in the pinned strip above the
-  // main list, not as a filterable status here.
-  const STATUS_OPTIONS = WORKFLOW_STATUSES.filter((s) => s !== "ENQUEUED").map((value) => ({
-    value,
-    label: STATUS_LABELS[value],
-  }));
-  const allStatuses = () => new Set(STATUS_OPTIONS.map((o) => o.value));
+  let dateRange = $state<{ start: DateValue | undefined; end: DateValue | undefined }>(
+    hydrateDateRange(),
+  );
 
-  let selectedStatuses = $state<Set<string>>(allStatuses());
+  let selectedStatuses = $state<Set<string>>(hydrateStatuses());
+
+  // Persist filters on change. Empty/default values are removed rather than
+  // written so a fresh install with no prior key looks the same as a user who
+  // cleared their filters.
+  $effect(() => {
+    if (qInput === "") removeStored(Q_KEY);
+    else writeStored(Q_KEY, qInput);
+  });
+  $effect(() => {
+    const start = dateRange.start ? dateRange.start.toString() : null;
+    const end = dateRange.end ? dateRange.end.toString() : null;
+    if (start === null && end === null) removeStored(DATE_RANGE_KEY);
+    else writeStored(DATE_RANGE_KEY, JSON.stringify({ start, end }));
+  });
+  $effect(() => {
+    if (
+      selectedStatuses.size === STATUS_OPTIONS.length &&
+      STATUS_OPTIONS.every((o) => selectedStatuses.has(o.value))
+    ) {
+      removeStored(STATUSES_KEY);
+    } else {
+      writeStored(STATUSES_KEY, JSON.stringify(Array.from(selectedStatuses)));
+    }
+  });
   // Scheduled workflows (id prefix `sched-`) are shown by default; users hide
   // them when scheduler ticks would dominate the list. Preference persists
   // across reloads/navigation, hydrated in onMount.
