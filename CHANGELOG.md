@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.19] - 2026-05-04
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+### Changed
+- Workflow list filters now persist across reloads. Search query,
+  date range, and selected status set are written to localStorage
+  alongside the existing hide-scheduled and enqueued-collapsed keys
+  (`argus.workflows.q`, `argus.workflows.dateRange`,
+  `argus.workflows.statuses`). Hydration runs at script init (the
+  console is `ssr = false`) so the first fetch already includes the
+  persisted search instead of waiting one debounce tick. Default
+  values are removed from storage rather than written, so a fresh
+  install with no prior key matches the post–"Clear filters" state.
+
 ## [0.0.18] - 2026-05-03
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
@@ -359,7 +374,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.18...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.19...HEAD
+[0.0.19]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.19
 [0.0.18]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.18
 [0.0.17]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.17
 [0.0.16]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.16
