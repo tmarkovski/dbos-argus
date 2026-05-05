@@ -10,6 +10,7 @@ operations and don't need workflow definitions).
 from __future__ import annotations
 
 import logging
+import random
 import time
 
 from dbos import DBOS, SetWorkflowID
@@ -21,15 +22,21 @@ CARRIER_CONFIRMATION_TOPIC = "carrier-confirmation"
 OPS_SIGNOFF_TOPIC = "ops-signoff"
 
 
+# Steps reachable from `fulfill_order`'s tree sleep a random 3-10s so the
+# workflow takes long enough to watch progress live in the dashboard.
+def _fulfill_pause() -> None:
+    time.sleep(random.uniform(3, 10))
+
+
 @DBOS.step()
 def validate_order(order_id: str) -> dict:
-    time.sleep(0.08)
+    _fulfill_pause()
     return {"order_id": order_id, "valid": True, "items_count": 3}
 
 
 @DBOS.step()
 def compute_total(item_count: int, region: str) -> dict:
-    time.sleep(0.04)
+    _fulfill_pause()
     rate = {"us": 1.0, "eu": 0.85, "uk": 0.78}.get(region, 1.0)
     subtotal = item_count * 19.99
     return {
@@ -42,19 +49,19 @@ def compute_total(item_count: int, region: str) -> dict:
 
 @DBOS.step()
 def log_event(event: str) -> None:
-    time.sleep(0.02)
+    _fulfill_pause()
     LOG.info("event: %s", event)
 
 
 @DBOS.step()
 def audit(action: str) -> dict:
-    time.sleep(0.01)
+    _fulfill_pause()
     return {"action": action, "actor": "fulfillment"}
 
 
 @DBOS.step()
 def package_items(order_id: str) -> str:
-    time.sleep(0.01)
+    _fulfill_pause()
     return f"PKG-{order_id.upper()}"
 
 
@@ -66,7 +73,7 @@ def count_items(label: str) -> int:
 
 @DBOS.step()
 def run_fraud_scan(order_id: str) -> None:
-    time.sleep(0.02)
+    _fulfill_pause()
     raise ValueError(f"suspicious activity detected for order {order_id!r}")
 
 
@@ -153,10 +160,10 @@ def prepare_shipment(
 def stock_check(order_id: str) -> dict:
     audit(f"stock-check-start:{order_id}")
     validate_order(order_id)
-    # Long sleep so `argus-ops cancel-stock` can hit it mid-flight.
+    # Sleep long enough for `argus-ops cancel-stock` to hit it mid-flight.
     # `DBOS.sleep` is NOT interruptible — the thread blocks for the full
     # duration before observing the CANCELLED status.
-    DBOS.sleep(120)
+    DBOS.sleep(30)
     log_event(f"stock-verified:{order_id}")
     return {"kind": "stock", "order_id": order_id, "in_stock": True}
 
@@ -176,9 +183,9 @@ def reconcile_inventory(order_id: str) -> dict:
         # Demo of the cancellation feature: ops cancels `stock_check` and
         # the parent observes it here. Swallow so reconcile keeps going.
         LOG.warning("stock_check was cancelled: %s", e)
-    # 7d sleep keeps this workflow PENDING in the dashboard. `fulfill_order`
-    # never awaits it, so the parent can move on.
-    DBOS.sleep(86400 * 7)
+    # 30s sleep keeps this workflow PENDING long enough to be visible in the
+    # dashboard. `fulfill_order` never awaits it, so the parent can move on.
+    DBOS.sleep(30)
     return {"kind": "reconcile", "order_id": order_id, "completed": True}
 
 
@@ -197,12 +204,13 @@ def fulfill_order(order_id: str) -> dict:
     log_event(f"shipment-dispatched:{order_id}")
     fraud = DBOS.start_workflow(fraud_check, order_id)
     pricing = compute_total(validation["items_count"], "us")
-    # Fire-and-forget: sleeps for 7 days so the workflow stays PENDING in the
-    # dashboard alongside the completed siblings. Id pinned so ops can locate
-    # its `stock_check` grandchild to cancel.
+    # Fire-and-forget initially so it runs concurrently. Awaited at the very
+    # end (after the ops-signoff recv + a 30s sleep) so the dashboard shows
+    # the parent waiting on this child. Id pinned so ops can locate its
+    # `stock_check` grandchild to cancel.
     reconcile_workflow_id = f"{DBOS.workflow_id}-reconcile"
     with SetWorkflowID(reconcile_workflow_id):
-        DBOS.start_workflow(reconcile_inventory, order_id)
+        reconcile = DBOS.start_workflow(reconcile_inventory, order_id)
     label = package_items(order_id)
     nested_branch.get_result()
     # Swallow the fraud check's failure so the parent itself still succeeds —
@@ -216,6 +224,8 @@ def fulfill_order(order_id: str) -> dict:
     # Block waiting for an "ops-signoff" notification — `argus-ops ops-signoff`
     # unblocks it. Until then, `fulfill_order` stays PENDING in the dashboard.
     DBOS.recv(topic=OPS_SIGNOFF_TOPIC, timeout_seconds=86400)
+    DBOS.sleep(30)
+    reconcile.get_result()
     return {
         "kind": "fulfillment",
         "order_id": order_id,

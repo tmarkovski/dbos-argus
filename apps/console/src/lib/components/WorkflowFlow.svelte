@@ -64,6 +64,11 @@
   const HEAD = 5;
   const TAIL = 5;
   const LAYOUT_ANIMATION_MS = 240;
+  // Minimum container size — ELK collapses empty containers to ~0, which hides
+  // the workflow header (name + id). Floor the layout output so a workflow
+  // with zero steps yet still renders a proper container box.
+  const CONTAINER_MIN_WIDTH = STEP_WIDTH + 32; // step width + L/R padding
+  const CONTAINER_MIN_HEIGHT = 108; // top padding 60 + 1 step (32) + bottom 16
 
   const elk = new ELK();
   const nodeTypes: NodeTypes = {
@@ -507,7 +512,14 @@
             };
           }),
         };
-        return await elk.layout(containerGraph);
+        const laidOut = await elk.layout(containerGraph);
+        if ((laidOut.width ?? 0) < CONTAINER_MIN_WIDTH) {
+          laidOut.width = CONTAINER_MIN_WIDTH;
+        }
+        if ((laidOut.height ?? 0) < CONTAINER_MIN_HEIGHT) {
+          laidOut.height = CONTAINER_MIN_HEIGHT;
+        }
+        return laidOut;
       }),
     );
 

@@ -15,8 +15,14 @@ from . import __version__
 from .db import db
 from .db.rows import (
     NotificationFilters,
+    NotificationsRows,
+    ScheduleRow,
+    StatsRow,
     StepRow,
+    ThroughputRow,
+    WorkflowDetailRows,
     WorkflowFilters,
+    WorkflowListRow,
 )
 from .decoding import decode_dbos_value
 from .schema_dump import load_full_dump
@@ -59,6 +65,38 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Realtime layer wiring is below the route bodies — channels lazy-import the
+# `fetch_*` helpers above to break the circular dep with this module.
+def _setup_realtime() -> None:
+    if not settings.realtime_enabled:
+        logger.info("realtime layer disabled (ARGUS_REALTIME_ENABLED=false)")
+        return
+    from .realtime import RealtimeHub, register_websocket_route
+    from .realtime.channels import (
+        HealthChannel,
+        NotificationsChannel,
+        SchedulesChannel,
+        StatsChannel,
+        StatsTimeseriesChannel,
+        WorkflowChannel,
+        WorkflowsChannel,
+    )
+
+    hub = RealtimeHub(
+        default_interval_ms=settings.realtime_interval_ms,
+        max_subs_per_conn=settings.realtime_max_subs_per_conn,
+    )
+    hub.register_channel(HealthChannel(), interval_ms=settings.realtime_health_interval_ms)
+    hub.register_channel(StatsChannel())
+    hub.register_channel(StatsTimeseriesChannel())
+    hub.register_channel(WorkflowsChannel())
+    hub.register_channel(WorkflowChannel())
+    hub.register_channel(SchedulesChannel())
+    hub.register_channel(NotificationsChannel())
+    register_websocket_route(app, hub, allowed_origins=settings.cors_origins_list)
+    app.state.realtime_hub = hub
 
 
 @app.get("/healthz")
@@ -146,6 +184,32 @@ class WorkflowListItem(BaseModel):
     operation_count: int
 
 
+# Pure mapper from a list-row dataclass to the public Pydantic model. Shared
+# by the REST route and the realtime `workflows` channel so the wire shape
+# stays identical across transports.
+def _to_workflow_list_item(r: WorkflowListRow) -> WorkflowListItem:
+    return WorkflowListItem(
+        workflow_id=r.workflow_uuid,
+        parent_workflow_id=r.parent_workflow_id,
+        name=r.name,
+        status=r.status,
+        queue_name=r.queue_name,
+        executor_id=r.executor_id,
+        priority=r.priority or 0,
+        started_at=datetime.fromtimestamp(r.started_ms / 1000, tz=UTC),
+        updated_at=datetime.fromtimestamp(r.updated_ms / 1000, tz=UTC),
+        depth=r.depth,
+        operation_count=r.op_count,
+    )
+
+
+async def fetch_workflow_list(filters: WorkflowFilters) -> list[WorkflowListItem]:
+    """Run the workflow-list query and return Pydantic models. Used by the
+    REST route and the realtime channel."""
+    rows = await db.list_workflows(filters)
+    return [_to_workflow_list_item(r) for r in rows]
+
+
 @app.get("/api/workflows")
 async def list_workflows(
     limit: int = Query(default=50, ge=1, le=200),
@@ -167,23 +231,7 @@ async def list_workflows(
         hide_scheduled=hide_scheduled,
         grouped=grouped,
     )
-    rows = await db.list_workflows(filters)
-    return [
-        WorkflowListItem(
-            workflow_id=r.workflow_uuid,
-            parent_workflow_id=r.parent_workflow_id,
-            name=r.name,
-            status=r.status,
-            queue_name=r.queue_name,
-            executor_id=r.executor_id,
-            priority=r.priority or 0,
-            started_at=datetime.fromtimestamp(r.started_ms / 1000, tz=UTC),
-            updated_at=datetime.fromtimestamp(r.updated_ms / 1000, tz=UTC),
-            depth=r.depth,
-            operation_count=r.op_count,
-        )
-        for r in rows
-    ]
+    return await fetch_workflow_list(filters)
 
 
 class WorkflowStep(BaseModel):
@@ -324,11 +372,12 @@ def _sleep_requested_ms(step: StepRow) -> int | None:
 # Walks up parent_workflow_id to find the topmost ancestor (or the workflow
 # itself if it has no parent), then expands that ancestor's whole subtree in
 # DFS order — matching how the list endpoint groups trees.
-@app.get("/api/workflows/{workflow_id}")
-async def get_workflow(workflow_id: str) -> WorkflowDetail:
-    detail = await db.get_workflow_detail(workflow_id)
+def _build_workflow_detail(detail: WorkflowDetailRows, workflow_id: str) -> WorkflowDetail | None:
+    """Map adapter rows to the detail Pydantic model. Returns None when the
+    family is empty (workflow not found) — callers translate that to a 404
+    or an empty snapshot, depending on transport."""
     if not detail.family:
-        raise HTTPException(status_code=404, detail="workflow not found")
+        return None
 
     family = [
         WorkflowFamilyItem(
@@ -405,7 +454,9 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
             )
     events = list(events_by_key.values())
 
-    self_item = next(w for w in family if w.workflow_id == workflow_id)
+    self_item = next((w for w in family if w.workflow_id == workflow_id), None)
+    if self_item is None:
+        return None
     return WorkflowDetail(
         workflow_id=self_item.workflow_id,
         parent_workflow_id=self_item.parent_workflow_id,
@@ -417,6 +468,21 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
         steps=steps,
         events=events,
     )
+
+
+async def fetch_workflow_detail(workflow_id: str) -> WorkflowDetail | None:
+    """Run the workflow-detail query and map to the Pydantic model. Returns
+    None when the workflow doesn't exist."""
+    detail = await db.get_workflow_detail(workflow_id)
+    return _build_workflow_detail(detail, workflow_id)
+
+
+@app.get("/api/workflows/{workflow_id}")
+async def get_workflow(workflow_id: str) -> WorkflowDetail:
+    result = await fetch_workflow_detail(workflow_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="workflow not found")
+    return result
 
 
 # Lazily fetches the output/error payload for a single workflow row. Split out
@@ -464,10 +530,7 @@ class DashboardStats(BaseModel):
     active_schedules: int
 
 
-@app.get("/api/stats")
-async def get_stats() -> DashboardStats:
-    since_ms = int(datetime.now(UTC).timestamp() * 1000) - 86_400_000
-    row = await db.get_stats(since_ms)
+def _to_dashboard_stats(row: StatsRow) -> DashboardStats:
     return DashboardStats(
         total=row.total,
         in_flight=row.in_flight,
@@ -476,6 +539,16 @@ async def get_stats() -> DashboardStats:
         pending_notifications=row.pending_notifications,
         active_schedules=row.active_schedules,
     )
+
+
+async def fetch_stats() -> DashboardStats:
+    since_ms = int(datetime.now(UTC).timestamp() * 1000) - 86_400_000
+    return _to_dashboard_stats(await db.get_stats(since_ms))
+
+
+@app.get("/api/stats")
+async def get_stats() -> DashboardStats:
+    return await fetch_stats()
 
 
 class ThroughputBucket(BaseModel):
@@ -495,14 +568,7 @@ _THROUGHPUT_RANGES: dict[str, tuple[Literal["hour", "day"], int]] = {
 }
 
 
-@app.get("/api/stats/timeseries")
-async def get_throughput(
-    range: Literal["24h", "7d", "30d"] = "7d",
-) -> list[ThroughputBucket]:
-    bucket, lookback_ms = _THROUGHPUT_RANGES[range]
-    until_ms = int(datetime.now(UTC).timestamp() * 1000)
-    since_ms = until_ms - lookback_ms
-    rows = await db.get_throughput(since_ms=since_ms, until_ms=until_ms, bucket=bucket)
+def _to_throughput_buckets(rows: list[ThroughputRow]) -> list[ThroughputBucket]:
     return [
         ThroughputBucket(
             ts=r.ts,
@@ -512,6 +578,21 @@ async def get_throughput(
         )
         for r in rows
     ]
+
+
+async def fetch_throughput(range_: Literal["24h", "7d", "30d"]) -> list[ThroughputBucket]:
+    bucket, lookback_ms = _THROUGHPUT_RANGES[range_]
+    until_ms = int(datetime.now(UTC).timestamp() * 1000)
+    since_ms = until_ms - lookback_ms
+    rows = await db.get_throughput(since_ms=since_ms, until_ms=until_ms, bucket=bucket)
+    return _to_throughput_buckets(rows)
+
+
+@app.get("/api/stats/timeseries")
+async def get_throughput(
+    range: Literal["24h", "7d", "30d"] = "7d",
+) -> list[ThroughputBucket]:
+    return await fetch_throughput(range)
 
 
 class WorkflowSchedule(BaseModel):
@@ -527,24 +608,29 @@ class WorkflowSchedule(BaseModel):
     queue_name: str | None
 
 
+def _to_workflow_schedule(r: ScheduleRow) -> WorkflowSchedule:
+    return WorkflowSchedule(
+        schedule_id=r.schedule_id,
+        schedule_name=r.schedule_name,
+        workflow_name=r.workflow_name,
+        workflow_class_name=r.workflow_class_name,
+        schedule=r.schedule,
+        status=r.status,
+        last_fired_at=r.last_fired_at,
+        automatic_backfill=r.automatic_backfill,
+        cron_timezone=r.cron_timezone,
+        queue_name=r.queue_name,
+    )
+
+
+async def fetch_schedules() -> list[WorkflowSchedule]:
+    rows = await db.list_schedules()
+    return [_to_workflow_schedule(r) for r in rows]
+
+
 @app.get("/api/schedules")
 async def list_schedules() -> list[WorkflowSchedule]:
-    rows = await db.list_schedules()
-    return [
-        WorkflowSchedule(
-            schedule_id=r.schedule_id,
-            schedule_name=r.schedule_name,
-            workflow_name=r.workflow_name,
-            workflow_class_name=r.workflow_class_name,
-            schedule=r.schedule,
-            status=r.status,
-            last_fired_at=r.last_fired_at,
-            automatic_backfill=r.automatic_backfill,
-            cron_timezone=r.cron_timezone,
-            queue_name=r.queue_name,
-        )
-        for r in rows
-    ]
+    return await fetch_schedules()
 
 
 class WorkflowAncestor(BaseModel):
@@ -568,21 +654,7 @@ class NotificationItem(BaseModel):
     destination_ancestors: list[WorkflowAncestor]
 
 
-@app.get("/api/notifications")
-async def list_notifications(
-    consumed: bool | None = None,
-    destination_uuid: str | None = None,
-    topic: str | None = None,
-    limit: int = Query(default=200, ge=1, le=500),
-) -> list[NotificationItem]:
-    result = await db.list_notifications(
-        NotificationFilters(
-            limit=limit,
-            consumed=consumed,
-            destination_uuid=destination_uuid,
-            topic=topic,
-        )
-    )
+def _to_notification_items(result: NotificationsRows) -> list[NotificationItem]:
     ancestors_by_seed: dict[str, list[WorkflowAncestor]] = {}
     for ar in result.ancestors:
         ancestors_by_seed.setdefault(ar.seed_id, []).append(
@@ -602,6 +674,33 @@ async def list_notifications(
         )
         for r in result.notifications
     ]
+
+
+async def fetch_notifications(filters: NotificationFilters) -> list[NotificationItem]:
+    result = await db.list_notifications(filters)
+    return _to_notification_items(result)
+
+
+@app.get("/api/notifications")
+async def list_notifications(
+    consumed: bool | None = None,
+    destination_uuid: str | None = None,
+    topic: str | None = None,
+    limit: int = Query(default=200, ge=1, le=500),
+) -> list[NotificationItem]:
+    return await fetch_notifications(
+        NotificationFilters(
+            limit=limit,
+            consumed=consumed,
+            destination_uuid=destination_uuid,
+            topic=topic,
+        )
+    )
+
+
+# Wire the WebSocket route before the SPA catch-all below — the catch-all
+# `/{full_path:path}` would otherwise match `/ws` first.
+_setup_realtime()
 
 
 # Default to the SPA bundled inside the wheel at dbos_argus/_console/. Override

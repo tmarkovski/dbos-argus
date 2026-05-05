@@ -18,6 +18,7 @@ Run:
 from __future__ import annotations
 
 import logging
+import os
 import signal
 import time
 
@@ -52,10 +53,18 @@ def main() -> None:
         scheduled.HEARTBEAT_QUEUE_NAME,
     )
 
-    stop = {"now": False}
+    stop = {"now": False, "count": 0}
 
+    # Second SIGINT escalates to a hard exit — DBOS.destroy() waits for any
+    # in-flight workflows to drain (notably DBOS.sleep, which is not
+    # interruptible) and can otherwise hold the process indefinitely.
     def _on_signal(_signum, _frame):
+        stop["count"] += 1
+        if stop["count"] >= 2:
+            LOG.warning("force exit (second ctrl-C)")
+            os._exit(130)
         stop["now"] = True
+        LOG.info("shutdown requested — ctrl-C again to force exit")
 
     signal.signal(signal.SIGINT, _on_signal)
     signal.signal(signal.SIGTERM, _on_signal)

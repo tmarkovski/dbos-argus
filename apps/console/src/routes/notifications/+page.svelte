@@ -13,6 +13,7 @@
   import Check from "@lucide/svelte/icons/check";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Eye from "@lucide/svelte/icons/eye";
+  import { realtimeClient, type SubscriptionHandle } from "$lib/realtime";
 
   type WorkflowAncestor = {
     workflow_id: string;
@@ -38,7 +39,7 @@
   let view = $state<View>("pending");
   let items = $state<Notification[] | null>(null);
   let error = $state<string | null>(null);
-  let timer: ReturnType<typeof setInterval> | undefined;
+  let handle: SubscriptionHandle | null = null;
   let selected = $state<Notification | null>(null);
   let preferredMode = $state<ViewMode>("decoded");
 
@@ -49,39 +50,41 @@
     };
   });
 
-  async function refresh() {
-    try {
-      const url =
-        view === "pending"
-          ? "/api/notifications?consumed=false"
-          : "/api/notifications";
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const next = (await res.json()) as Notification[];
-      items = next;
-      // Keep the selected sheet's content fresh if the row is still in the list.
-      if (selected) {
-        const updated = next.find((n) => n.message_uuid === selected!.message_uuid);
-        selected = updated ?? selected;
-      }
-      error = null;
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-      items = null;
-    }
+  function buildParams(): Record<string, unknown> {
+    return view === "pending" ? { consumed: false } : {};
   }
 
+  function applySnapshot(data: unknown): void {
+    if (!Array.isArray(data)) return;
+    const next = data as Notification[];
+    items = next;
+    // Keep the selected sheet's content fresh if the row is still in the list.
+    if (selected) {
+      const updated = next.find((n) => n.message_uuid === selected!.message_uuid);
+      selected = updated ?? selected;
+    }
+    error = null;
+  }
+
+  // View-toggle changes route through update_params so the same poller is
+  // re-keyed on the server instead of torn down.
   $effect(() => {
     view;
-    refresh();
+    handle?.updateParams(buildParams());
   });
 
   onMount(() => {
-    timer = setInterval(refresh, 5000);
+    handle = realtimeClient.subscribe("notifications", buildParams(), {
+      onSnapshot: applySnapshot,
+      onUpdate: applySnapshot,
+      onError: (_code, message) => {
+        error = message;
+      },
+    });
   });
 
   onDestroy(() => {
-    if (timer) clearInterval(timer);
+    handle?.dispose();
   });
 
   const messagePayload = $derived.by<{

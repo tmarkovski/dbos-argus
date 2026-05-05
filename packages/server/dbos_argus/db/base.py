@@ -79,3 +79,29 @@ class ArgusDB(ABC):
     @abstractmethod
     async def list_notifications(self, filters: NotificationFilters) -> NotificationsRows:
         """Notifications + per-destination ancestor chains, fetched together."""
+
+    # Cursors are cheap "did anything change?" probes used by the realtime
+    # layer's pollers — they gate the heavier snapshot query behind a cursor
+    # change. Each returns a comparable tuple. ("empty",) when the dbos.*
+    # schema isn't there yet (preserves the pre-connect empty state without
+    # raising). Must be orders of magnitude cheaper than the snapshot.
+
+    @abstractmethod
+    async def workflows_cursor(self) -> tuple:
+        """Coarse global probe over workflow_status + operation_outputs."""
+
+    @abstractmethod
+    async def stats_cursor(self) -> tuple:
+        """Probe for the dashboard rollup."""
+
+    @abstractmethod
+    async def schedules_cursor(self) -> tuple:
+        """Probe for the schedules list (advances on each cron tick)."""
+
+    @abstractmethod
+    async def notifications_cursor(self) -> tuple:
+        """Probe over notifications (new rows or consumed-state flips)."""
+
+    @abstractmethod
+    async def timeseries_cursor(self) -> tuple:
+        """Probe for the throughput chart (excluding the time-window tick)."""

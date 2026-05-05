@@ -11,6 +11,7 @@
     type Step,
   } from "$lib/components/WorkflowFlow.svelte";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
+  import { realtimeClient, type SubscriptionHandle } from "$lib/realtime";
 
   type WorkflowDetail = {
     workflow_id: string;
@@ -75,11 +76,20 @@
     (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
   }
 
+  let workflowHandle: SubscriptionHandle | null = null;
+  // First snapshot for a given workflow seeds `selection`; subsequent updates
+  // must NOT clobber the user's choice — they may have clicked a step.
+  let selectionSeeded = false;
+
   $effect(() => {
     const id = workflowId;
+    // Tear down any prior subscription before rebinding to the new id.
+    workflowHandle?.dispose();
+    workflowHandle = null;
     detail = null;
     error = null;
     selection = null;
+    selectionSeeded = false;
     // Different workflow → wipe cache; a stale entry from a previous
     // workflow's family would never be hit anyway, but cleanup keeps memory
     // bounded across navigations.
@@ -87,18 +97,53 @@
     result = null;
     resultLoading = false;
     if (!id) return;
-    fetch(`/api/workflows/${encodeURIComponent(id)}`)
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const body = (await res.json()) as WorkflowDetail;
-        detail = body;
-        // Default to showing the current workflow's result.
+
+    const apply = (data: unknown) => {
+      // Server sends `null` when the workflow doesn't exist (or the dbos
+      // schema isn't provisioned yet) — surface that as an error so the
+      // page renders the same "not found" state the old REST 404 produced.
+      if (data === null) {
+        error = "workflow not found";
+        return;
+      }
+      const body = data as WorkflowDetail;
+      detail = body;
+      error = null;
+      if (!selectionSeeded) {
         const self = body.family.find((w) => w.workflow_id === body.workflow_id);
         selection = self ? { kind: "workflow", workflow: self } : null;
-      })
-      .catch((e) => {
-        error = e instanceof Error ? e.message : String(e);
-      });
+        selectionSeeded = true;
+        return;
+      }
+      // Re-point the selection at the fresh objects so the result pane sees
+      // updated has_output / has_error / status flags. Match by id; if the
+      // selected node disappears (rare — would mean a step or workflow
+      // vanished), drop selection rather than show stale data.
+      const cur = selection;
+      if (cur === null) return;
+      if (cur.kind === "workflow") {
+        const fresh = body.family.find((w) => w.workflow_id === cur.workflow.workflow_id);
+        selection = fresh ? { kind: "workflow", workflow: fresh } : null;
+      } else {
+        const fresh = body.steps.find(
+          (s) =>
+            s.workflow_id === cur.step.workflow_id && s.function_id === cur.step.function_id,
+        );
+        selection = fresh ? { kind: "step", step: fresh } : null;
+      }
+    };
+
+    workflowHandle = realtimeClient.subscribe(
+      "workflow",
+      { id },
+      {
+        onSnapshot: apply,
+        onUpdate: apply,
+        onError: (_code, message) => {
+          error = message;
+        },
+      },
+    );
   });
 
   $effect(() => {
@@ -184,6 +229,7 @@
   });
 
   onDestroy(() => {
+    workflowHandle?.dispose();
     breadcrumb.items = [];
   });
 </script>

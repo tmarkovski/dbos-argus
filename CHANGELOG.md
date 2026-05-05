@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+### Added
+- Realtime (WebSocket) layer at `/ws` replaces per-page polling. One
+  multiplexed socket carries every page's subscriptions; server-side
+  pollers gate heavier snapshots behind a cheap cursor query and shut
+  down when the last subscriber disconnects. Channels: `health`,
+  `stats`, `stats.timeseries`, `workflows`, `workflow`, `schedules`,
+  `notifications` — each emits the same JSON shape as its REST
+  counterpart, which remains authoritative for curl/debug. Cursor
+  queries are implemented per-dialect on `ArgusDB` so the layer works
+  unchanged on both Postgres and SQLite. Configurable via
+  `ARGUS_REALTIME_ENABLED`, `ARGUS_REALTIME_INTERVAL_MS`,
+  `ARGUS_REALTIME_HEALTH_INTERVAL_MS`, and
+  `ARGUS_REALTIME_MAX_SUBS_PER_CONN`.
+- Live workflow detail page: subscribing to `workflow` with `{id}`
+  re-snapshots every tick so steps appear as they complete.
+
+### Changed
+- Connection indicator now reflects WebSocket health (with a 1Hz
+  poll surfacing disconnects as a sticky `fetchError`) instead of
+  per-page `setInterval(5000)` `/healthz` fetches.
+
 ## [0.0.20] - 2026-05-04
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.

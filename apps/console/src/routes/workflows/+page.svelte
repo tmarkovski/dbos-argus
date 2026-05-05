@@ -33,6 +33,7 @@
   import { STATUS_LABELS, WORKFLOW_STATUSES } from "$lib/workflow-status";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
   import { statsState } from "$lib/stats.svelte";
+  import { realtimeClient, type SubscriptionHandle } from "$lib/realtime";
 
   const queueName = $derived(page.url.searchParams.get("queue_name") ?? "");
 
@@ -58,15 +59,19 @@
 
   let workflows = $state<Workflow[] | null>(null);
   // ENQUEUED rows live in a pinned strip above the main list; the server
-  // hides them from /api/workflows by default, and the strip fetches them
-  // explicitly via ?status=ENQUEUED.
+  // hides them from /api/workflows by default, and the strip subscribes
+  // separately with `status: ["ENQUEUED"]`.
   let enqueued = $state<Workflow[]>([]);
   // Collapse state survives reloads/navigation; SSR has no window so the
   // initial value defaults to expanded and gets corrected on hydrate.
   const ENQUEUED_COLLAPSED_KEY = "argus.workflows.enqueuedCollapsed";
   let enqueuedCollapsed = $state(false);
   let error = $state<string | null>(null);
-  let timer: ReturnType<typeof setInterval> | undefined;
+  // Realtime subscription handles. The page holds two: the main filtered
+  // list and the pinned ENQUEUED strip. Both push fresh snapshots whenever
+  // anything in dbos.workflow_status / operation_outputs changes.
+  let mainHandle: SubscriptionHandle | null = null;
+  let enqueuedHandle: SubscriptionHandle | null = null;
 
   // Filter options derived from the canonical status list — adding a new DBOS
   // workflow status only requires editing `$lib/workflow-status.ts`. ENQUEUED
@@ -241,67 +246,74 @@
     selectedStatuses = next;
   }
 
-  function buildQuery(): string {
-    const params = new URLSearchParams();
-    if (filters.q.trim()) params.set("q", filters.q.trim());
-    if (queueName) params.set("queue_name", queueName);
+  function buildMainParams(): Record<string, unknown> {
+    const p: Record<string, unknown> = {
+      grouped,
+      hide_scheduled: hideScheduled,
+    };
+    if (filters.q.trim()) p.q = filters.q.trim();
+    if (queueName) p.queue_name = queueName;
     const tz = getLocalTimeZone();
     if (dateRange.start) {
-      params.set("started_after", dateRange.start.toDate(tz).toISOString());
+      p.started_after = dateRange.start.toDate(tz).toISOString();
     }
     if (dateRange.end) {
       const end = dateRange.end.toDate(tz);
       end.setHours(23, 59, 59, 999);
-      params.set("started_before", end.toISOString());
+      p.started_before = end.toISOString();
     }
     if (selectedStatuses.size > 0 && selectedStatuses.size < STATUS_OPTIONS.length) {
-      for (const s of selectedStatuses) params.append("status", s);
+      p.status = Array.from(selectedStatuses);
     }
-    if (hideScheduled) params.set("hide_scheduled", "true");
-    params.set("grouped", grouped ? "true" : "false");
-    return params.toString();
+    return p;
   }
 
-  function buildEnqueuedQuery(): string {
+  function buildEnqueuedParams(): Record<string, unknown> {
     // The strip is a top-of-page "what's currently waiting to run" pin and is
     // intentionally independent of the toolbar filters below it. The only
     // input it honors is the URL `queue_name` route scope — when the page is
     // scoped to a single queue, the strip is too.
-    const params = new URLSearchParams();
-    if (queueName) params.set("queue_name", queueName);
-    params.set("status", "ENQUEUED");
-    params.set("grouped", "false");
-    params.set("limit", "50");
-    return params.toString();
+    const p: Record<string, unknown> = {
+      grouped: false,
+      limit: 50,
+      status: ["ENQUEUED"],
+    };
+    if (queueName) p.queue_name = queueName;
+    return p;
   }
 
-  async function refresh() {
-    try {
-      const enqRes = await fetch("/api/workflows?" + buildEnqueuedQuery());
-      if (!enqRes.ok) throw new Error(`HTTP ${enqRes.status}`);
-      enqueued = (await enqRes.json()) as Workflow[];
-      if (selectedStatuses.size === 0) {
-        workflows = [];
-      } else {
-        const listRes = await fetch("/api/workflows?" + buildQuery());
-        if (!listRes.ok) throw new Error(`HTTP ${listRes.status}`);
-        workflows = (await listRes.json()) as Workflow[];
-      }
+  function applyMainSnapshot(data: unknown): void {
+    if (Array.isArray(data)) {
+      workflows = data as Workflow[];
       error = null;
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-      workflows = null;
-      enqueued = [];
+    }
+  }
+  function applyEnqueuedSnapshot(data: unknown): void {
+    if (Array.isArray(data)) {
+      enqueued = data as Workflow[];
     }
   }
 
-  let debounce: ReturnType<typeof setTimeout> | undefined;
-  function scheduleRefresh() {
-    if (debounce) clearTimeout(debounce);
-    debounce = setTimeout(refresh, 250);
+  // Filter changes flow through update_params, not new subscriptions —
+  // keeps the same poller alive on the server when only one knob moved.
+  // 250ms debounce coalesces bursty change events (e.g. selecting multiple
+  // statuses in a popover) into a single round-trip.
+  let updateDebounce: ReturnType<typeof setTimeout> | undefined;
+  function scheduleParamUpdate() {
+    if (updateDebounce) clearTimeout(updateDebounce);
+    updateDebounce = setTimeout(() => {
+      // selectedStatuses === empty set means "show nothing" client-side
+      // (rather than "no filter" which the server would interpret as all).
+      // Track that locally; don't push an impossible filter to the server.
+      if (selectedStatuses.size === 0) {
+        workflows = [];
+      }
+      mainHandle?.updateParams(buildMainParams());
+      enqueuedHandle?.updateParams(buildEnqueuedParams());
+    }, 250);
   }
 
-  // Re-fetch whenever any filter/view dimension changes.
+  // Re-evaluate subscription params whenever any filter/view dimension changes.
   $effect(() => {
     filters.q;
     dateRange.start;
@@ -310,7 +322,7 @@
     hideScheduled;
     grouped;
     queueName;
-    scheduleRefresh();
+    scheduleParamUpdate();
   });
 
   $effect(() => {
@@ -329,8 +341,17 @@
       // localStorage may be unavailable (private mode, sandboxed) — fall back
       // to defaults.
     }
-    refresh();
-    timer = setInterval(refresh, 5000);
+    mainHandle = realtimeClient.subscribe("workflows", buildMainParams(), {
+      onSnapshot: applyMainSnapshot,
+      onUpdate: applyMainSnapshot,
+      onError: (_code, message) => {
+        error = message;
+      },
+    });
+    enqueuedHandle = realtimeClient.subscribe("workflows", buildEnqueuedParams(), {
+      onSnapshot: applyEnqueuedSnapshot,
+      onUpdate: applyEnqueuedSnapshot,
+    });
   });
 
   function toggleEnqueuedCollapsed() {
@@ -343,8 +364,9 @@
   }
 
   onDestroy(() => {
-    if (timer) clearInterval(timer);
-    if (debounce) clearTimeout(debounce);
+    mainHandle?.dispose();
+    enqueuedHandle?.dispose();
+    if (updateDebounce) clearTimeout(updateDebounce);
     if (qDebounce) clearTimeout(qDebounce);
   });
 

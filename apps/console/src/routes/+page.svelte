@@ -22,10 +22,11 @@
   import * as Table from "$lib/components/ui/table/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import WorkflowThroughputChart from "$lib/components/WorkflowThroughputChart.svelte";
+  import { realtimeClient, type SubscriptionHandle } from "$lib/realtime";
 
   let recents = $state<Workflow[] | null>(null);
   let error = $state<string | null>(null);
-  let timer: ReturnType<typeof setInterval> | undefined;
+  let recentsHandle: SubscriptionHandle | null = null;
 
   const stats = $derived(statsState.data);
 
@@ -36,29 +37,30 @@
     };
   });
 
-  async function refresh() {
-    try {
-      const [, w] = await Promise.all([
-        statsState.refresh(),
-        fetch("/api/workflows?limit=8&grouped=false").then((r) => {
-          if (!r.ok) throw new Error(`workflows HTTP ${r.status}`);
-          return r.json() as Promise<Workflow[]>;
-        }),
-      ]);
-      recents = w;
-      error = statsState.error;
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    }
+  function applyRecents(data: unknown): void {
+    if (!Array.isArray(data)) return;
+    recents = data as Workflow[];
+    // Only clear the local error; the layout-level statsState may still
+    // have its own error which we surface below.
+    error = statsState.error;
   }
 
   onMount(() => {
-    refresh();
-    timer = setInterval(refresh, 5000);
+    recentsHandle = realtimeClient.subscribe(
+      "workflows",
+      { limit: 8, grouped: false },
+      {
+        onSnapshot: applyRecents,
+        onUpdate: applyRecents,
+        onError: (_code, message) => {
+          error = message;
+        },
+      },
+    );
   });
 
   onDestroy(() => {
-    if (timer) clearInterval(timer);
+    recentsHandle?.dispose();
   });
 
   const inFlightHref = "/workflows/?status=PENDING&status=ENQUEUED&status=DELAYED";

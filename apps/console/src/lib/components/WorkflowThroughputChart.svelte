@@ -5,6 +5,7 @@
   import * as Chart from "$lib/components/ui/chart/index.js";
   import * as Select from "$lib/components/ui/select/index.js";
   import * as ToggleGroup from "$lib/components/ui/toggle-group/index.js";
+  import { realtimeClient, type SubscriptionHandle } from "$lib/realtime";
 
   type ApiBucket = {
     ts: string;
@@ -25,37 +26,42 @@
 
   let range = $state<Range>(loadRange());
   let data = $state<{ ts: Date; succeeded: number; errored: number; running: number }[]>([]);
-  let timer: ReturnType<typeof setInterval> | undefined;
+  let handle: SubscriptionHandle | null = null;
 
-  async function refresh() {
-    try {
-      const r = await fetch(`/api/stats/timeseries?range=${range}`);
-      if (!r.ok) return;
-      const buckets: ApiBucket[] = await r.json();
-      data = buckets.map((b) => ({
-        ts: new Date(b.ts),
-        succeeded: b.succeeded,
-        errored: b.errored,
-        running: b.running,
-      }));
-    } catch {
-      // silently ignore — the dashboard's main fetch will surface the error
-    }
+  function applySnapshot(payload: unknown): void {
+    if (!Array.isArray(payload)) return;
+    data = (payload as ApiBucket[]).map((b) => ({
+      ts: new Date(b.ts),
+      succeeded: b.succeeded,
+      errored: b.errored,
+      running: b.running,
+    }));
   }
 
+  // Persist range + push update_params on change so the same subscription
+  // re-keys server-side instead of unsubscribing + resubscribing.
   $effect(() => {
     if (typeof localStorage !== "undefined") {
       localStorage.setItem(RANGE_STORAGE_KEY, range);
     }
-    refresh();
+    handle?.updateParams({ range });
   });
 
   onMount(() => {
-    timer = setInterval(refresh, 10_000);
+    handle = realtimeClient.subscribe(
+      "stats.timeseries",
+      { range },
+      {
+        onSnapshot: applySnapshot,
+        onUpdate: applySnapshot,
+        // Errors are intentionally silent — the dashboard's main connection
+        // indicator already surfaces server-side problems.
+      },
+    );
   });
 
   onDestroy(() => {
-    if (timer) clearInterval(timer);
+    handle?.dispose();
   });
 
   const rangeLabel = $derived.by(() => {
