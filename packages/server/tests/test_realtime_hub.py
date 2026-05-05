@@ -63,6 +63,22 @@ class StaticChannel(BroadcastChannel):
         return {"value": "static"}
 
 
+class NoCursorStableChannel(BroadcastChannel):
+    """No cursor (the default) but a stable snapshot. Models the
+    `workflow` / `health` channels: every tick re-snapshots, but the
+    payload is often byte-identical between ticks.
+    """
+
+    name = "no-cursor-stable"
+
+    def __init__(self) -> None:
+        self.snapshot_calls = 0
+
+    async def snapshot(self, params: dict[str, Any] | None) -> Any:
+        self.snapshot_calls += 1
+        return {"value": "stable"}
+
+
 class ParamEchoChannel(KeyedChannel):
     """Snapshot echoes the params back. Cursor changes any time params do, so
     distinct params hashes get distinct pollers (which is what we want to
@@ -244,6 +260,30 @@ async def test_static_cursor_skips_subsequent_broadcasts() -> None:
     types = [m.type for m in msgs]  # type: ignore[attr-defined]
     assert types.count("snapshot") == 1
     assert types.count("update") == 0
+
+    hub.detach(conn)
+
+
+async def test_identical_snapshot_suppresses_update() -> None:
+    """No-cursor channels re-run snapshot every tick. If the payload is
+    identical, the hub should not emit `update` messages — clients don't
+    need to re-render unchanged data.
+    """
+    hub = RealtimeHub(default_interval_ms=20)
+    channel = NoCursorStableChannel()
+    hub.register_channel(channel)
+    conn = _make_conn()
+    hub.attach(conn)
+
+    hub.subscribe(conn, "s1", "no-cursor-stable", None)
+    await asyncio.sleep(0.15)  # multiple ticks elapse
+
+    msgs = _drain(conn)
+    types = [m.type for m in msgs]  # type: ignore[attr-defined]
+    assert types.count("snapshot") == 1
+    assert types.count("update") == 0
+    # Snapshot still ran on every tick (the dedupe is post-snapshot).
+    assert channel.snapshot_calls >= 2
 
     hub.detach(conn)
 

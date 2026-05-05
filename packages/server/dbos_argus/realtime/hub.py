@@ -204,9 +204,16 @@ class Poller:
 
             self._last_error = None
             had_snapshot = self.has_snapshot
+            prev_snapshot = self._last_snapshot
             self._last_cursor = cursor
             self._last_snapshot = snapshot
             if had_snapshot:
+                if snapshot == prev_snapshot:
+                    # Cursor-less channels (workflow, health) re-snapshot every
+                    # tick; suppress the update when the payload is identical so
+                    # clients don't re-render needlessly. xyflow in particular
+                    # restarts edge-dash animations on every props update.
+                    continue
                 self._broadcast_update()
             else:
                 # First snapshot for this poller — broadcast as `snapshot`.
