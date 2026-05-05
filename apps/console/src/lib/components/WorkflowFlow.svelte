@@ -454,6 +454,11 @@
       return nameByWorkflowId.get(s.child_workflow_id) ?? null;
     }
 
+    function spawnedName(s: Step): string | null {
+      if (stepKind(s) !== "child" || !s.child_workflow_id) return null;
+      return nameByWorkflowId.get(s.child_workflow_id) ?? null;
+    }
+
     // Steps that connect to other family workflows (spawn or getResult) must
     // remain visible even if they fall in the truncated middle range, otherwise
     // their cross-container edges would lose an endpoint.
@@ -644,6 +649,7 @@
                 ? s.child_workflow_id
                 : null,
             awaitedWorkflowName: awaitedName(s),
+            spawnedWorkflowName: spawnedName(s),
             eventDirection: eventDirection(s),
             eventKey: s.event_key,
             sleepRequestedMs: s.sleep_requested_ms,

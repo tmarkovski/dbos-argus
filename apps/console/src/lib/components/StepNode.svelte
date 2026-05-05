@@ -15,6 +15,7 @@
     durationMs: number | null;
     awaitsWorkflowId?: string | null;
     awaitedWorkflowName?: string | null;
+    spawnedWorkflowName?: string | null;
     eventDirection?: EventDirection;
     eventKey?: string | null;
     sleepRequestedMs?: number | null;
@@ -91,10 +92,12 @@
       {/if}
     </span>
   {:else if data.awaitedWorkflowName}
-    <span class="truncate font-mono text-xs" title={data.functionName}>
-      <span class="text-muted-foreground">result</span>
-      <span class="text-muted-foreground">←</span>
-      <span class="text-workflow-accent">{data.awaitedWorkflowName}</span>
+    <span class="text-workflow-accent truncate font-mono text-xs" title={data.functionName}>
+      {data.awaitedWorkflowName}
+    </span>
+  {:else if data.spawnedWorkflowName}
+    <span class="text-workflow-accent truncate font-mono text-xs" title={data.functionName}>
+      {data.spawnedWorkflowName}
     </span>
   {:else}
     <span class="truncate font-mono text-xs {nameClass}" title={data.functionName}>
@@ -103,9 +106,18 @@
         : data.functionName}
     </span>
   {/if}
-  {#if displayDurationMs !== null}
-    <span class="text-muted-foreground ml-auto flex-none font-mono text-[10px]">
-      {formatDuration(displayDurationMs)}
+  {#if data.awaitedWorkflowName || data.spawnedWorkflowName || displayDurationMs !== null}
+    <span
+      class="text-muted-foreground ml-auto flex flex-none items-center gap-1 font-mono text-[10px]"
+    >
+      {#if data.spawnedWorkflowName}
+        <span aria-hidden="true">→</span>
+      {:else if data.awaitedWorkflowName}
+        <span aria-hidden="true">←</span>
+      {/if}
+      {#if displayDurationMs !== null}
+        <span>{formatDuration(displayDurationMs)}</span>
+      {/if}
     </span>
   {/if}
   {#if !data.isLast}
