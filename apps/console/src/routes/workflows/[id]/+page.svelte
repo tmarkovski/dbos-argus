@@ -51,16 +51,36 @@
   const workflowId = $derived(page.params.id ?? "");
 
   let rightWidth = $state(384); // matches the previous w-96
+  let collapsed = $state(false);
   let dragging = $state(false);
   let dragStartX = 0;
   let dragStartWidth = 0;
+  // Width to restore if a drag-from-collapsed releases below MIN_RIGHT.
+  let savedRightWidth = 0;
+  let dragFromCollapsed = false;
   const MIN_RIGHT = 280;
   const MAX_RIGHT = 900;
+  // Width left visible when collapsed: just enough to show the eyebrow's
+  // 32px (icon-sm) toggle button + the eyebrow's px-4 horizontal padding.
+  const PEEK_WIDTH = 64;
+
+  const effectiveRightWidth = $derived(collapsed ? PEEK_WIDTH : rightWidth);
 
   function onHandlePointerDown(e: PointerEvent) {
     dragging = true;
     dragStartX = e.clientX;
-    dragStartWidth = rightWidth;
+    dragFromCollapsed = collapsed;
+    if (collapsed) {
+      // Drag from collapsed: anchor the drag at the peek width so the pane
+      // grows out of the peek under the cursor instead of jumping straight
+      // to the saved expanded width.
+      savedRightWidth = rightWidth;
+      dragStartWidth = PEEK_WIDTH;
+      rightWidth = PEEK_WIDTH;
+      collapsed = false;
+    } else {
+      dragStartWidth = rightWidth;
+    }
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
 
@@ -68,11 +88,22 @@
     if (!dragging) return;
     const delta = e.clientX - dragStartX;
     const next = dragStartWidth - delta;
-    rightWidth = Math.max(MIN_RIGHT, Math.min(MAX_RIGHT, next));
+    // Drag-from-collapsed allows widths down to PEEK_WIDTH so the user can
+    // back out of an expand. Drag-from-expanded keeps MIN_RIGHT so the pane
+    // stays usable.
+    const min = dragFromCollapsed ? PEEK_WIDTH : MIN_RIGHT;
+    rightWidth = Math.max(min, Math.min(MAX_RIGHT, next));
   }
 
   function onHandlePointerUp(e: PointerEvent) {
     dragging = false;
+    if (dragFromCollapsed && rightWidth < MIN_RIGHT) {
+      // Released without expanding past MIN_RIGHT — snap back to collapsed
+      // and restore the previously-expanded width for next expand.
+      collapsed = true;
+      rightWidth = savedRightWidth;
+    }
+    dragFromCollapsed = false;
     (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
   }
 
@@ -273,12 +304,20 @@
         </span>
       </button>
     </div>
-    <div class="flex-none" style="width: {rightWidth}px">
+    <div
+      class="flex-none overflow-hidden"
+      class:transition-[width]={!dragging}
+      class:duration-200={!dragging}
+      class:ease-out={!dragging}
+      style="width: {effectiveRightWidth}px"
+    >
       <ResultPane
         {selection}
         {result}
         loading={resultLoading}
         events={detail.events}
+        {collapsed}
+        onToggleCollapse={() => (collapsed = !collapsed)}
       />
     </div>
   </div>

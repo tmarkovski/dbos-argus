@@ -59,8 +59,10 @@
 </script>
 
 <div
-  class="bg-muted flex h-full w-full cursor-pointer items-center gap-2 rounded-full px-3 py-1
-    {selected ? 'ring-primary ring-2 ring-inset' : ''}"
+  class="flex h-full w-full cursor-pointer items-center gap-2 rounded-full border px-3 py-1
+    {selected
+      ? 'border-primary bg-primary/5'
+      : 'border-border hover:bg-muted/40'}"
 >
   {#if !data.isFirst}
     <Handle type="target" position={Position.Top} isConnectable={false} />

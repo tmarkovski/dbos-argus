@@ -3,10 +3,13 @@
   import type { FlowSelection } from "./WorkflowFlow.svelte";
   import { formatStatus, statusBadgeClass } from "$lib/workflow-tree";
   import { Badge } from "$lib/components/ui/badge/index.js";
+  import { Button } from "$lib/components/ui/button/index.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import Copy from "@lucide/svelte/icons/copy";
   import Check from "@lucide/svelte/icons/check";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
+  import PanelRightClose from "@lucide/svelte/icons/panel-right-close";
+  import PanelRightOpen from "@lucide/svelte/icons/panel-right-open";
 
   // Result data is loaded lazily by the parent page (cached for the lifetime
   // of the page) so we never drag potentially-large output blobs through
@@ -43,11 +46,15 @@
     result,
     loading = false,
     events = [],
+    collapsed = false,
+    onToggleCollapse,
   }: {
     selection: FlowSelection;
     result: ResultData | null;
     loading?: boolean;
     events?: WorkflowEventEntry[];
+    collapsed?: boolean;
+    onToggleCollapse?: () => void;
   } = $props();
 
   type ViewMode = "raw" | "decoded";
@@ -72,7 +79,7 @@
       const dur =
         new Date(w.updated_at).getTime() - new Date(w.started_at).getTime();
       return {
-        resultLabel: "Workflow result",
+        resultLabel: "Workflow details",
         title: w.name ?? "—",
         subtitle: w.workflow_id,
         status: w.status,
@@ -86,7 +93,7 @@
         ? new Date(s.completed_at).getTime() - new Date(s.started_at).getTime()
         : null;
     return {
-      resultLabel: `Step #${s.function_id} result`,
+      resultLabel: `Step #${s.function_id} details`,
       title: s.function_name,
       subtitle: s.workflow_id,
       status: null as string | null,
@@ -364,12 +371,30 @@
 
 <aside class="bg-card flex h-full w-full flex-col overflow-hidden">
   <div class="border-border bg-muted/30 flex min-h-10 items-center gap-2 border-b px-4 py-2.5">
-    <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+    <span class="text-muted-foreground truncate text-xs font-medium tracking-wide uppercase">
       {heading?.resultLabel ?? "Result"}
     </span>
+    {#if onToggleCollapse}
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        class="ml-auto"
+        onclick={onToggleCollapse}
+        title={collapsed ? "Expand" : "Collapse"}
+        aria-label={collapsed ? "Expand details pane" : "Collapse details pane"}
+      >
+        {#if collapsed}
+          <PanelRightOpen />
+        {:else}
+          <PanelRightClose />
+        {/if}
+      </Button>
+    {/if}
   </div>
 
-  {#if !selection || !heading}
+  {#if collapsed}
+    <!-- Body hidden — only the eyebrow header is visible, acting as a tab. -->
+  {:else if !selection || !heading}
     <div class="text-muted-foreground flex flex-1 items-center justify-center p-6 text-sm">
       Select a workflow or step to see its result.
     </div>

@@ -23,10 +23,10 @@
 <div
   class="bg-card relative flex h-full w-full cursor-pointer flex-col rounded-2xl border
     {selected
-      ? 'border-primary shadow-md'
+      ? 'border-primary'
       : data.isCurrent
-        ? 'border-primary/50 shadow-sm'
-        : 'border-foreground/15 shadow-sm'}"
+        ? 'border-primary/50'
+        : 'border-foreground/15'}"
 >
   <Handle
     id="spawn"
