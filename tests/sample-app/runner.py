@@ -56,8 +56,13 @@ def seed() -> None:
     DBOS.launch()
     LOG.info("argus-runner up — executor_id=%s", EXECUTOR_ID)
 
-    LOG.info("process_order result: %s", process_order("ord-1001"))
-    LOG.info("send_campaign result: %s", send_campaign("spring-sale", 20))
+    # Fire-and-forget so all three trees run concurrently — with the random
+    # 3-10s step pauses, awaiting `process_order` / `send_campaign` here would
+    # delay `fulfill_order`'s start by minutes.
+    process_handle = DBOS.start_workflow(process_order, "ord-1001")
+    campaign_handle = DBOS.start_workflow(send_campaign, "spring-sale", 20)
+    LOG.info("started process_order: %s", process_handle.workflow_id)
+    LOG.info("started send_campaign: %s", campaign_handle.workflow_id)
 
     fulfill_workflow_id = f"fulfill-{uuid.uuid4().hex[:8]}"
     with SetWorkflowID(fulfill_workflow_id):

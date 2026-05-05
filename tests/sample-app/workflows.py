@@ -10,6 +10,7 @@ operations and don't need workflow definitions).
 from __future__ import annotations
 
 import logging
+import random
 import time
 
 from dbos import DBOS, SetWorkflowID
@@ -21,15 +22,21 @@ CARRIER_CONFIRMATION_TOPIC = "carrier-confirmation"
 OPS_SIGNOFF_TOPIC = "ops-signoff"
 
 
+# Steps reachable from `fulfill_order`'s tree sleep a random 3-10s so the
+# workflow takes long enough to watch progress live in the dashboard.
+def _fulfill_pause() -> None:
+    time.sleep(random.uniform(3, 10))
+
+
 @DBOS.step()
 def validate_order(order_id: str) -> dict:
-    time.sleep(0.08)
+    _fulfill_pause()
     return {"order_id": order_id, "valid": True, "items_count": 3}
 
 
 @DBOS.step()
 def compute_total(item_count: int, region: str) -> dict:
-    time.sleep(0.04)
+    _fulfill_pause()
     rate = {"us": 1.0, "eu": 0.85, "uk": 0.78}.get(region, 1.0)
     subtotal = item_count * 19.99
     return {
@@ -42,19 +49,19 @@ def compute_total(item_count: int, region: str) -> dict:
 
 @DBOS.step()
 def log_event(event: str) -> None:
-    time.sleep(0.02)
+    _fulfill_pause()
     LOG.info("event: %s", event)
 
 
 @DBOS.step()
 def audit(action: str) -> dict:
-    time.sleep(0.01)
+    _fulfill_pause()
     return {"action": action, "actor": "fulfillment"}
 
 
 @DBOS.step()
 def package_items(order_id: str) -> str:
-    time.sleep(0.01)
+    _fulfill_pause()
     return f"PKG-{order_id.upper()}"
 
 
@@ -66,7 +73,7 @@ def count_items(label: str) -> int:
 
 @DBOS.step()
 def run_fraud_scan(order_id: str) -> None:
-    time.sleep(0.02)
+    _fulfill_pause()
     raise ValueError(f"suspicious activity detected for order {order_id!r}")
 
 
