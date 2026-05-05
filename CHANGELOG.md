@@ -9,6 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.22] - 2026-05-05
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+### Changed
+- Default preset switched to `b5TiUdXFtA` (violet primary, neutral charts,
+  Inter sans + Roboto Slab heading) via `pnpm --filter console theme:sync`.
+  Favicon set (svg + 16/32 + apple-touch) recolored from the prior teal
+  `#00786f` to violet `#6d28d9` to match the new `--primary`.
+- Workflow detail flow: step pills lost their gray fill in favor of a
+  transparent rounded-full border. Hover gets a faint `bg-muted/40` tint;
+  selected state swaps to a `border-primary` outline with a `bg-primary/5`
+  inset. Workflow containers lost their drop shadows in all three states
+  (selected / current / default) — the borders alone carry the structure
+  now that the step layer is quieter.
+- Workflow detail flow, awaited and spawn rows: the directional arrow
+  (`←` for `DBOS.getResult`, `→` for child spawn) moved out of the step
+  body and onto the duration line on the right, so it visually anchors
+  at the same edge of the pill as the spawn / return xyflow handles.
+  Awaited rows dropped the literal "result" prefix; both rows show the
+  cross-workflow target name in the body slot, and child rows resolve
+  the spawned workflow's display name via family lookup (paralleling
+  the existing awaited-name resolution).
+- Workflow detail side pane: title bar now reads "Workflow details" /
+  "Step #N details" (was "... result") since the pane carries metadata
+  + events alongside the result. New collapse toggle in the eyebrow
+  (`PanelRightClose` / `PanelRightOpen` via the same `icon-sm` ghost
+  Button as the layout's sidebar trigger and theme switcher) hides the
+  body and animates the pane width down to a 64px peek. The resize
+  handle stays in place; grabbing it while collapsed pulls the pane
+  out of the peek under the cursor instead of jumping to the saved
+  expanded width, and releasing below the usable minimum snaps back
+  to collapsed.
+
 ## [0.0.21] - 2026-05-04
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
@@ -436,7 +470,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.20...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.22...HEAD
+[0.0.22]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.22
+[0.0.21]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.21
 [0.0.20]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.20
 [0.0.19]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.19
 [0.0.18]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.18
