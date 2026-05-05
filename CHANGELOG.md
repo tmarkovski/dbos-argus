@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.21] - 2026-05-04
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
 ### Added
+- SQLite backend support via the new `ArgusDB` adapter split. Point
+  `ARGUS_DATABASE_URL` at `sqlite+aiosqlite:///path/to/argus.db` and
+  the entire stack (REST + realtime) works against the DBOS app's
+  SQLite store. CI matrix runs the test suite against both backends.
 - Realtime (WebSocket) layer at `/ws` replaces per-page polling. One
   multiplexed socket carries every page's subscriptions; server-side
   pollers gate heavier snapshots behind a cheap cursor query and shut
@@ -28,7 +36,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Connection indicator now reflects WebSocket health (with a 1Hz
   poll surfacing disconnects as a sticky `fetchError`) instead of
-  per-page `setInterval(5000)` `/healthz` fetches.
+  per-page `setInterval(5000)` `/healthz` fetches. While diagnostics
+  report issues (e.g. dbos schema absent), the indicator re-polls
+  `/api/sql-diagnostics` every 5s so it converges automatically once
+  the DBOS app provisions its tables — no hard refresh needed.
+- Hub suppresses `update` broadcasts when a fresh snapshot is
+  byte-identical to the cached one. Cursor-less channels (`workflow`,
+  `health`) re-snapshot every tick; the dedupe keeps the wire quiet
+  and prevents xyflow edge-dash animations on the workflow detail
+  page from restarting on every poll.
+
+### Fixed
+- Workflow flow renders the container header (name + ID) for
+  freshly-spawned workflows that have no steps yet — ELK was
+  collapsing empty containers to ~0×0, leaving only the status
+  badge visible until the first step landed.
 
 ## [0.0.20] - 2026-05-04
 
