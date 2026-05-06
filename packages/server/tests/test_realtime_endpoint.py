@@ -14,6 +14,7 @@ from dbos_argus.realtime import RealtimeHub, register_websocket_route
 from dbos_argus.realtime.channel import BroadcastChannel, KeyedChannel
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 
 class _Static(BroadcastChannel):
@@ -133,6 +134,19 @@ def test_update_params_emits_fresh_snapshot() -> None:
         assert "ack" in types
         snap = msgs[-1]
         assert snap["data"] == {"params": {"id": "y"}}
+
+
+def test_websocket_rejects_disallowed_origin() -> None:
+    app = FastAPI()
+    hub = RealtimeHub(default_interval_ms=10_000)
+    hub.register_channel(_Static())
+    register_websocket_route(app, hub, allowed_origins=["http://allowed.example"])
+    with TestClient(app) as client:
+        try:
+            with client.websocket_connect("/ws", headers={"origin": "http://evil.example"}):
+                raise AssertionError("connection should have been rejected")
+        except WebSocketDisconnect:
+            pass
 
 
 def test_bad_message_returns_error() -> None:

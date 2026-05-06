@@ -21,7 +21,12 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="ARGUS_", env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+asyncpg://argus:argus@localhost:5432/argus"
-    cors_origins: str = "http://localhost:5173"
+    # Argus is an unauthenticated read-only dev tool, typically bound to
+    # localhost. The default opens CORS / WebSocket origins so the bundled
+    # console works on any port and any custom Vite dev port works without
+    # extra config. Operators who expose Argus beyond localhost should
+    # narrow this to their console origin(s).
+    cors_origins: str = "*"
     log_level: str = "INFO"
 
     # Realtime (WebSocket) layer. The /ws endpoint runs server-side polling
