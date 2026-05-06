@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.23] - 2026-05-06
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+### Fixed
+- Bundled console no longer hits a `403 Forbidden` on the `/ws` upgrade.
+  `ARGUS_CORS_ORIGINS` now defaults to `*` instead of the Vite dev port,
+  so the SPA served by FastAPI works on any listen port (and any custom
+  Vite dev port works without extra config). Argus is an unauthenticated
+  read-only dev tool typically bound to localhost — operators who expose
+  it more widely should narrow `ARGUS_CORS_ORIGINS` to their console
+  origin(s).
+
+### Changed
+- README: documented SQLite as a first-class backend alongside Postgres,
+  with `uvx` / `pipx` / Docker examples for both, the four-slash absolute
+  path convention for `sqlite://` URLs, and an updated architecture
+  diagram showing the dual-backend store.
+
 ## [0.0.22] - 2026-05-05
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.

@@ -2,7 +2,7 @@
 
 **A self-hosted, open-source, read-only workflow viewer for DBOS Transact applications.**
 
-Argus is a web dashboard for visualizing the durable workflows your [DBOS Transact](https://github.com/dbos-inc/dbos-transact-py) apps are already running. It points at the Postgres database your DBOS app uses, opens a read-only connection, and renders the workflow state DBOS already stores there. No agents, no app-side wiring, no schema of its own, no write path.
+Argus is a web dashboard for visualizing the durable workflows your [DBOS Transact](https://github.com/dbos-inc/dbos-transact-py) apps are already running. It points at the database your DBOS app uses (Postgres or SQLite), opens a read-only connection, and renders the workflow state DBOS already stores there. No agents, no app-side wiring, no schema of its own, no write path.
 
 ![Argus dashboard](docs/images/dashboard.png)
 
@@ -16,14 +16,22 @@ Argus is a web dashboard for visualizing the durable workflows your [DBOS Transa
 
 ## Quick start
 
-If you already have a DBOS app running against Postgres, you're 30 seconds away. Point Argus at the same database — pick whichever runner is most convenient.
+If you already have a DBOS app running, you're 30 seconds away. Point Argus at the same database (Postgres or SQLite) — pick whichever runner is most convenient.
 
 In every case, open http://localhost:8090 once it's up.
 
 ### With `uvx` (recommended, no install)
 
+Postgres:
+
 ```bash
 uvx dbos-argus --db-url "postgresql+asyncpg://USER:PASS@localhost:5432/YOURDB"
+```
+
+SQLite (use four slashes for an absolute path):
+
+```bash
+uvx dbos-argus --db-url "sqlite:////absolute/path/to/your-app.sqlite"
 ```
 
 [`uv`](https://docs.astral.sh/uv/) downloads the published wheel, installs it into a throwaway environment, and runs it. The console SPA is bundled inside the wheel — no separate frontend to install.
@@ -33,6 +41,8 @@ uvx dbos-argus --db-url "postgresql+asyncpg://USER:PASS@localhost:5432/YOURDB"
 ```bash
 pipx install dbos-argus
 dbos-argus --db-url "postgresql+asyncpg://USER:PASS@localhost:5432/YOURDB"
+# or:
+dbos-argus --db-url "sqlite:////absolute/path/to/your-app.sqlite"
 ```
 
 ### With Docker
@@ -43,11 +53,21 @@ docker run --rm -p 8090:8090 \
   tmarkovski/dbos-argus:latest
 ```
 
+For SQLite, mount the database file in and point Argus at the in-container path:
+
+```bash
+docker run --rm -p 8090:8090 \
+  -v /absolute/path/to/your-app.sqlite:/data/app.sqlite:ro \
+  -e ARGUS_DATABASE_URL="sqlite:////data/app.sqlite" \
+  tmarkovski/dbos-argus:latest
+```
+
 That's it. Argus connects read-only to `dbos.workflow_status` and the related DBOS system tables. Nothing to install in your app.
 
 A few gotchas:
 
-- **Argus runs on asyncpg.** Bare `postgresql://` and `postgres://` URLs work — Argus rewrites the scheme to `postgresql+asyncpg://` automatically. Pasting a standard libpq connection string is fine.
+- **Argus runs on asyncpg / aiosqlite.** Bare `postgresql://`, `postgres://`, and `sqlite://` URLs all work — Argus rewrites the scheme to `postgresql+asyncpg://` or `sqlite+aiosqlite://` automatically. Pasting a standard libpq connection string is fine.
+- **SQLite paths are absolute by URL convention.** `sqlite:////path/to/file.sqlite` (four slashes) means `/path/to/file.sqlite`. Three slashes makes it relative to the current working directory.
 - **Azure Database for PostgreSQL uses TLS.** Argus auto-enables `sslmode=require` for hosts under `*.postgres.database.azure.com`; add an explicit `sslmode=` only if you need to override that default.
 - **`host.docker.internal`** (Docker only) is what the container uses to reach Postgres on your host (macOS, Windows, Docker Desktop). On Linux, add `--add-host=host.docker.internal:host-gateway`, or use `--network host` and switch back to `localhost`.
 - **`pg_hba.conf`** may reject connections from the docker bridge (`172.17.0.0/16`) by default. If you see auth errors, add a matching `host` line.
@@ -55,10 +75,14 @@ A few gotchas:
 Smoke-test the URL first if you're unsure:
 
 ```bash
+# Postgres
 psql "postgresql://USER:PASS@localhost:5432/YOURDB" -c "select count(*) from dbos.workflow_status;"
+
+# SQLite
+sqlite3 /absolute/path/to/your-app.sqlite "select count(*) from workflow_status;"
 ```
 
-If that returns a number, you're good — pass the same URL to Argus (swap `localhost` → `host.docker.internal` if using the Docker runner).
+If that returns a number, you're good — pass the same database to Argus (swap `localhost` → `host.docker.internal` if using the Docker runner with Postgres).
 
 ### Image tags
 
@@ -74,8 +98,8 @@ Multi-arch: `linux/amd64` + `linux/arm64`. Pulled from [`tmarkovski/dbos-argus`]
 
 | Var | Purpose |
 |---|---|
-| `ARGUS_DATABASE_URL` | SQLAlchemy async URL to the Postgres your DBOS app writes to (must use `postgresql+asyncpg://`) |
-| `ARGUS_CORS_ORIGINS` | Comma-separated allowed origins (only needed if the console is served from a different host than the API) |
+| `ARGUS_DATABASE_URL` | SQLAlchemy async URL to the database your DBOS app writes to. Postgres (`postgresql+asyncpg://...`, or bare `postgresql://` / `postgres://` which Argus rewrites) and SQLite (`sqlite+aiosqlite:///...`, or bare `sqlite:///...`) are both supported. |
+| `ARGUS_CORS_ORIGINS` | Comma-separated allowed origins for the console / WebSocket. Defaults to `*` since Argus is an unauthenticated dev tool typically bound to localhost; narrow this if you expose Argus beyond localhost. |
 
 ## Why Argus exists
 
@@ -118,15 +142,15 @@ Argus is not affiliated with, endorsed by, or sponsored by DBOS Inc.
 │  DBOS app    │                       │  Argus                 │
 │  (Py / TS)   │                       │  FastAPI + console SPA │
 └──────┬───────┘                       └────────┬───────────────┘
-       │ writes dbos.workflow_status            │ reads dbos.workflow_status
+       │ writes workflow_status                 │ reads workflow_status
        ▼                                        ▼
        ┌────────────────────────────────────────┐
-       │             Postgres                   │
-       │   (DBOS Transact's system schema)      │
+       │       Postgres   or   SQLite           │
+       │      (DBOS Transact's system store)    │
        └────────────────────────────────────────┘
 ```
 
-One Postgres. Your DBOS app keeps writing workflow state to its `dbos.*` system tables exactly as it always has. Argus opens a separate read-only connection to the same database and renders what's in those tables.
+One database. Your DBOS app keeps writing workflow state to its system tables exactly as it always has. Argus opens a separate read-only connection to the same database and renders what's in those tables. Postgres and SQLite are both supported via a single backend adapter, so the REST and realtime layers behave the same regardless of where DBOS persists.
 
 The console is built as a static SPA and served by the FastAPI process on the same port — one image, one container, no CORS to think about.
 
