@@ -43,7 +43,9 @@
 
 <style>
   .json-view :global(.tk-key) {
-    color: var(--primary);
+    /* Tracks --primary in light, brightens it in dark — same treatment as
+       workflow-graph accents so keys stay legible on dark muted surfaces. */
+    color: var(--workflow-accent);
   }
   .json-view :global(.tk-str) {
     color: var(--status-success);
