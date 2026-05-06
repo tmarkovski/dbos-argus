@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.26] - 2026-05-06
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+### Added
+- Result pane: lightweight, dependency-free JSON syntax highlighter
+  (`JsonView`). Tries `JSON.parse` first; on success, tokenizes via the
+  classic Crockford regex and colors keys / strings / numbers / booleans /
+  null using existing theme tokens (keys use `--workflow-accent` so they
+  brighten against dark muted surfaces, the same treatment workflow-graph
+  child names already use). Falls back to escaped plain text when the
+  payload isn't parseable JSON (raw base64, malformed strings) so the
+  box still renders the value.
+
+### Changed
+- Result pane (output dialog): the bordered code box itself is now the
+  scroll container instead of the wrapper around it. Wrapper switched
+  to a `flex flex-col` slot and the box gets `min-h-0 flex-1
+  overflow-auto`, so the border stays pinned at the dialog's bounds
+  while long JSON scrolls inside.
+- Result pane (side panel): output box capped at `max-h-[70vh]` with
+  `min-h-64`. Long JSON now scrolls within the box up to ~70% of the
+  viewport instead of stretching the side pane down to match the
+  payload, while keeping a sensible minimum so the box stays usable
+  when metadata above it grows or the window shrinks.
+
 ## [0.0.25] - 2026-05-06
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
@@ -525,7 +551,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.22...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.26...HEAD
+[0.0.26]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.26
 [0.0.22]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.22
 [0.0.21]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.21
 [0.0.20]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.20
