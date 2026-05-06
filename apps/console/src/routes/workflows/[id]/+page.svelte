@@ -51,7 +51,30 @@
   const workflowId = $derived(page.params.id ?? "");
 
   let rightWidth = $state(384); // matches the previous w-96
-  let collapsed = $state(false);
+
+  // Side pane collapsed state survives reloads — same convention as the
+  // sidebar / workflow filters (`argus.*` key, hydrated at script init
+  // since the console runs with `ssr = false`).
+  const COLLAPSED_KEY = "argus.workflowDetail.detailsCollapsed";
+  function loadCollapsed(): boolean {
+    if (typeof localStorage === "undefined") return false;
+    try {
+      return localStorage.getItem(COLLAPSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  }
+  let collapsed = $state(loadCollapsed());
+  $effect(() => {
+    if (typeof localStorage === "undefined") return;
+    try {
+      localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
+    } catch {
+      // localStorage may be unavailable (private mode, sandboxed) — drop
+      // the write rather than crashing the effect.
+    }
+  });
+
   let dragging = $state(false);
   let dragStartX = 0;
   let dragStartWidth = 0;
