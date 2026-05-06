@@ -5,6 +5,7 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
+  import JsonView from "$lib/components/JsonView.svelte";
   import Copy from "@lucide/svelte/icons/copy";
   import Check from "@lucide/svelte/icons/check";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
@@ -573,16 +574,12 @@
           >
             {#if payload.kind === "error"}
               <pre
-                class="border-destructive/30 bg-destructive/5 text-destructive group-hover:border-destructive/70 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words transition-colors">{effectiveMode ===
-                "decoded" && payload.decoded !== null
-                  ? payload.decoded
-                  : payload.raw}</pre>
+                class="border-destructive/30 bg-destructive/5 text-destructive group-hover:border-destructive/70 max-h-[70vh] min-h-64 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words transition-colors">{displayedText}</pre>
             {:else}
-              <pre
-                class="border-border bg-muted/40 group-hover:border-primary/50 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words transition-colors">{effectiveMode ===
-                "decoded" && payload.decoded !== null
-                  ? payload.decoded
-                  : payload.raw}</pre>
+              <JsonView
+                text={displayedText}
+                class="border-border bg-muted/40 group-hover:border-primary/50 max-h-[70vh] min-h-64 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words transition-colors"
+              />
             {/if}
             <span
               aria-hidden="true"
@@ -671,13 +668,15 @@
           </div>
         </div>
       </div>
-      <div class="min-h-0 flex-1 overflow-auto">
+      <div class="flex min-h-0 flex-1 flex-col">
         {#if payload.kind === "error"}
           <pre
-            class="border-destructive/30 bg-destructive/5 text-destructive overflow-auto rounded-lg border p-4 font-mono text-xs whitespace-pre-wrap break-words">{displayedText}</pre>
+            class="border-destructive/30 bg-destructive/5 text-destructive min-h-0 flex-1 overflow-auto rounded-lg border p-4 font-mono text-xs whitespace-pre-wrap break-words">{displayedText}</pre>
         {:else}
-          <pre
-            class="border-border bg-muted/40 overflow-auto rounded-lg border p-4 font-mono text-xs whitespace-pre-wrap break-words">{displayedText}</pre>
+          <JsonView
+            text={displayedText}
+            class="border-border bg-muted/40 min-h-0 flex-1 overflow-auto rounded-lg border p-4 font-mono text-xs whitespace-pre-wrap break-words"
+          />
         {/if}
       </div>
       </div>
@@ -764,11 +763,10 @@
             </div>
           </div>
         </div>
-        <pre
-          class="border-border bg-muted/40 max-h-48 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{eventDisplay(
-            openedEvent.value,
-            openedEvent.value_decoded,
-          )}</pre>
+        <JsonView
+          text={eventDisplay(openedEvent.value, openedEvent.value_decoded)}
+          class="border-border bg-muted/40 max-h-48 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words"
+        />
       </div>
       {#if openedEvent.history.length > 0}
         <div class="flex min-h-0 flex-1 flex-col gap-2">
@@ -786,11 +784,10 @@
                     </span>
                   {/if}
                 </div>
-                <pre
-                  class="border-border bg-muted/40 max-h-48 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{eventDisplay(
-                    h.value,
-                    h.value_decoded,
-                  )}</pre>
+                <JsonView
+                  text={eventDisplay(h.value, h.value_decoded)}
+                  class="border-border bg-muted/40 max-h-48 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words"
+                />
               </li>
             {/each}
           </ol>
