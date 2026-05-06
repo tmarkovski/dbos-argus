@@ -450,7 +450,7 @@
                 type="button"
                 onclick={() => transitionOpenEvent(ev)}
                 title="Open event details"
-                class="border-border bg-muted/30 hover:bg-muted hover:border-primary/50 relative flex w-full flex-col gap-1 rounded-md border px-2.5 py-2 pr-10 text-left transition-colors"
+                class="group border-border bg-muted/30 hover:bg-muted hover:border-workflow-accent/60 relative flex w-full flex-col gap-1 rounded-md border px-2.5 py-2 pr-10 text-left transition-colors"
                 style:view-transition-name={pendingEventKey === ev.key &&
                 openedEvent?.key !== ev.key
                   ? "result-event"
@@ -474,7 +474,7 @@
                 </div>
                 <span
                   aria-hidden="true"
-                  class="bg-background/80 text-muted-foreground hover:text-foreground hover:bg-muted border-border/60 absolute right-2 bottom-2 flex h-7 w-7 items-center justify-center rounded-md border shadow-sm backdrop-blur-sm"
+                  class="bg-background/80 text-muted-foreground group-hover:text-foreground group-hover:bg-muted group-hover:border-workflow-accent/60 border-border/60 hover:bg-foreground/10 hover:border-workflow-accent absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-md border shadow-sm backdrop-blur-sm transition-colors"
                 >
                   <Maximize2 class="h-3.5 w-3.5" />
                 </span>
@@ -578,12 +578,12 @@
             {:else}
               <JsonView
                 text={displayedText}
-                class="border-border bg-muted/40 group-hover:border-primary/50 max-h-[70vh] min-h-64 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words transition-colors"
+                class="border-border bg-muted/40 group-hover:border-workflow-accent/60 max-h-[70vh] min-h-64 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre transition-colors"
               />
             {/if}
             <span
               aria-hidden="true"
-              class="bg-background/80 text-muted-foreground group-hover:text-foreground group-hover:bg-muted border-border/60 absolute right-2 bottom-2 flex h-7 w-7 items-center justify-center rounded-md border shadow-sm backdrop-blur-sm transition-colors"
+              class="bg-background/80 text-muted-foreground group-hover:text-foreground group-hover:bg-muted group-hover:border-workflow-accent/60 border-border/60 hover:bg-foreground/10 hover:border-workflow-accent absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-md border shadow-sm backdrop-blur-sm transition-colors"
             >
               <Maximize2 class="h-3.5 w-3.5" />
             </span>
@@ -603,6 +603,7 @@
 <Dialog.Root open={expanded} onOpenChange={transitionExpanded}>
   <Dialog.Content
     class="flex max-h-[85vh] w-full flex-col gap-4 sm:max-w-3xl"
+    onOpenAutoFocus={(e) => e.preventDefault()}
     style={expanded ? "view-transition-name: result-output;" : undefined}
   >
     <Dialog.Header>
