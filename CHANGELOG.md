@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.24] - 2026-05-06
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+### Changed
+- Pickle decoder now renders unknown classes (Pydantic `BaseModel`,
+  dataclasses, plain Python objects) as `{"__class__": "module.Name",
+  ...fields}` instead of falling back to the raw base64 blob. The
+  unpickler swaps unknown classes for an inert `_OpaqueObject` proxy that
+  captures BUILD state via `__setstate__` — the user's module is never
+  imported and no user code runs, so the existing safety guarantee
+  holds (covered by a regression test that constructs a pickle stream
+  resolving `os.system` and verifies it doesn't execute). Pydantic v2's
+  envelope state (`__pydantic_fields_set__` / `__pydantic_extra__` /
+  `__pydantic_private__`) is stripped so the UI sees just the model's
+  real fields.
+- README: `uvx dbos-argus` examples now use `dbos-argus@latest` so each
+  invocation re-resolves the version instead of reusing the wheel `uvx`
+  cached the first time.
+
 ## [0.0.23] - 2026-05-06
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.

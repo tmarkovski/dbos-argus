@@ -36,10 +36,8 @@ init_dbos(EXECUTOR_ID)
 # singleton constructed above — this import must come AFTER `DBOS(...)`.
 import scheduled  # noqa: E402
 
-# Subscribe this process as a worker for the heartbeats queue. No
-# `worker_concurrency` cap — DBOS' default lets it pull as fast as ticks
-# arrive.
-Queue(scheduled.HEARTBEAT_QUEUE_NAME)
+# Subscribe this process as a worker for the heartbeats queue.
+Queue(scheduled.HEARTBEAT_QUEUE_NAME, worker_concurrency=50)
 
 
 @click.command()

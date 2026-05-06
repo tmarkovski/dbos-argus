@@ -25,16 +25,16 @@ In every case, open http://localhost:8090 once it's up.
 Postgres:
 
 ```bash
-uvx dbos-argus --db-url "postgresql+asyncpg://USER:PASS@localhost:5432/YOURDB"
+uvx dbos-argus@latest --db-url "postgresql+asyncpg://USER:PASS@localhost:5432/YOURDB"
 ```
 
 SQLite (use four slashes for an absolute path):
 
 ```bash
-uvx dbos-argus --db-url "sqlite:////absolute/path/to/your-app.sqlite"
+uvx dbos-argus@latest --db-url "sqlite:////absolute/path/to/your-app.sqlite"
 ```
 
-[`uv`](https://docs.astral.sh/uv/) downloads the published wheel, installs it into a throwaway environment, and runs it. The console SPA is bundled inside the wheel — no separate frontend to install.
+[`uv`](https://docs.astral.sh/uv/) downloads the published wheel, installs it into a throwaway environment, and runs it. The console SPA is bundled inside the wheel — no separate frontend to install. The `@latest` suffix re-resolves the version on each invocation; without it, `uvx` reuses the version it cached the first time you ran the tool.
 
 ### With `pip` / `pipx`
 

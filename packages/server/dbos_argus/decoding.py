@@ -8,25 +8,32 @@ This module exposes `decode_dbos_value(raw, serialization)` which returns a
 pretty-printed JSON string of the decoded value when possible, or `None`
 when decoding isn't safe / possible.
 
-Security: for pickle payloads we use a *restricted* unpickler that only
-allows a whitelist of builtin types. Custom classes, functions, and global
-references are rejected, so a malicious pickle stream can't execute code.
-The tradeoff is that any non-trivial Python object (custom classes,
-exceptions, dataclasses) won't decode — callers fall back to showing the
-raw base64.
+Security: pickle payloads run through a *restricted* unpickler. Builtin
+primitives, containers, and standard exception types are constructed
+normally (see `_SAFE_BUILTINS`). Anything else — Pydantic models,
+dataclasses, plain Python objects, even `os.system` — is replaced with an
+inert `_OpaqueObject` proxy whose only behavior is to capture the pickle
+state for the JSON encoder. We never import the user's module or invoke
+the user's `__init__`, so a malicious pickle stream still can't execute
+code; the JSON output for unknown classes is `{"__class__": "...", ...
+fields}` with the dotted qualified name plus whatever fields BUILD
+applied. This makes step outputs from real DBOS apps (which routinely
+return Pydantic models or dataclasses) readable in Argus instead of
+falling back to the raw base64 blob.
 """
 
 from __future__ import annotations
 
 import base64
+import copyreg
 import io
 import json
 import pickle
 from typing import Any
 
-# Allowlist of builtin types referenced by pickle streams we'll expand. Anything
-# outside this set causes the unpickler to raise, which we catch and treat as
-# "undecodable".
+# Allowlist of classes/functions the unpickler is allowed to actually invoke.
+# Anything outside this set is replaced with an inert opaque proxy — see
+# `_SafeUnpickler.find_class`.
 _SAFE_BUILTINS: dict[str, set[str]] = {
     "builtins": {
         # Primitives & containers.
@@ -86,20 +93,84 @@ _SAFE_BUILTINS: dict[str, set[str]] = {
         "ValueError",
         "ZeroDivisionError",
     },
+    # `_reconstructor(cls, base, state)` is the standard helper the pickle
+    # protocol generates for default object reductions. It calls
+    # `base.__new__(cls)` (or `base(state)` if state is given). With our
+    # opaque proxy in place of unknown `cls`, this resolves to
+    # `object.__new__(opaque_proxy)` — no user code runs.
+    "copyreg": {"_reconstructor"},
 }
+
+
+class _OpaqueObject:
+    """Stand-in for unpickled instances whose class isn't on the safe list.
+
+    Pickle constructs these by calling `object.__new__(cls)` (via NEWOBJ /
+    NEWOBJ_EX / `copyreg._reconstructor`), then BUILD applies the state
+    dict via `__setstate__`. We capture the state and let the JSON encoder
+    surface it. We never call the original class's `__init__`, methods,
+    or trigger module imports — the class is fabricated locally by
+    `_make_opaque_class`, not resolved from the user's package.
+    """
+
+    __argus_qualname__: str  # set per subclass by `_make_opaque_class`
+
+    def __setstate__(self, state: Any) -> None:
+        object.__setattr__(self, "__argus_state__", state)
+
+
+_OPAQUE_CACHE: dict[tuple[str, str], type] = {}
+
+
+def _make_opaque_class(module: str, name: str) -> type:
+    key = (module, name)
+    cached = _OPAQUE_CACHE.get(key)
+    if cached is not None:
+        return cached
+    cls = type(
+        f"_Opaque__{module.replace('.', '_')}__{name}",
+        (_OpaqueObject,),
+        {"__argus_qualname__": f"{module}.{name}"},
+    )
+    _OPAQUE_CACHE[key] = cls
+    return cls
 
 
 class _SafeUnpickler(pickle.Unpickler):
     def find_class(self, module: str, name: str) -> Any:
         allowed = _SAFE_BUILTINS.get(module, set())
         if name in allowed:
+            if module == "copyreg":
+                return getattr(copyreg, name)
             return super().find_class(module, name)
-        raise pickle.UnpicklingError(f"disallowed class during unpickle: {module}.{name}")
+        return _make_opaque_class(module, name)
+
+
+def _opaque_to_dict(value: _OpaqueObject) -> Any:
+    qualname = type(value).__argus_qualname__
+    state = getattr(value, "__argus_state__", None)
+    # Pydantic v2 BUILD state shape:
+    #   {"__dict__": {...real fields...},
+    #    "__pydantic_extra__": ..., "__pydantic_fields_set__": ...,
+    #    "__pydantic_private__": ...}
+    # Surface just the fields — the surrounding metadata is implementation
+    # detail and not useful in the UI.
+    if isinstance(state, dict) and "__dict__" in state and "__pydantic_fields_set__" in state:
+        fields = state.get("__dict__") or {}
+        return {"__class__": qualname, **fields}
+    if isinstance(state, dict):
+        # Plain object / dataclass: state IS __dict__.
+        return {"__class__": qualname, **state}
+    if state is None:
+        return {"__class__": qualname}
+    return {"__class__": qualname, "__state__": state}
 
 
 def _json_default(value: Any) -> Any:
     # Best-effort JSON fallback for otherwise non-encodable scalars that may
     # sneak out of safe unpickling (bytes, frozensets, exceptions, etc.).
+    if isinstance(value, _OpaqueObject):
+        return _opaque_to_dict(value)
     if isinstance(value, BaseException):
         return {"type": type(value).__name__, "message": str(value)}
     if isinstance(value, (bytes, bytearray)):
