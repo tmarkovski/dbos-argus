@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
+## [0.0.25] - 2026-05-06
+
+> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+### Fixed
+- Pickle decoder now survives REDUCE-path calls to unknown classes
+  (e.g. a timezone-aware `datetime` whose `tzinfo` reduces to
+  `datetime.timezone(timedelta(0))`). Previously the opaque proxy
+  rejected positional args from REDUCE and aborted the entire decode
+  with `TypeError: ...timedelta() takes no arguments`, leaving real
+  step outputs as a raw base64 blob in the UI.
+- Allowlisted common stdlib value types — `datetime.{datetime,date,time,
+  timedelta,timezone}`, `decimal.Decimal`, `uuid.UUID` — so they decode
+  to native Python and the JSON encoder renders them as ISO 8601 strings
+  / decimal strings instead of opaque dicts.
+
 ## [0.0.24] - 2026-05-06
 
 > **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.

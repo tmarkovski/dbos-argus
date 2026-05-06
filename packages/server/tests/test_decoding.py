@@ -2,6 +2,7 @@ import base64
 import json
 import pickle
 from dataclasses import dataclass
+from datetime import UTC
 
 from dbos_argus.decoding import decode_dbos_value
 from pydantic import BaseModel
@@ -97,6 +98,23 @@ def test_decode_pickle_dataclass() -> None:
     parsed = json.loads(decoded)
     assert parsed == {"__class__": parsed["__class__"], "x": 3, "y": 4}
     assert parsed["__class__"].endswith("._Point")
+
+
+def test_decode_pickle_datetime_with_timezone() -> None:
+    # Real DBOS step outputs frequently embed timezone-aware datetimes,
+    # whose pickle stream calls `datetime.timezone(timedelta(0))` via the
+    # REDUCE opcode. Earlier versions of the opaque proxy crashed on the
+    # positional-arg call (`_Opaque__datetime__timedelta() takes no args`),
+    # blowing up the entire decode. Both types are now allowlisted, so the
+    # value round-trips into an ISO 8601 string.
+    from datetime import datetime
+
+    obj = {"when": datetime(2026, 5, 6, 12, 34, 56, tzinfo=UTC)}
+    raw = base64.b64encode(pickle.dumps(obj)).decode("ascii")
+    decoded = decode_dbos_value(raw, "py_pickle")
+    assert decoded is not None
+    parsed = json.loads(decoded)
+    assert parsed["when"] == "2026-05-06T12:34:56+00:00"
 
 
 def test_decode_pickle_does_not_invoke_dangerous_globals() -> None:

@@ -99,21 +99,45 @@ _SAFE_BUILTINS: dict[str, set[str]] = {
     # opaque proxy in place of unknown `cls`, this resolves to
     # `object.__new__(opaque_proxy)` — no user code runs.
     "copyreg": {"_reconstructor"},
+    # Stdlib value types whose constructors are pure data — no I/O, no
+    # imports, no ambient state. Allowing them means real DBOS step
+    # outputs (which routinely embed datetimes, decimals, UUIDs) decode
+    # to the native Python value and our JSON encoder renders them as
+    # ISO strings / decimal strings rather than as opaque dicts.
+    "datetime": {"datetime", "date", "time", "timedelta", "timezone"},
+    "decimal": {"Decimal"},
+    "uuid": {"UUID"},
 }
 
 
 class _OpaqueObject:
     """Stand-in for unpickled instances whose class isn't on the safe list.
 
-    Pickle constructs these by calling `object.__new__(cls)` (via NEWOBJ /
-    NEWOBJ_EX / `copyreg._reconstructor`), then BUILD applies the state
-    dict via `__setstate__`. We capture the state and let the JSON encoder
-    surface it. We never call the original class's `__init__`, methods,
-    or trigger module imports — the class is fabricated locally by
-    `_make_opaque_class`, not resolved from the user's package.
+    Pickle reaches this class through several paths and we accept all of
+    them without invoking user code:
+      * REDUCE: `cls(*args)` — `__new__` captures positional args.
+      * NEWOBJ / NEWOBJ_EX: `cls.__new__(cls, *args, **kwargs)` — same.
+      * `copyreg._reconstructor`: `object.__new__(cls)` — empty args.
+      * BUILD: applies state via `__setstate__`.
+
+    We never import the user's module or call its `__init__` — the class
+    is fabricated locally by `_make_opaque_class`, not resolved from the
+    user's package. `__init__` is a no-op so pickle's REDUCE path doesn't
+    crash on classes whose constructor would otherwise reject extra args.
     """
 
     __argus_qualname__: str  # set per subclass by `_make_opaque_class`
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> _OpaqueObject:
+        instance = object.__new__(cls)
+        if args or kwargs:
+            object.__setattr__(instance, "__argus_args__", (list(args), kwargs))
+        return instance
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # __new__ already captured anything we want; this no-op exists
+        # because `object.__init__` rejects extra args on subclasses.
+        pass
 
     def __setstate__(self, state: Any) -> None:
         object.__setattr__(self, "__argus_state__", state)
@@ -149,6 +173,7 @@ class _SafeUnpickler(pickle.Unpickler):
 def _opaque_to_dict(value: _OpaqueObject) -> Any:
     qualname = type(value).__argus_qualname__
     state = getattr(value, "__argus_state__", None)
+    args = getattr(value, "__argus_args__", None)
     # Pydantic v2 BUILD state shape:
     #   {"__dict__": {...real fields...},
     #    "__pydantic_extra__": ..., "__pydantic_fields_set__": ...,
@@ -161,9 +186,18 @@ def _opaque_to_dict(value: _OpaqueObject) -> Any:
     if isinstance(state, dict):
         # Plain object / dataclass: state IS __dict__.
         return {"__class__": qualname, **state}
-    if state is None:
-        return {"__class__": qualname}
-    return {"__class__": qualname, "__state__": state}
+    if state is not None:
+        return {"__class__": qualname, "__state__": state}
+    if args is not None:
+        # REDUCE-path classes (often __reduce__-only types like Enums).
+        positional, keyword = args
+        out: dict[str, Any] = {"__class__": qualname}
+        if positional:
+            out["__args__"] = positional
+        if keyword:
+            out["__kwargs__"] = keyword
+        return out
+    return {"__class__": qualname}
 
 
 def _json_default(value: Any) -> Any:
@@ -180,6 +214,22 @@ def _json_default(value: Any) -> Any:
             return base64.b64encode(value).decode("ascii")
     if isinstance(value, (set, frozenset)):
         return sorted(value, key=lambda x: repr(x))
+    # Stdlib value types we explicitly allowlist for unpickling — render
+    # them as strings the UI can read directly.
+    import datetime as _dt
+    import decimal as _dec
+    import uuid as _uuid
+
+    if isinstance(value, (_dt.datetime, _dt.date, _dt.time)):
+        return value.isoformat()
+    if isinstance(value, _dt.timedelta):
+        return value.total_seconds()
+    if isinstance(value, _dt.tzinfo):
+        return str(value)
+    if isinstance(value, _dec.Decimal):
+        return str(value)
+    if isinstance(value, _uuid.UUID):
+        return str(value)
     return repr(value)
 
 
