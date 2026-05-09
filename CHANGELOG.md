@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.27] - 2026-05-09
+
 > **Tested against DBOS 2.21.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
 
 ### Added
@@ -27,6 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "Read-only DBOS Postgres" label. `/healthz` and the `health` realtime
   channel both expose the new `database_dialect` and `database_version`
   fields.
+- Dashboard **top-queues card** replaces the old "DBOS queue registry"
+  tile: shows the top three queues by `enqueued + running` as horizontal
+  bars (chart-3 / chart-2 / chart-1 fills against a track that adapts to
+  the active theme), each linking to the workflows list filtered by that
+  queue plus the ENQUEUED + PENDING statuses. Inactive queues stay in
+  the list with zero-width fills so the card doesn't collapse on quiet
+  databases. The registered-queue total moved to the layers badge in
+  the top-right corner.
 
 ### Changed
 - Schema snapshot regenerated against DBOS 2.21.0. `dbos.queues` is now
@@ -34,6 +44,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recorded as untracked (it's DBOS-internal accounting, not a user-facing
   signal — every workflow run from a rate-limited queue gets the flag set,
   not just throttled ones).
+- Dashboard **KPI cards are now click-through**: an absolutely-positioned
+  anchor stretches over each card so the entire surface routes to the
+  relevant page (`/workflows/`, `/notifications/`, `/schedules/`,
+  `/queues/`), with internal anchors (per-status badges, the
+  failed-recent link, per-queue bars) lifted above via `relative z-10`
+  so deep links still reach the right filtered view. Cursor is
+  `pointer` over the whole card and a hover shadow + ring strengthens
+  the affordance.
+- **Sidebar wrapper** now darker than the inset surface in both themes
+  — the preset's `--sidebar` token sat at ~white in light mode and was
+  lighter than the inset in dark mode, so the rounded inset panel had
+  no visible frame in either theme. Override pulls light-mode sidebar
+  to `oklch(0.94)` (vs `1.0` background) and dark-mode sidebar to
+  `oklch(0.10)` (vs `0.145` background) so the inset reads as a lifted
+  panel against a darker frame.
 
 ## [0.0.26] - 2026-05-06
 
@@ -577,7 +602,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.26...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.27...HEAD
+[0.0.27]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.27
 [0.0.26]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.26
 [0.0.22]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.22
 [0.0.21]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.21
