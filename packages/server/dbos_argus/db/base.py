@@ -38,9 +38,19 @@ class ArgusDB(ABC):
     def display_url(self) -> str:
         """Connection URL with credentials redacted, for `/healthz`."""
 
+    @property
+    @abstractmethod
+    def dialect(self) -> Literal["postgres", "sqlite"]:
+        """Backend identifier the console uses to render the connection footer."""
+
     @abstractmethod
     async def healthcheck(self) -> None:
         """Run a no-op query; raise on failure."""
+
+    @abstractmethod
+    async def server_version(self) -> str | None:
+        """Backend server version string (e.g. "16.4", "3.45.0"). Cached after
+        the first successful read; returns `None` if the version probe fails."""
 
     @abstractmethod
     async def reflect_schema(self, schema: str = "dbos") -> SchemaDump:

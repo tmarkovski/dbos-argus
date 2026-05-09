@@ -16,6 +16,7 @@
     connectionIndicatorClass,
     connectionIndicatorLabel,
     diagnosticsIssueSummary,
+    formatDialectLabel,
     getConnectionIndicatorState,
   } from "$lib/connection-diagnostics";
   import { connectionState } from "$lib/connection-state.svelte";
@@ -143,7 +144,12 @@
   const dbIconClass = $derived(connectionIndicatorClass(dbIndicatorState));
   const dbIssueSummary = $derived(diagnosticsIssueSummary(connectionState.diagnostics));
   const dbSubtitle = $derived.by(() => {
-    if (dbIndicatorState === "connected") return "Read-only DBOS Postgres";
+    if (dbIndicatorState === "connected") {
+      return formatDialectLabel(
+        connectionState.health?.database_dialect,
+        connectionState.health?.database_version,
+      );
+    }
     if (dbIndicatorState === "issues") return dbIssueSummary ?? "Schema mismatch detected";
     return "Database unavailable";
   });
@@ -152,11 +158,13 @@
       ? (connectionState.health?.database_url ?? "")
       : (connectionState.fetchError ?? connectionState.health?.database_error ?? ""),
   );
-  const dbDescription = $derived(
-    dbConnected
-      ? "Read-only connection to the DBOS Postgres database."
-      : "The DB connection is currently unavailable.",
-  );
+  const dbDescription = $derived.by(() => {
+    if (!dbConnected) return "The DB connection is currently unavailable.";
+    const dialect = connectionState.health?.database_dialect;
+    if (dialect === "postgres") return "Read-only connection to the DBOS Postgres database.";
+    if (dialect === "sqlite") return "Read-only connection to the DBOS SQLite database.";
+    return "Read-only connection to the DBOS database.";
+  });
 </script>
 
 <Sidebar.Provider bind:open={sidebarOpen} onOpenChange={persistSidebarOpen}>
@@ -251,7 +259,7 @@
                   {...props}
                 >
                   <Database
-                    class="mt-1 self-start group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:self-center {dbIconClass}"
+                    class="self-start group-data-[collapsible=icon]:self-center {dbIconClass}"
                   />
                   <div
                     class="flex min-w-0 flex-1 flex-col gap-0.5 text-left text-sm leading-snug group-data-[collapsible=icon]:hidden"

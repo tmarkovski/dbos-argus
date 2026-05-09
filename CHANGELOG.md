@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   workflows view filtered by queue name.
 - New `GET /api/queues` REST endpoint and matching `queues` realtime
   channel — same payload shape on both transports.
+- Sidebar connection footer now reports the actual backend (PostgreSQL or
+  SQLite) plus its server version, replacing the previous hard-coded
+  "Read-only DBOS Postgres" label. `/healthz` and the `health` realtime
+  channel both expose the new `database_dialect` and `database_version`
+  fields.
 
 ### Changed
 - Schema snapshot regenerated against DBOS 2.21.0. `dbos.queues` is now

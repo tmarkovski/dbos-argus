@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Literal
 
 from sqlalchemy import text
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from ..schema_dump import SchemaDump, dump_live_schema
@@ -441,14 +441,36 @@ class PostgresArgusDB(ArgusDB):
     def __init__(self, settings: Settings) -> None:
         url, connect_args = settings.asyncpg_engine_args()
         self.engine = create_async_engine(url, echo=False, future=True, connect_args=connect_args)
+        self._server_version: str | None = None
 
     @property
     def display_url(self) -> str:
         return self.engine.url.render_as_string(hide_password=True)
 
+    @property
+    def dialect(self) -> Literal["postgres", "sqlite"]:
+        return "postgres"
+
     async def healthcheck(self) -> None:
         async with self.engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
+
+    async def server_version(self) -> str | None:
+        if self._server_version is not None:
+            return self._server_version
+        try:
+            async with self.engine.connect() as conn:
+                result = await conn.execute(text("SHOW server_version"))
+                row = result.fetchone()
+        except SQLAlchemyError:
+            return None
+        if row is None or row[0] is None:
+            return None
+        # Postgres returns the full string like "16.4 (Debian …)"; trim to the
+        # leading version token so the UI footer stays compact.
+        version = str(row[0]).split()[0]
+        self._server_version = version
+        return version
 
     async def reflect_schema(self, schema: str = "dbos") -> SchemaDump:
         async with self.engine.connect() as conn:

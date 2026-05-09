@@ -36,7 +36,12 @@ class HealthChannel(BroadcastChannel):
             "status": "ok" if db_up else "degraded",
             "database": "up" if db_up else "down",
             "database_url": db.display_url,
+            "database_dialect": db.dialect,
         }
+        if db_up:
+            version = await db.server_version()
+            if version is not None:
+                body["database_version"] = version
         if db_error is not None:
             body["database_error"] = db_error
         return body

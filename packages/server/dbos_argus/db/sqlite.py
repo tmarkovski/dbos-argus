@@ -27,7 +27,7 @@ from datetime import UTC, datetime
 from typing import Literal
 
 from sqlalchemy import bindparam, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
 
 from ..schema_dump import ColumnInfo, SchemaDump, TableInfo
@@ -115,14 +115,34 @@ class SqliteArgusDB(ArgusDB):
         # asyncpg-style query-arg massaging (sslmode, libpq options) is
         # Postgres-only; SQLite URLs are passed through to SQLAlchemy verbatim.
         self.engine = create_async_engine(settings.database_url, echo=False, future=True)
+        self._server_version: str | None = None
 
     @property
     def display_url(self) -> str:
         return self.engine.url.render_as_string(hide_password=True)
 
+    @property
+    def dialect(self) -> Literal["postgres", "sqlite"]:
+        return "sqlite"
+
     async def healthcheck(self) -> None:
         async with self.engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
+
+    async def server_version(self) -> str | None:
+        if self._server_version is not None:
+            return self._server_version
+        try:
+            async with self.engine.connect() as conn:
+                result = await conn.execute(text("SELECT sqlite_version()"))
+                row = result.fetchone()
+        except SQLAlchemyError:
+            return None
+        if row is None or row[0] is None:
+            return None
+        version = str(row[0])
+        self._server_version = version
+        return version
 
     async def reflect_schema(self, schema: str = "dbos") -> SchemaDump:
         async with self.engine.connect() as conn:

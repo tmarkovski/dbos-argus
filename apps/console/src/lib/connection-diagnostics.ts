@@ -3,7 +3,18 @@ export type Health = {
   database: string;
   database_url?: string;
   database_error?: string;
+  database_dialect?: "postgres" | "sqlite";
+  database_version?: string;
 };
+
+export function formatDialectLabel(
+  dialect: Health["database_dialect"],
+  version?: string,
+): string {
+  const name = dialect === "sqlite" ? "SQLite" : dialect === "postgres" ? "PostgreSQL" : null;
+  if (!name) return "DBOS database";
+  return version ? `${name} ${version}` : name;
+}
 
 export type SqlDiagnosticIssueKind = "missing_table" | "missing_column" | "wrong_type";
 
