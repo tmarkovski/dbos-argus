@@ -658,6 +658,8 @@ class Queue(BaseModel):
     polling_interval_sec: float
     created_at_epoch_ms: int
     updated_at_epoch_ms: int
+    enqueued: int
+    running: int
 
 
 def _to_queue(r: QueueRow) -> Queue:
@@ -673,6 +675,8 @@ def _to_queue(r: QueueRow) -> Queue:
         polling_interval_sec=r.polling_interval_sec,
         created_at_epoch_ms=r.created_at_epoch_ms,
         updated_at_epoch_ms=r.updated_at_epoch_ms,
+        enqueued=r.enqueued,
+        running=r.running,
     )
 
 

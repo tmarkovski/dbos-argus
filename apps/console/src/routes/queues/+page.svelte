@@ -18,6 +18,8 @@
     polling_interval_sec: number;
     created_at_epoch_ms: number;
     updated_at_epoch_ms: number;
+    enqueued: number;
+    running: number;
   };
 
   let queues = $state<Queue[] | null>(null);
@@ -99,6 +101,8 @@
         <Table.Header class="bg-muted/40">
           <Table.Row class="hover:bg-muted/40">
             <Table.Head class="px-4">Name</Table.Head>
+            <Table.Head class="px-4 text-right">Enqueued</Table.Head>
+            <Table.Head class="px-4 text-right">Running</Table.Head>
             <Table.Head class="px-4 text-right">Concurrency</Table.Head>
             <Table.Head class="px-4 text-right">Worker</Table.Head>
             <Table.Head class="px-4">Rate limit</Table.Head>
@@ -116,6 +120,30 @@
                 >
                   {q.name}
                 </a>
+              </Table.Cell>
+              <Table.Cell class="px-4 py-2 text-right font-mono text-xs tabular-nums">
+                {#if q.enqueued > 0}
+                  <a
+                    href="/workflows/?queue_name={encodeURIComponent(q.name)}&status=ENQUEUED"
+                    class="hover:text-foreground hover:underline"
+                  >
+                    {q.enqueued}
+                  </a>
+                {:else}
+                  <span class="text-muted-foreground">0</span>
+                {/if}
+              </Table.Cell>
+              <Table.Cell class="px-4 py-2 text-right font-mono text-xs tabular-nums">
+                {#if q.running > 0}
+                  <a
+                    href="/workflows/?queue_name={encodeURIComponent(q.name)}&status=PENDING"
+                    class="hover:text-foreground hover:underline"
+                  >
+                    {q.running}
+                  </a>
+                {:else}
+                  <span class="text-muted-foreground">0</span>
+                {/if}
               </Table.Cell>
               <Table.Cell class="text-muted-foreground px-4 py-2 text-right font-mono text-xs">
                 {formatNullableInt(q.concurrency)}

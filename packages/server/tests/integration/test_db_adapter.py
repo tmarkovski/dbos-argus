@@ -54,12 +54,16 @@ async def test_live_schema_matches_pinned_snapshot(populated_db: DB) -> None:
 async def test_list_workflows_grouped_returns_full_tree(populated_db: DB) -> None:
     db, seed = populated_db
     rows = await db.list_workflows(WorkflowFilters(grouped=True))
-    # Root + 2 children + 1 grandchild — the seed has no ENQUEUED rows so
-    # the default-exclude filter doesn't drop anything.
-    assert len(rows) == 4
-    # Root sits first in DFS order with depth 0.
-    assert rows[0].workflow_uuid == seed["root_id"]
-    assert rows[0].depth == 0
+    # Original family (root + 2 children + grandchild = 4) plus the lone
+    # PENDING queue-bound root `wf-q-hb-pend` (5th root with no children).
+    # The 3 ENQUEUED queue-bound rows are dropped by the default
+    # `status <> 'ENQUEUED'` filter.
+    assert len(rows) == 5
+    # The original root sits at depth 0 wherever it appears in the DFS;
+    # ordering between roots follows updated_at DESC, which the queue-bound
+    # root's later seed timestamp now wins.
+    by_uuid = {r.workflow_uuid: r for r in rows}
+    assert by_uuid[seed["root_id"]].depth == 0
     # The grandchild's depth should be 2 (root → child_success → grandchild).
     grandchild = next(r for r in rows if r.workflow_uuid == seed["grandchild_error_id"])
     assert grandchild.depth == 2
@@ -68,7 +72,8 @@ async def test_list_workflows_grouped_returns_full_tree(populated_db: DB) -> Non
 async def test_list_workflows_flat_orders_by_started(populated_db: DB) -> None:
     db, _ = populated_db
     rows = await db.list_workflows(WorkflowFilters(grouped=False))
-    assert len(rows) == 4
+    # Same 5 as the grouped variant — the default filter strips ENQUEUED.
+    assert len(rows) == 5
     # Flat mode: most recent started first.
     started = [r.started_ms for r in rows]
     assert started == sorted(started, reverse=True)
@@ -153,9 +158,12 @@ async def test_get_stats_counts_seed(populated_db: DB) -> None:
     db, seed = populated_db
     base_ms: int = int(seed["base_ms"])
     stats = await db.get_stats(since_ms=base_ms - 86_400_000)
-    assert stats.total == 4
-    assert stats.in_flight == 2  # 2 PENDING
-    assert stats.enqueued == 0
+    assert stats.total == 8
+    # 3 PENDING (root, child_b, hb-pend) + 3 ENQUEUED (hb-enq, plain-enq,
+    # orphan-enq); ENQUEUED is part of ACTIVE_STATUSES so it counts as
+    # in-flight too.
+    assert stats.in_flight == 6
+    assert stats.enqueued == 3
     assert stats.failed_recent == 1  # the grandchild ERROR within the window
     assert stats.pending_notifications == 1
     assert stats.active_schedules == 1
@@ -171,9 +179,10 @@ async def test_get_throughput_buckets_seed_day(populated_db: DB) -> None:
     )
     # Bucket boundaries differ by dialect calendar mechanics, but the total
     # of (succeeded + errored + running) across the window must equal the
-    # number of seeded workflows.
+    # number of seeded workflows. ENQUEUED is part of ACTIVE_STATUSES so the
+    # queued seed rows fall into the "running" bucket.
     total = sum(r.succeeded + r.errored + r.running for r in rows)
-    assert total == 4
+    assert total == 8
 
 
 async def test_list_schedules_returns_seeded_schedule(populated_db: DB) -> None:
@@ -186,7 +195,9 @@ async def test_list_schedules_returns_seeded_schedule(populated_db: DB) -> None:
 async def test_list_queues_returns_seeded_queues(populated_db: DB) -> None:
     db, _ = populated_db
     queues = await db.list_queues()
-    # Alphabetical by name.
+    # Alphabetical by name. The seed has an ENQUEUED row on `orphaned-queue`
+    # that has no row in `queues`; it must NOT show up here, proving the
+    # LEFT JOIN drops orphaned queue_names.
     assert [q.name for q in queues] == ["argus-heartbeats", "plain-queue"]
 
     rate_limited = queues[0]
@@ -196,6 +207,9 @@ async def test_list_queues_returns_seeded_queues(populated_db: DB) -> None:
     assert rate_limited.worker_concurrency == 2
     assert rate_limited.priority_enabled is True
     assert rate_limited.partition_queue is False
+    # 1 ENQUEUED + 1 PENDING workflow seeded against this queue.
+    assert rate_limited.enqueued == 1
+    assert rate_limited.running == 1
 
     bare = queues[1]
     assert bare.rate_limit_max is None
@@ -203,6 +217,9 @@ async def test_list_queues_returns_seeded_queues(populated_db: DB) -> None:
     assert bare.concurrency is None
     assert bare.worker_concurrency is None
     assert bare.priority_enabled is False
+    # 1 ENQUEUED, no PENDING.
+    assert bare.enqueued == 1
+    assert bare.running == 0
 
 
 async def test_list_notifications_includes_ancestor_chain(populated_db: DB) -> None:

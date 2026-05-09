@@ -152,6 +152,14 @@ class QueueRow:
     polling_interval_sec: float
     created_at_epoch_ms: int
     updated_at_epoch_ms: int
+    # Live counts joined from workflow_status — workflows currently sitting in
+    # this queue waiting for a worker (ENQUEUED) and ones a worker has picked
+    # up but hasn't finished (PENDING). The link is by name (workflow_status
+    # carries no FK to queues), so a count can refer to a queue_name that
+    # doesn't appear in `dbos.queues` if no worker has registered it; those
+    # rows are dropped by the inner join in the SQL.
+    enqueued: int
+    running: int
 
 
 @dataclass(frozen=True)

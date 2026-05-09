@@ -380,14 +380,31 @@ _SCHEDULES_SQL = """
 """
 
 
+# Aggregate ENQUEUED + PENDING per queue in a single subquery so we get both
+# counts in one pass over the in-flight partial index
+# (`idx_workflow_status_in_flight`, partial WHERE status IN ('ENQUEUED','PENDING')),
+# then LEFT JOIN onto dbos.queues. Queues with no live workflows fall through
+# as zeros via COALESCE.
 _QUEUES_SQL = """
     SELECT
-        queue_id, name, concurrency, worker_concurrency,
-        rate_limit_max, rate_limit_period_sec,
-        priority_enabled, partition_queue, polling_interval_sec,
-        created_at, updated_at
-    FROM dbos.queues
-    ORDER BY name ASC
+        q.queue_id, q.name, q.concurrency, q.worker_concurrency,
+        q.rate_limit_max, q.rate_limit_period_sec,
+        q.priority_enabled, q.partition_queue, q.polling_interval_sec,
+        q.created_at, q.updated_at,
+        COALESCE(c.enqueued, 0)::bigint AS enqueued,
+        COALESCE(c.running, 0)::bigint AS running
+    FROM dbos.queues q
+    LEFT JOIN (
+        SELECT
+            queue_name,
+            COUNT(*) FILTER (WHERE status = 'ENQUEUED') AS enqueued,
+            COUNT(*) FILTER (WHERE status = 'PENDING') AS running
+        FROM dbos.workflow_status
+        WHERE queue_name IS NOT NULL
+          AND status IN ('ENQUEUED', 'PENDING')
+        GROUP BY queue_name
+    ) c ON c.queue_name = q.name
+    ORDER BY q.name ASC
 """
 
 
@@ -725,6 +742,8 @@ class PostgresArgusDB(ArgusDB):
                 polling_interval_sec=r.polling_interval_sec,
                 created_at_epoch_ms=r.created_at,
                 updated_at_epoch_ms=r.updated_at,
+                enqueued=r.enqueued,
+                running=r.running,
             )
             for r in rows
         ]
@@ -838,9 +857,20 @@ class PostgresArgusDB(ArgusDB):
         return (row.max_fired, row.count_all)
 
     async def queues_cursor(self) -> tuple:
+        # Cursor has to advance on workflow churn too — queue *config* may not
+        # change for hours, but enqueued/running counts move with every
+        # send/dequeue. Both probes ride the partial in-flight index so the
+        # extra cost over a queues-only cursor is negligible.
         sql = """
-            SELECT MAX(updated_at) AS max_updated, COUNT(*) AS count_all
-            FROM dbos.queues
+            SELECT
+                (SELECT MAX(updated_at) FROM dbos.queues) AS max_q_updated,
+                (SELECT COUNT(*) FROM dbos.queues) AS q_count,
+                (SELECT MAX(updated_at) FROM dbos.workflow_status
+                    WHERE queue_name IS NOT NULL
+                      AND status IN ('ENQUEUED', 'PENDING')) AS max_wf_updated,
+                (SELECT COUNT(*) FROM dbos.workflow_status
+                    WHERE queue_name IS NOT NULL
+                      AND status IN ('ENQUEUED', 'PENDING')) AS wf_count
         """
         try:
             async with self.engine.connect() as conn:
@@ -849,7 +879,7 @@ class PostgresArgusDB(ArgusDB):
             return ("empty",)
         if row is None:
             return ("empty",)
-        return (row.max_updated, row.count_all)
+        return (row.max_q_updated, row.q_count, row.max_wf_updated, row.wf_count)
 
     async def notifications_cursor(self) -> tuple:
         sql = """

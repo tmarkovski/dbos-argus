@@ -739,23 +739,33 @@ class SqliteArgusDB(ArgusDB):
         ]
 
     async def list_queues(self) -> list[QueueRow]:
+        # Single LEFT JOIN with a per-queue ENQUEUED/PENDING aggregate so we
+        # ship both live counts in one statement. SQLite has no FILTER (WHERE)
+        # clause, so the conditional sums use CASE.
+        sql = """
+            SELECT
+                q.queue_id, q.name, q.concurrency, q.worker_concurrency,
+                q.rate_limit_max, q.rate_limit_period_sec,
+                q.priority_enabled, q.partition_queue, q.polling_interval_sec,
+                q.created_at, q.updated_at,
+                COALESCE(c.enqueued, 0) AS enqueued,
+                COALESCE(c.running, 0) AS running
+            FROM queues q
+            LEFT JOIN (
+                SELECT
+                    queue_name,
+                    SUM(CASE WHEN status = 'ENQUEUED' THEN 1 ELSE 0 END) AS enqueued,
+                    SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) AS running
+                FROM workflow_status
+                WHERE queue_name IS NOT NULL
+                  AND status IN ('ENQUEUED', 'PENDING')
+                GROUP BY queue_name
+            ) c ON c.queue_name = q.name
+            ORDER BY q.name ASC
+        """
         try:
             async with self.engine.connect() as conn:
-                rows = (
-                    await conn.execute(
-                        text(
-                            """
-                            SELECT
-                                queue_id, name, concurrency, worker_concurrency,
-                                rate_limit_max, rate_limit_period_sec,
-                                priority_enabled, partition_queue, polling_interval_sec,
-                                created_at, updated_at
-                            FROM queues
-                            ORDER BY name ASC
-                            """
-                        )
-                    )
-                ).fetchall()
+                rows = (await conn.execute(text(sql))).fetchall()
         except OperationalError:
             return []
         return [
@@ -771,6 +781,8 @@ class SqliteArgusDB(ArgusDB):
                 polling_interval_sec=r.polling_interval_sec,
                 created_at_epoch_ms=r.created_at,
                 updated_at_epoch_ms=r.updated_at,
+                enqueued=r.enqueued,
+                running=r.running,
             )
             for r in rows
         ]
@@ -911,9 +923,19 @@ class SqliteArgusDB(ArgusDB):
         return (row.max_fired, row.count_all)
 
     async def queues_cursor(self) -> tuple:
+        # Mirror the Postgres cursor: also probe workflow_status so the
+        # snapshot refreshes when enqueued/running counts move, not just on
+        # queue config changes.
         sql = """
-            SELECT MAX(updated_at) AS max_updated, COUNT(*) AS count_all
-            FROM queues
+            SELECT
+                (SELECT MAX(updated_at) FROM queues) AS max_q_updated,
+                (SELECT COUNT(*) FROM queues) AS q_count,
+                (SELECT MAX(updated_at) FROM workflow_status
+                    WHERE queue_name IS NOT NULL
+                      AND status IN ('ENQUEUED', 'PENDING')) AS max_wf_updated,
+                (SELECT COUNT(*) FROM workflow_status
+                    WHERE queue_name IS NOT NULL
+                      AND status IN ('ENQUEUED', 'PENDING')) AS wf_count
         """
         try:
             async with self.engine.connect() as conn:
@@ -922,7 +944,7 @@ class SqliteArgusDB(ArgusDB):
             return ("empty",)
         if row is None:
             return ("empty",)
-        return (row.max_updated, row.count_all)
+        return (row.max_q_updated, row.q_count, row.max_wf_updated, row.wf_count)
 
     async def notifications_cursor(self) -> tuple:
         # SQLite has no FILTER (WHERE …) clause; fold into a CASE SUM.

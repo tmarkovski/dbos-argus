@@ -134,23 +134,44 @@ def _seed(sync_url: str, base_ms: int) -> dict[str, object]:
         with eng.begin() as conn:
             # workflow_status family. created_at is millisecond-offset from
             # base_ms so tests can assert ordering deterministically.
+            #
+            # The four `wf-q-*` rows exist so list_queues' per-queue
+            # ENQUEUED/running aggregate has something to match against:
+            #   - argus-heartbeats: 1 ENQUEUED + 1 PENDING
+            #   - plain-queue:      1 ENQUEUED
+            #   - orphaned-queue:   1 ENQUEUED, no row in `queues` — gets
+            #     dropped by the LEFT JOIN, so the registered-queue list
+            #     never inflates with orphan counts.
             conn.execute(
                 text(
                     f"""
                     INSERT INTO {p}workflow_status
                         (workflow_uuid, status, name, executor_id, created_at, updated_at,
                          recovery_attempts, started_at_epoch_ms, priority,
-                         parent_workflow_id, output, error, serialization)
+                         parent_workflow_id, output, error, serialization, queue_name)
                     VALUES
                         ('wf-root', 'PENDING', 'root_workflow', 'test',
-                         :t0, :t0, 0, :t0, 0, NULL, NULL, NULL, 'portable_json'),
+                         :t0, :t0, 0, :t0, 0, NULL, NULL, NULL, 'portable_json', NULL),
                         ('wf-child-success', 'SUCCESS', 'child_a', 'test',
-                         :t1, :t1, 0, :t1, 0, 'wf-root', '"hello"', NULL, 'portable_json'),
+                         :t1, :t1, 0, :t1, 0, 'wf-root', '"hello"', NULL,
+                         'portable_json', NULL),
                         ('wf-child-pending', 'PENDING', 'child_b', 'test',
-                         :t2, :t2, 0, :t2, 0, 'wf-root', NULL, NULL, 'portable_json'),
+                         :t2, :t2, 0, :t2, 0, 'wf-root', NULL, NULL, 'portable_json', NULL),
                         ('wf-grandchild-error', 'ERROR', 'grandchild', 'test',
                          :t3, :t3, 0, :t3, 0, 'wf-child-success', NULL, '"boom"',
-                         'portable_json')
+                         'portable_json', NULL),
+                        ('wf-q-hb-enq', 'ENQUEUED', 'queued_a', 'test',
+                         :t4, :t4, 0, NULL, 0, NULL, NULL, NULL,
+                         'portable_json', 'argus-heartbeats'),
+                        ('wf-q-hb-pend', 'PENDING', 'queued_b', 'test',
+                         :t5, :t5, 0, :t5, 0, NULL, NULL, NULL,
+                         'portable_json', 'argus-heartbeats'),
+                        ('wf-q-plain-enq', 'ENQUEUED', 'queued_c', 'test',
+                         :t6, :t6, 0, NULL, 0, NULL, NULL, NULL,
+                         'portable_json', 'plain-queue'),
+                        ('wf-q-orphan-enq', 'ENQUEUED', 'queued_d', 'test',
+                         :t7, :t7, 0, NULL, 0, NULL, NULL, NULL,
+                         'portable_json', 'orphaned-queue')
                     """
                 ),
                 {
@@ -158,6 +179,10 @@ def _seed(sync_url: str, base_ms: int) -> dict[str, object]:
                     "t1": base_ms + 100,
                     "t2": base_ms + 200,
                     "t3": base_ms + 300,
+                    "t4": base_ms + 400,
+                    "t5": base_ms + 500,
+                    "t6": base_ms + 600,
+                    "t7": base_ms + 700,
                 },
             )
             # operation_outputs: an audit, a setEvent (joined to events_history

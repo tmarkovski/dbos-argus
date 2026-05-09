@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   timestamp. Empty / never-used queues now appear here even before any
   workflow has been enqueued onto them. Each row links to the existing
   workflows view filtered by queue name.
+- Queues page now shows live `Enqueued` and `Running` counts per queue,
+  joined from `workflow_status` against the queue name in a single
+  aggregate query. Each non-zero count links straight to the workflows
+  list filtered by queue + status.
 - New `GET /api/queues` REST endpoint and matching `queues` realtime
   channel — same payload shape on both transports.
 - Sidebar connection footer now reports the actual backend (PostgreSQL or
