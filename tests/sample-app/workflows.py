@@ -77,6 +77,36 @@ def run_fraud_scan(order_id: str) -> None:
     raise ValueError(f"suspicious activity detected for order {order_id!r}")
 
 
+@DBOS.step()
+def check_stock_level(sku: str) -> int:
+    _fulfill_pause()
+    return random.randint(1, 10)
+
+
+@DBOS.step()
+def reorder_from_supplier(sku: str) -> dict:
+    _fulfill_pause()
+    return {"sku": sku, "supplier": "ACME-WHOLESALE", "po": f"PO-{sku.upper()}"}
+
+
+@DBOS.step()
+def reserve_for_shipment(sku: str, qty: int) -> dict:
+    _fulfill_pause()
+    return {"sku": sku, "reserved": qty, "warehouse": "WH-1"}
+
+
+@DBOS.workflow()
+def inventory_check(sku: str) -> dict:
+    audit(f"inventory-check:{sku}")
+    level = check_stock_level(sku)
+    if level <= 5:
+        resolution = reorder_from_supplier(sku)
+    else:
+        resolution = reserve_for_shipment(sku, level)
+    log_event(f"inventory-resolved:{sku}")
+    return {"sku": sku, "level": level, **resolution}
+
+
 @DBOS.workflow()
 def fraud_check(order_id: str) -> dict:
     # Always blows up inside a step, so both the step and this workflow
@@ -203,6 +233,7 @@ def fulfill_order(order_id: str) -> dict:
     )
     log_event(f"shipment-dispatched:{order_id}")
     fraud = DBOS.start_workflow(fraud_check, order_id)
+    inventory = DBOS.start_workflow(inventory_check, order_id)
     pricing = compute_total(validation["items_count"], "us")
     # Fire-and-forget initially so it runs concurrently. Awaited at the very
     # end (after the ops-signoff recv + a 30s sleep) so the dashboard shows
@@ -213,6 +244,7 @@ def fulfill_order(order_id: str) -> dict:
         reconcile = DBOS.start_workflow(reconcile_inventory, order_id)
     label = package_items(order_id)
     nested_branch.get_result()
+    inventory_resolution = inventory.get_result()
     # Swallow the fraud check's failure so the parent itself still succeeds —
     # gives the UI a mix of SUCCESS + ERROR branches under one parent.
     try:
@@ -229,8 +261,9 @@ def fulfill_order(order_id: str) -> dict:
     return {
         "kind": "fulfillment",
         "order_id": order_id,
-        "children_spawned": 3,
+        "children_spawned": 4,
         "fraud_check": fraud_status,
+        "inventory": inventory_resolution,
         "label": label,
         "total": pricing["total"],
     }
