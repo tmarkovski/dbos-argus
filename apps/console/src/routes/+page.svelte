@@ -24,11 +24,33 @@
   import WorkflowThroughputChart from "$lib/components/WorkflowThroughputChart.svelte";
   import { realtimeClient, type SubscriptionHandle } from "$lib/realtime";
 
+  type QueueSummary = {
+    queue_id: string;
+    name: string;
+    enqueued: number;
+    running: number;
+  };
+
   let recents = $state<Workflow[] | null>(null);
+  let queues = $state<QueueSummary[] | null>(null);
   let error = $state<string | null>(null);
   let recentsHandle: SubscriptionHandle | null = null;
+  let queuesHandle: SubscriptionHandle | null = null;
 
   const stats = $derived(statsState.data);
+
+  const topQueues = $derived.by(() => {
+    if (!queues) return [] as QueueSummary[];
+    return [...queues]
+      .sort((a, b) => b.enqueued + b.running - (a.enqueued + a.running))
+      .slice(0, 3);
+  });
+
+  const topQueuesMax = $derived(
+    topQueues.length > 0
+      ? Math.max(...topQueues.map((q) => q.enqueued + q.running))
+      : 0,
+  );
 
   $effect(() => {
     breadcrumb.items = [{ label: "Dashboard", icon: "home" }];
@@ -45,6 +67,11 @@
     error = statsState.error;
   }
 
+  function applyQueues(data: unknown): void {
+    if (!Array.isArray(data)) return;
+    queues = data as QueueSummary[];
+  }
+
   onMount(() => {
     recentsHandle = realtimeClient.subscribe(
       "workflows",
@@ -57,10 +84,15 @@
         },
       },
     );
+    queuesHandle = realtimeClient.subscribe("queues", undefined, {
+      onSnapshot: applyQueues,
+      onUpdate: applyQueues,
+    });
   });
 
   onDestroy(() => {
     recentsHandle?.dispose();
+    queuesHandle?.dispose();
   });
 
   const inFlightHref = "/workflows/?status=PENDING&status=ENQUEUED&status=DELAYED";
@@ -245,24 +277,57 @@
 
     <Card.Root>
       <Card.Header>
-        <Card.Description>Registered queues</Card.Description>
-        <Card.Title
-          class="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl"
-        >
+        <Card.Description>Top queues</Card.Description>
+        <Card.Title class="text-sm font-medium">
           <a href="/queues/" class="hover:text-muted-foreground transition-colors">
-            {stats?.total_queues ?? "—"}
+            By in-flight workload
           </a>
         </Card.Title>
         <Card.Action>
-          <Badge variant="outline" class="gap-1">
-            <LayersIcon class="size-3" />
-            Queues
-          </Badge>
+          <a href="/queues/" class="hover:opacity-80">
+            <Badge variant="outline" class="gap-1 tabular-nums">
+              <LayersIcon class="size-3" />
+              {stats?.total_queues ?? "—"}
+            </Badge>
+          </a>
         </Card.Action>
       </Card.Header>
-      <Card.Footer class="flex-col items-start gap-1.5 text-sm">
-        <div class="line-clamp-1 font-medium">DBOS queue registry</div>
-        <div class="text-muted-foreground">Concurrency &amp; rate-limit config</div>
+      <Card.Footer class="mt-auto flex-col items-stretch gap-1.5 text-sm">
+        {#if queues === null}
+          <div class="text-muted-foreground text-xs">Loading…</div>
+        {:else if topQueues.length === 0}
+          <div class="text-muted-foreground text-xs">No queues registered.</div>
+        {:else}
+          {#each topQueues as q, i (q.queue_id)}
+            {@const total = q.enqueued + q.running}
+            {@const pct = topQueuesMax > 0 ? (total / topQueuesMax) * 100 : 0}
+            {@const barColor =
+              i === 0 ? "bg-chart-3" : i === 1 ? "bg-chart-2" : "bg-chart-1"}
+            <a
+              href="/workflows/?queue_name={encodeURIComponent(
+                q.name,
+              )}&status=ENQUEUED&status=PENDING"
+              class="group flex items-center gap-2 text-xs"
+            >
+              <span
+                class="text-muted-foreground group-hover:text-foreground min-w-0 flex-1 truncate font-mono"
+              >
+                {q.name}
+              </span>
+              <div class="bg-muted h-1.5 w-20 flex-none overflow-hidden rounded-full">
+                <div
+                  class="h-full rounded-full {barColor}"
+                  style="width: {pct}%"
+                ></div>
+              </div>
+              <span
+                class="text-muted-foreground w-6 flex-none text-right font-mono tabular-nums"
+              >
+                {total}
+              </span>
+            </a>
+          {/each}
+        {/if}
       </Card.Footer>
     </Card.Root>
   </div>
