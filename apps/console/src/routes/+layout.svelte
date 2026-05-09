@@ -43,6 +43,7 @@
   const PILL_QUEUED = "bg-status-queued/15 text-status-queued";
 
   const NAV: NavItem[] = [
+    { href: "/", label: "Dashboard", icon: House },
     {
       href: "/workflows/",
       label: "Workflows",
@@ -81,6 +82,9 @@
 
   const pathname = $derived(page.url.pathname);
   function isActive(href: string): boolean {
+    // The Home link points at "/" — every other path starts with "/", so it
+    // would otherwise match everywhere. Treat root as exact-match-only.
+    if (href === "/") return pathname === "/";
     const base = href.replace(/\/$/, "");
     return pathname === href || pathname === base || pathname.startsWith(base + "/");
   }

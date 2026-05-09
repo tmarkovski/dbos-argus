@@ -31,7 +31,7 @@
   const stats = $derived(statsState.data);
 
   $effect(() => {
-    breadcrumb.items = [{ label: "Home", icon: "home" }];
+    breadcrumb.items = [{ label: "Dashboard", icon: "home" }];
     return () => {
       breadcrumb.items = [];
     };
