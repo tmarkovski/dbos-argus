@@ -8,6 +8,7 @@
   import Workflow from "@lucide/svelte/icons/workflow";
   import Database from "@lucide/svelte/icons/database";
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
+  import Layers from "@lucide/svelte/icons/layers";
   import Bell from "@lucide/svelte/icons/bell";
   import { page } from "$app/state";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
@@ -57,6 +58,7 @@
         ];
       },
     },
+    { href: "/queues/", label: "Queues", icon: Layers },
     { href: "/schedules/", label: "Schedules", icon: CalendarClock },
     {
       href: "/notifications/",
@@ -140,9 +142,11 @@
   const dbLabel = $derived(connectionIndicatorLabel(dbIndicatorState));
   const dbIconClass = $derived(connectionIndicatorClass(dbIndicatorState));
   const dbIssueSummary = $derived(diagnosticsIssueSummary(connectionState.diagnostics));
-  const dbSubtitle = $derived(
-    dbIndicatorState === "issues" ? (dbIssueSummary ?? "Schema issues found") : "Click for details",
-  );
+  const dbSubtitle = $derived.by(() => {
+    if (dbIndicatorState === "connected") return "Read-only DBOS Postgres";
+    if (dbIndicatorState === "issues") return dbIssueSummary ?? "Schema mismatch detected";
+    return "Database unavailable";
+  });
   const dbDetail = $derived(
     dbConnected
       ? (connectionState.health?.database_url ?? "")
@@ -240,17 +244,30 @@
           <Sheet.Root bind:open={connectionState.sheetOpen}>
             <Sheet.Trigger>
               {#snippet child({ props })}
-                <Sidebar.MenuButton size="lg" tooltipContent="Connection details" {...props}>
+                <Sidebar.MenuButton
+                  size="lg"
+                  tooltipContent="Connection details"
+                  class="h-auto min-h-12 items-start py-2"
+                  {...props}
+                >
                   <Database
                     class="mt-1 self-start group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:self-center {dbIconClass}"
                   />
                   <div
-                    class="flex flex-1 flex-col gap-0.5 text-left text-sm leading-snug group-data-[collapsible=icon]:hidden"
+                    class="flex min-w-0 flex-1 flex-col gap-0.5 text-left text-sm leading-snug group-data-[collapsible=icon]:hidden"
                   >
-                    <span class="truncate font-medium">{dbLabel}</span>
-                    <span class="text-muted-foreground truncate text-xs">
+                    <span class="truncate font-medium {dbIconClass}">{dbLabel}</span>
+                    <span class="text-muted-foreground truncate text-xs" title={dbSubtitle}>
                       {dbSubtitle}
                     </span>
+                    {#if dbDetail}
+                      <span
+                        class="text-muted-foreground/80 truncate font-mono text-[11px]"
+                        title={dbDetail}
+                      >
+                        {dbDetail}
+                      </span>
+                    {/if}
                   </div>
                 </Sidebar.MenuButton>
               {/snippet}
@@ -389,6 +406,8 @@
                       <Workflow class="mr-1.5 size-3.5" />
                     {:else if item.icon === "schedules"}
                       <CalendarClock class="mr-1.5 size-3.5" />
+                    {:else if item.icon === "queues"}
+                      <Layers class="mr-1.5 size-3.5" />
                     {:else if item.icon === "notifications"}
                       <Bell class="mr-1.5 size-3.5" />
                     {/if}
@@ -404,6 +423,8 @@
                       <Workflow class="mr-1.5 size-3.5" />
                     {:else if item.icon === "schedules"}
                       <CalendarClock class="mr-1.5 size-3.5" />
+                    {:else if item.icon === "queues"}
+                      <Layers class="mr-1.5 size-3.5" />
                     {:else if item.icon === "notifications"}
                       <Bell class="mr-1.5 size-3.5" />
                     {/if}

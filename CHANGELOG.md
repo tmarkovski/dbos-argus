@@ -7,7 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-> **Tested against DBOS 2.19.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+> **Tested against DBOS 2.21.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.
+
+### Added
+- New top-level **Queues** page surfacing the persisted DBOS queue registry
+  (`dbos.queues`, added in DBOS 2.21). Shows each queue's concurrency,
+  worker concurrency, rate limit, priority/partition flags, and last-updated
+  timestamp. Empty / never-used queues now appear here even before any
+  workflow has been enqueued onto them. Each row links to the existing
+  workflows view filtered by queue name.
+- New `GET /api/queues` REST endpoint and matching `queues` realtime
+  channel — same payload shape on both transports.
+
+### Changed
+- Schema snapshot regenerated against DBOS 2.21.0. `dbos.queues` is now
+  argus-tracked across all 11 columns; `workflow_status.rate_limited` is
+  recorded as untracked (it's DBOS-internal accounting, not a user-facing
+  signal — every workflow run from a rate-limited queue gets the flag set,
+  not just throttled ones).
 
 ## [0.0.26] - 2026-05-06
 

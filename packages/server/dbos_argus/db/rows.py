@@ -114,6 +114,7 @@ class StatsRow:
     failed_recent: int
     pending_notifications: int
     active_schedules: int
+    total_queues: int
 
 
 @dataclass(frozen=True)
@@ -136,6 +137,21 @@ class ScheduleRow:
     automatic_backfill: bool
     cron_timezone: str | None
     queue_name: str | None
+
+
+@dataclass(frozen=True)
+class QueueRow:
+    queue_id: str
+    name: str
+    concurrency: int | None
+    worker_concurrency: int | None
+    rate_limit_max: int | None
+    rate_limit_period_sec: float | None
+    priority_enabled: bool
+    partition_queue: bool
+    polling_interval_sec: float
+    created_at_epoch_ms: int
+    updated_at_epoch_ms: int
 
 
 @dataclass(frozen=True)

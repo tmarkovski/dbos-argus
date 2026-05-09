@@ -17,6 +17,7 @@ from ..schema_dump import SchemaDump
 from .rows import (
     NotificationFilters,
     NotificationsRows,
+    QueueRow,
     ResultRow,
     ScheduleRow,
     StatsRow,
@@ -77,6 +78,11 @@ class ArgusDB(ABC):
     async def list_schedules(self) -> list[ScheduleRow]: ...
 
     @abstractmethod
+    async def list_queues(self) -> list[QueueRow]:
+        """Registered DBOS queues + their persisted config. Empty when the
+        `dbos.queues` table doesn't exist yet (older DBOS app)."""
+
+    @abstractmethod
     async def list_notifications(self, filters: NotificationFilters) -> NotificationsRows:
         """Notifications + per-destination ancestor chains, fetched together."""
 
@@ -97,6 +103,10 @@ class ArgusDB(ABC):
     @abstractmethod
     async def schedules_cursor(self) -> tuple:
         """Probe for the schedules list (advances on each cron tick)."""
+
+    @abstractmethod
+    async def queues_cursor(self) -> tuple:
+        """Probe for the queues list (advances on register/update/delete)."""
 
     @abstractmethod
     async def notifications_cursor(self) -> tuple:

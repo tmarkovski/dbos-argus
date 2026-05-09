@@ -40,6 +40,7 @@ from .rows import (
     NotificationFilters,
     NotificationRow,
     NotificationsRows,
+    QueueRow,
     ResultRow,
     ScheduleRow,
     StatsRow,
@@ -103,6 +104,7 @@ _EMPTY_STATS = StatsRow(
     failed_recent=0,
     pending_notifications=0,
     active_schedules=0,
+    total_queues=0,
 )
 
 
@@ -584,7 +586,9 @@ class SqliteArgusDB(ArgusDB):
                         (SELECT COUNT(*) FROM notifications WHERE consumed = 0)
                             AS pending_notifications,
                         (SELECT COUNT(*) FROM workflow_schedules WHERE status = 'ACTIVE')
-                            AS active_schedules
+                            AS active_schedules,
+                        (SELECT COUNT(*) FROM queues)
+                            AS total_queues
                     """
                 ).bindparams(_expanding("active_a"), _expanding("error_a"))
                 row = (
@@ -608,6 +612,7 @@ class SqliteArgusDB(ArgusDB):
             failed_recent=row.failed_recent,
             pending_notifications=row.pending_notifications,
             active_schedules=row.active_schedules,
+            total_queues=row.total_queues,
         )
 
     async def get_throughput(
@@ -692,6 +697,43 @@ class SqliteArgusDB(ArgusDB):
                 automatic_backfill=bool(r.automatic_backfill),
                 cron_timezone=r.cron_timezone,
                 queue_name=r.queue_name,
+            )
+            for r in rows
+        ]
+
+    async def list_queues(self) -> list[QueueRow]:
+        try:
+            async with self.engine.connect() as conn:
+                rows = (
+                    await conn.execute(
+                        text(
+                            """
+                            SELECT
+                                queue_id, name, concurrency, worker_concurrency,
+                                rate_limit_max, rate_limit_period_sec,
+                                priority_enabled, partition_queue, polling_interval_sec,
+                                created_at, updated_at
+                            FROM queues
+                            ORDER BY name ASC
+                            """
+                        )
+                    )
+                ).fetchall()
+        except OperationalError:
+            return []
+        return [
+            QueueRow(
+                queue_id=r.queue_id,
+                name=r.name,
+                concurrency=r.concurrency,
+                worker_concurrency=r.worker_concurrency,
+                rate_limit_max=r.rate_limit_max,
+                rate_limit_period_sec=r.rate_limit_period_sec,
+                priority_enabled=bool(r.priority_enabled),
+                partition_queue=bool(r.partition_queue),
+                polling_interval_sec=r.polling_interval_sec,
+                created_at_epoch_ms=r.created_at,
+                updated_at_epoch_ms=r.updated_at,
             )
             for r in rows
         ]
@@ -830,6 +872,20 @@ class SqliteArgusDB(ArgusDB):
         if row is None:
             return ("empty",)
         return (row.max_fired, row.count_all)
+
+    async def queues_cursor(self) -> tuple:
+        sql = """
+            SELECT MAX(updated_at) AS max_updated, COUNT(*) AS count_all
+            FROM queues
+        """
+        try:
+            async with self.engine.connect() as conn:
+                row = (await conn.execute(text(sql))).fetchone()
+        except OperationalError:
+            return ("empty",)
+        if row is None:
+            return ("empty",)
+        return (row.max_updated, row.count_all)
 
     async def notifications_cursor(self) -> tuple:
         # SQLite has no FILTER (WHERE …) clause; fold into a CASE SUM.

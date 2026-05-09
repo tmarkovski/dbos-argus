@@ -28,6 +28,7 @@ from .rows import (
     NotificationFilters,
     NotificationRow,
     NotificationsRows,
+    QueueRow,
     ResultRow,
     ScheduleRow,
     StatsRow,
@@ -364,7 +365,8 @@ _STATS_SQL = f"""
         (SELECT COUNT(*) FROM dbos.notifications
             WHERE consumed = false) AS pending_notifications,
         (SELECT COUNT(*) FROM dbos.workflow_schedules
-            WHERE status = 'ACTIVE') AS active_schedules
+            WHERE status = 'ACTIVE') AS active_schedules,
+        (SELECT COUNT(*) FROM dbos.queues) AS total_queues
 """
 
 
@@ -375,6 +377,17 @@ _SCHEDULES_SQL = """
         cron_timezone, queue_name
     FROM dbos.workflow_schedules
     ORDER BY schedule_name ASC
+"""
+
+
+_QUEUES_SQL = """
+    SELECT
+        queue_id, name, concurrency, worker_concurrency,
+        rate_limit_max, rate_limit_period_sec,
+        priority_enabled, partition_queue, polling_interval_sec,
+        created_at, updated_at
+    FROM dbos.queues
+    ORDER BY name ASC
 """
 
 
@@ -418,6 +431,7 @@ _EMPTY_STATS = StatsRow(
     failed_recent=0,
     pending_notifications=0,
     active_schedules=0,
+    total_queues=0,
 )
 
 
@@ -571,6 +585,7 @@ class PostgresArgusDB(ArgusDB):
             failed_recent=row.failed_recent,
             pending_notifications=row.pending_notifications,
             active_schedules=row.active_schedules,
+            total_queues=row.total_queues,
         )
 
     async def get_throughput(
@@ -644,6 +659,29 @@ class PostgresArgusDB(ArgusDB):
                 automatic_backfill=r.automatic_backfill,
                 cron_timezone=r.cron_timezone,
                 queue_name=r.queue_name,
+            )
+            for r in rows
+        ]
+
+    async def list_queues(self) -> list[QueueRow]:
+        try:
+            async with self.engine.connect() as conn:
+                rows = (await conn.execute(text(_QUEUES_SQL))).fetchall()
+        except ProgrammingError:
+            return []
+        return [
+            QueueRow(
+                queue_id=r.queue_id,
+                name=r.name,
+                concurrency=r.concurrency,
+                worker_concurrency=r.worker_concurrency,
+                rate_limit_max=r.rate_limit_max,
+                rate_limit_period_sec=r.rate_limit_period_sec,
+                priority_enabled=r.priority_enabled,
+                partition_queue=r.partition_queue,
+                polling_interval_sec=r.polling_interval_sec,
+                created_at_epoch_ms=r.created_at,
+                updated_at_epoch_ms=r.updated_at,
             )
             for r in rows
         ]
@@ -755,6 +793,20 @@ class PostgresArgusDB(ArgusDB):
         if row is None:
             return ("empty",)
         return (row.max_fired, row.count_all)
+
+    async def queues_cursor(self) -> tuple:
+        sql = """
+            SELECT MAX(updated_at) AS max_updated, COUNT(*) AS count_all
+            FROM dbos.queues
+        """
+        try:
+            async with self.engine.connect() as conn:
+                row = (await conn.execute(text(sql))).fetchone()
+        except ProgrammingError:
+            return ("empty",)
+        if row is None:
+            return ("empty",)
+        return (row.max_updated, row.count_all)
 
     async def notifications_cursor(self) -> tuple:
         sql = """

@@ -7,6 +7,7 @@ export type Stats = {
   failed_recent: number;
   pending_notifications: number;
   active_schedules: number;
+  total_queues: number;
 };
 
 class StatsState {

@@ -8,6 +8,7 @@ schema-translation layer.
 
 from .health import HealthChannel
 from .notifications import NotificationsChannel
+from .queues import QueuesChannel
 from .schedules import SchedulesChannel
 from .stats import StatsChannel
 from .timeseries import StatsTimeseriesChannel
@@ -17,6 +18,7 @@ from .workflows import WorkflowsChannel
 __all__ = [
     "HealthChannel",
     "NotificationsChannel",
+    "QueuesChannel",
     "SchedulesChannel",
     "StatsChannel",
     "StatsTimeseriesChannel",

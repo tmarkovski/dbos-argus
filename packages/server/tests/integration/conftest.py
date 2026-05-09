@@ -40,6 +40,7 @@ _DBOS_TABLES = (
     "workflow_events_history",
     "workflow_events",
     "workflow_schedules",
+    "queues",
     "notifications",
     "streams",
     "operation_outputs",
@@ -234,6 +235,30 @@ def _seed(sync_url: str, base_ms: int) -> dict[str, object]:
                     """
                 ),
                 {"b": False},
+            )
+            # two registered queues — one with a rate limiter, one bare — so
+            # list_queues exercises both null-config and populated-config paths.
+            conn.execute(
+                text(
+                    f"""
+                    INSERT INTO {p}queues
+                        (queue_id, name, concurrency, worker_concurrency,
+                         rate_limit_max, rate_limit_period_sec,
+                         priority_enabled, partition_queue, polling_interval_sec,
+                         created_at, updated_at)
+                    VALUES
+                        ('q-1', 'argus-heartbeats', 5, 2,
+                         10, 60.0, :pri, :part, 1.0, :t, :t),
+                        ('q-2', 'plain-queue', NULL, NULL,
+                         NULL, NULL, :pri_off, :part, 1.0, :t, :t)
+                    """
+                ),
+                {
+                    "pri": True,
+                    "pri_off": False,
+                    "part": False,
+                    "t": base_ms,
+                },
             )
     finally:
         eng.dispose()

@@ -34,6 +34,7 @@ async def test_reflect_schema_returns_dbos_tables(populated_db: DB) -> None:
         "workflow_events",
         "workflow_events_history",
         "workflow_schedules",
+        "queues",
     } <= names
 
 
@@ -180,6 +181,28 @@ async def test_list_schedules_returns_seeded_schedule(populated_db: DB) -> None:
     schedules = await db.list_schedules()
     assert [s.schedule_id for s in schedules] == ["sched-1"]
     assert schedules[0].status == "ACTIVE"
+
+
+async def test_list_queues_returns_seeded_queues(populated_db: DB) -> None:
+    db, _ = populated_db
+    queues = await db.list_queues()
+    # Alphabetical by name.
+    assert [q.name for q in queues] == ["argus-heartbeats", "plain-queue"]
+
+    rate_limited = queues[0]
+    assert rate_limited.rate_limit_max == 10
+    assert rate_limited.rate_limit_period_sec == 60.0
+    assert rate_limited.concurrency == 5
+    assert rate_limited.worker_concurrency == 2
+    assert rate_limited.priority_enabled is True
+    assert rate_limited.partition_queue is False
+
+    bare = queues[1]
+    assert bare.rate_limit_max is None
+    assert bare.rate_limit_period_sec is None
+    assert bare.concurrency is None
+    assert bare.worker_concurrency is None
+    assert bare.priority_enabled is False
 
 
 async def test_list_notifications_includes_ancestor_chain(populated_db: DB) -> None:

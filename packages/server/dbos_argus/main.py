@@ -16,6 +16,7 @@ from .db import db
 from .db.rows import (
     NotificationFilters,
     NotificationsRows,
+    QueueRow,
     ScheduleRow,
     StatsRow,
     StepRow,
@@ -77,6 +78,7 @@ def _setup_realtime() -> None:
     from .realtime.channels import (
         HealthChannel,
         NotificationsChannel,
+        QueuesChannel,
         SchedulesChannel,
         StatsChannel,
         StatsTimeseriesChannel,
@@ -94,6 +96,7 @@ def _setup_realtime() -> None:
     hub.register_channel(WorkflowsChannel())
     hub.register_channel(WorkflowChannel())
     hub.register_channel(SchedulesChannel())
+    hub.register_channel(QueuesChannel())
     hub.register_channel(NotificationsChannel())
     register_websocket_route(app, hub, allowed_origins=settings.cors_origins_list)
     app.state.realtime_hub = hub
@@ -528,6 +531,7 @@ class DashboardStats(BaseModel):
     failed_recent: int
     pending_notifications: int
     active_schedules: int
+    total_queues: int
 
 
 def _to_dashboard_stats(row: StatsRow) -> DashboardStats:
@@ -538,6 +542,7 @@ def _to_dashboard_stats(row: StatsRow) -> DashboardStats:
         failed_recent=row.failed_recent,
         pending_notifications=row.pending_notifications,
         active_schedules=row.active_schedules,
+        total_queues=row.total_queues,
     )
 
 
@@ -631,6 +636,46 @@ async def fetch_schedules() -> list[WorkflowSchedule]:
 @app.get("/api/schedules")
 async def list_schedules() -> list[WorkflowSchedule]:
     return await fetch_schedules()
+
+
+class Queue(BaseModel):
+    queue_id: str
+    name: str
+    concurrency: int | None
+    worker_concurrency: int | None
+    rate_limit_max: int | None
+    rate_limit_period_sec: float | None
+    priority_enabled: bool
+    partition_queue: bool
+    polling_interval_sec: float
+    created_at_epoch_ms: int
+    updated_at_epoch_ms: int
+
+
+def _to_queue(r: QueueRow) -> Queue:
+    return Queue(
+        queue_id=r.queue_id,
+        name=r.name,
+        concurrency=r.concurrency,
+        worker_concurrency=r.worker_concurrency,
+        rate_limit_max=r.rate_limit_max,
+        rate_limit_period_sec=r.rate_limit_period_sec,
+        priority_enabled=r.priority_enabled,
+        partition_queue=r.partition_queue,
+        polling_interval_sec=r.polling_interval_sec,
+        created_at_epoch_ms=r.created_at_epoch_ms,
+        updated_at_epoch_ms=r.updated_at_epoch_ms,
+    )
+
+
+async def fetch_queues() -> list[Queue]:
+    rows = await db.list_queues()
+    return [_to_queue(r) for r in rows]
+
+
+@app.get("/api/queues")
+async def list_queues() -> list[Queue]:
+    return await fetch_queues()
 
 
 class WorkflowAncestor(BaseModel):
