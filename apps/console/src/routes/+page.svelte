@@ -185,26 +185,31 @@
   {/if}
 
   <div
-    class="*:data-[slot=card]:from-foreground/5 *:data-[slot=card]:to-card *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4"
+    class="*:data-[slot=card]:relative *:data-[slot=card]:cursor-pointer *:data-[slot=card]:from-foreground/5 *:data-[slot=card]:to-card *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs *:data-[slot=card]:transition *:data-[slot=card]:hover:shadow-md *:data-[slot=card]:hover:ring-foreground/15 dark:*:data-[slot=card]:bg-card dark:*:data-[slot=card]:hover:ring-foreground/20 grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4"
   >
     <Card.Root>
+      <a
+        href="/workflows/"
+        class="absolute inset-0 rounded-4xl"
+        aria-label="View all workflows"
+      ></a>
       <Card.Header>
         <Card.Description>Total workflows</Card.Description>
         <Card.Title
           class="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl"
         >
-          <a href="/workflows/" class="hover:text-muted-foreground transition-colors">
+          <span class="hover:text-muted-foreground transition-colors">
             {stats?.total ?? "—"}
-          </a>
+          </span>
         </Card.Title>
         <Card.Action class="flex flex-col items-end gap-1">
-          <a href={inFlightHref} class="hover:opacity-80">
+          <a href={inFlightHref} class="relative z-10 hover:opacity-80">
             <Badge variant="outline" class="gap-1">
               <ActivityIcon class="size-3" />
               {stats?.in_flight ?? "—"} in flight
             </Badge>
           </a>
-          <a href={enqueuedHref} class="hover:opacity-80">
+          <a href={enqueuedHref} class="relative z-10 hover:opacity-80">
             <Badge variant="outline" class="gap-1">
               <ListTodoIcon class="size-3" />
               {stats?.enqueued ?? "—"} queued
@@ -215,7 +220,7 @@
       <Card.Footer class="flex-col items-start gap-1.5 text-sm">
         <a
           href={failedHref}
-          class="line-clamp-1 flex items-center gap-1.5 font-medium hover:underline"
+          class="relative z-10 line-clamp-1 flex items-center gap-1.5 font-medium hover:underline"
         >
           {stats?.failed_recent ?? "—"} failed in the last 24h
           <AlertTriangleIcon class="size-4" />
@@ -227,17 +232,19 @@
     </Card.Root>
 
     <Card.Root>
+      <a
+        href="/notifications/"
+        class="absolute inset-0 rounded-4xl"
+        aria-label="View notifications"
+      ></a>
       <Card.Header>
         <Card.Description>Pending notifications</Card.Description>
         <Card.Title
           class="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl"
         >
-          <a
-            href="/notifications/"
-            class="hover:text-muted-foreground transition-colors"
-          >
+          <span class="hover:text-muted-foreground transition-colors">
             {stats?.pending_notifications ?? "—"}
-          </a>
+          </span>
         </Card.Title>
         <Card.Action>
           <Badge variant="outline" class="gap-1">
@@ -253,14 +260,19 @@
     </Card.Root>
 
     <Card.Root>
+      <a
+        href="/schedules/"
+        class="absolute inset-0 rounded-4xl"
+        aria-label="View schedules"
+      ></a>
       <Card.Header>
         <Card.Description>Active schedules</Card.Description>
         <Card.Title
           class="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl"
         >
-          <a href="/schedules/" class="hover:text-muted-foreground transition-colors">
+          <span class="hover:text-muted-foreground transition-colors">
             {stats?.active_schedules ?? "—"}
-          </a>
+          </span>
         </Card.Title>
         <Card.Action>
           <Badge variant="outline" class="gap-1">
@@ -276,20 +288,23 @@
     </Card.Root>
 
     <Card.Root>
+      <a
+        href="/queues/"
+        class="absolute inset-0 rounded-4xl"
+        aria-label="View queues"
+      ></a>
       <Card.Header>
         <Card.Description>Top queues</Card.Description>
         <Card.Title class="text-sm font-medium">
-          <a href="/queues/" class="hover:text-muted-foreground transition-colors">
+          <span class="hover:text-muted-foreground transition-colors">
             By in-flight workload
-          </a>
+          </span>
         </Card.Title>
         <Card.Action>
-          <a href="/queues/" class="hover:opacity-80">
-            <Badge variant="outline" class="gap-1 tabular-nums">
-              <LayersIcon class="size-3" />
-              {stats?.total_queues ?? "—"}
-            </Badge>
-          </a>
+          <Badge variant="outline" class="gap-1 tabular-nums">
+            <LayersIcon class="size-3" />
+            {stats?.total_queues ?? "—"}
+          </Badge>
         </Card.Action>
       </Card.Header>
       <Card.Footer class="mt-auto flex-col items-stretch gap-1.5 text-sm">
@@ -307,14 +322,16 @@
               href="/workflows/?queue_name={encodeURIComponent(
                 q.name,
               )}&status=ENQUEUED&status=PENDING"
-              class="group flex items-center gap-2 text-xs"
+              class="group relative z-10 flex items-center gap-2 text-xs"
             >
               <span
                 class="text-muted-foreground group-hover:text-foreground min-w-0 flex-1 truncate font-mono"
               >
                 {q.name}
               </span>
-              <div class="bg-muted h-1.5 w-20 flex-none overflow-hidden rounded-full">
+              <div
+                class="bg-foreground/10 dark:bg-background h-1.5 w-20 flex-none overflow-hidden rounded-full"
+              >
                 <div
                   class="h-full rounded-full {barColor}"
                   style="width: {pct}%"
