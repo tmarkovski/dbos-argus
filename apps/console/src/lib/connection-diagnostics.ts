@@ -5,6 +5,7 @@ export type Health = {
   database_error?: string;
   database_dialect?: "postgres" | "sqlite";
   database_version?: string;
+  dbos_schema_revision?: string;
 };
 
 export function formatDialectLabel(

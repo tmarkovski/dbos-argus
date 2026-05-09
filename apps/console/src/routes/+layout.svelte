@@ -165,6 +165,13 @@
     if (dialect === "sqlite") return "Read-only connection to the DBOS SQLite database.";
     return "Read-only connection to the DBOS database.";
   });
+  const dbType = $derived(
+    formatDialectLabel(
+      connectionState.health?.database_dialect,
+      connectionState.health?.database_version,
+    ),
+  );
+  const dbSchemaRev = $derived(connectionState.health?.dbos_schema_revision ?? null);
 </script>
 
 <Sidebar.Provider bind:open={sidebarOpen} onOpenChange={persistSidebarOpen}>
@@ -300,6 +307,31 @@
                       {dbDetail}
                     </p>
                   </div>
+                {/if}
+
+                {#if dbConnected && (dbType || dbSchemaRev)}
+                  <dl class="grid grid-cols-2 gap-4">
+                    {#if dbType}
+                      <div class="flex flex-col gap-1.5">
+                        <dt
+                          class="text-muted-foreground text-xs uppercase tracking-wide"
+                        >
+                          Database
+                        </dt>
+                        <dd class="font-mono text-xs">{dbType}</dd>
+                      </div>
+                    {/if}
+                    {#if dbSchemaRev}
+                      <div class="flex flex-col gap-1.5">
+                        <dt
+                          class="text-muted-foreground text-xs uppercase tracking-wide"
+                        >
+                          DBOS schema revision
+                        </dt>
+                        <dd class="font-mono text-xs">{dbSchemaRev}</dd>
+                      </div>
+                    {/if}
+                  </dl>
                 {/if}
 
                 {#if dbConnected}

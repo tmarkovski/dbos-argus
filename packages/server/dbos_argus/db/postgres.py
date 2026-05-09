@@ -442,6 +442,7 @@ class PostgresArgusDB(ArgusDB):
         url, connect_args = settings.asyncpg_engine_args()
         self.engine = create_async_engine(url, echo=False, future=True, connect_args=connect_args)
         self._server_version: str | None = None
+        self._dbos_schema_revision: int | None = None
 
     @property
     def display_url(self) -> str:
@@ -471,6 +472,26 @@ class PostgresArgusDB(ArgusDB):
         version = str(row[0]).split()[0]
         self._server_version = version
         return version
+
+    async def dbos_schema_revision(self) -> int | None:
+        if self._dbos_schema_revision is not None:
+            return self._dbos_schema_revision
+        try:
+            async with self.engine.connect() as conn:
+                result = await conn.execute(
+                    text("SELECT version FROM dbos.dbos_migrations LIMIT 1")
+                )
+                row = result.fetchone()
+        except SQLAlchemyError:
+            # Table doesn't exist yet (no DBOS app migrated this DB) or the
+            # probe failed for transient reasons. Don't cache — let the next
+            # call re-check.
+            return None
+        if row is None or row[0] is None:
+            return None
+        rev = int(row[0])
+        self._dbos_schema_revision = rev
+        return rev
 
     async def reflect_schema(self, schema: str = "dbos") -> SchemaDump:
         async with self.engine.connect() as conn:

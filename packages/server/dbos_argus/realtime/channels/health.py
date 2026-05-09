@@ -42,6 +42,9 @@ class HealthChannel(BroadcastChannel):
             version = await db.server_version()
             if version is not None:
                 body["database_version"] = version
+            rev = await db.dbos_schema_revision()
+            if rev is not None:
+                body["dbos_schema_revision"] = str(rev)
         if db_error is not None:
             body["database_error"] = db_error
         return body

@@ -53,6 +53,15 @@ class ArgusDB(ABC):
         the first successful read; returns `None` if the version probe fails."""
 
     @abstractmethod
+    async def dbos_schema_revision(self) -> int | None:
+        """Latest migration number from `dbos.dbos_migrations.version` — DBOS
+        Transact's monotonic schema revision counter. Returns `None` if the
+        table doesn't exist (no DBOS app has migrated this DB yet) or the
+        probe fails. Cached after the first successful read; positive results
+        are sticky so a transient outage doesn't drop the value, while a
+        `None` result is re-tried on the next call."""
+
+    @abstractmethod
     async def reflect_schema(self, schema: str = "dbos") -> SchemaDump:
         """Return the live DB's schema as a dialect-neutral `SchemaDump`."""
 
