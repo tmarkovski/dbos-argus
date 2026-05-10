@@ -15,7 +15,7 @@ argus-simulator = "simulator:main"
 argus-runner = "runner:main"
 argus-ops = "ops:cli"
 argus-scheduler = "scheduler:main"
-argus-heartbeat-runner = "heartbeat_runner:main"
+argus-metrics-runner = "metrics_runner:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -29,7 +29,7 @@ include = [
   "ops.py",
   "scheduled.py",
   "scheduler.py",
-  "heartbeat_runner.py",
+  "metrics_runner.py",
   "_dbos_setup.py",
   "workflows/**/*.py",
 ]

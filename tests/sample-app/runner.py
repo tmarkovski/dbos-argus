@@ -9,6 +9,7 @@ Run:
 
     argus-runner --queue orders --duration 60
     argus-runner idle                       # launch DBOS, register workflows, idle (recovery only)
+    argus-runner prepare                    # one-shot: migrate schema + register queues, then exit
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ import signal
 import time
 
 import click
-from _dbos_setup import QUEUE_CONFIGS, init_dbos
+from _dbos_setup import QUEUE_CONFIGS, init_dbos, register_queues
 from dbos import DBOS
 
 LOG = logging.getLogger("runner")
@@ -63,8 +64,26 @@ def idle() -> None:
     import workflows  # noqa: F401  — register workflow decorators
 
     DBOS.launch()
+    register_queues()
     LOG.info("runner idle — no queues subscribed")
     _idle_loop()
+
+
+@main.command()
+def prepare() -> None:
+    """One-shot: run DBOS migrations and queue registration, then exit.
+
+    Used as a serialization point in `pnpm demo` so the three long-running
+    processes (simulator, scheduler, metrics-runner) don't race CREATE TABLE
+    on a freshly-created SQLite file.
+    """
+    init_dbos("runner-prepare", worker_queue=None)
+    import workflows  # noqa: F401  — register workflow decorators
+
+    DBOS.launch()
+    register_queues()
+    LOG.info("prepare done — schema + queues ready")
+    DBOS.destroy()
 
 
 def _drain(queue: str, duration: int) -> None:
@@ -74,6 +93,7 @@ def _drain(queue: str, duration: int) -> None:
     import workflows  # noqa: F401  — register workflow decorators
 
     DBOS.launch()
+    register_queues()
     LOG.info(
         "draining queue=%s as executor_id=%s for %ds (concurrency=%d)",
         queue,
@@ -100,7 +120,11 @@ def _drain(queue: str, duration: int) -> None:
         time.sleep(0.5)
 
     LOG.info("worker draining complete — destroying DBOS")
-    DBOS.destroy()
+    # Wait for in-flight workflows/steps to finish before tearing down `_sys_db`.
+    # Without this, a step mid-`record_operation_result` would crash with
+    # `DBOSException: System database accessed before DBOS was launched` and
+    # the workflow would re-recover on the next spawn.
+    DBOS.destroy(workflow_completion_timeout_sec=15)
 
 
 def _idle_loop() -> None:
@@ -119,7 +143,7 @@ def _idle_loop() -> None:
     while not stop["now"]:
         time.sleep(1)
     LOG.info("shutting down")
-    DBOS.destroy()
+    DBOS.destroy(workflow_completion_timeout_sec=15)
 
 
 if __name__ == "__main__":

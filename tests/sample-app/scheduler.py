@@ -1,16 +1,16 @@
-"""Argus dev scheduler — long-running process that owns the cron schedule.
+"""Argus dev scheduler — long-running process that owns the cron schedules.
 
-Sets `executor_id="scheduler"` so the heartbeat workflow runs under its
-own identity, separate from `argus-runner` (demo workflows) and `argus-ops`
+Sets `executor_id="scheduler"` so the schedule tick rows run under their own
+identity, separate from `argus-runner` (use-case workflows) and `argus-ops`
 (short-lived CLI). That way you can stop the runner — or run another sample
-variant — without the heartbeat tagging along, and DBOS recovery only resumes
-PENDING heartbeats on this executor.
+variant — without the scheduled workflows tagging along, and DBOS recovery
+only resumes PENDING ticks on this executor.
 
 Run:
 
     uv run argus-scheduler
 
-The schedule row in `dbos.workflow_schedules` is persisted across restarts;
+Schedule rows in `dbos.workflow_schedules` are persisted across restarts;
 this process just owns the in-memory tick loop. Stop the process and ticks
 stop; start it again and they resume.
 """
@@ -23,8 +23,8 @@ import signal
 import time
 
 import click
-from _dbos_setup import init_dbos
-from dbos import DBOS, Queue
+from _dbos_setup import init_dbos, register_queues
+from dbos import DBOS
 
 LOG = logging.getLogger("scheduler")
 
@@ -32,25 +32,21 @@ EXECUTOR_ID = "scheduler"
 
 init_dbos(EXECUTOR_ID, worker_queue=None)
 
-import scheduled  # noqa: E402  — defines `heartbeat_check` workflow + register_schedules()
-
-# Declare the heartbeats queue so `create_schedule(..., queue_name=...)` accepts
-# it, but with `worker_concurrency=0` so this process never dequeues. Heartbeat
-# execution belongs to `argus-heartbeat-runner`.
-Queue(scheduled.HEARTBEAT_QUEUE_NAME, worker_concurrency=0)
+import scheduled  # noqa: E402  — defines the scheduled workflows + register_schedules()
 
 
 @click.command()
 def main() -> None:
-    """Launch DBOS, register the heartbeat schedule, and idle."""
+    """Launch DBOS, register the cron schedules, and idle."""
     logging.basicConfig(level=logging.INFO)
     DBOS.launch()
+    register_queues()
     scheduled.register_schedules()
     LOG.info(
-        "scheduler up — executor_id=%s, schedule=%s @ %s",
+        "scheduler up — executor_id=%s, schedules=%s, queue=%s",
         EXECUTOR_ID,
-        scheduled.HEARTBEAT_SCHEDULE_NAME,
-        scheduled.HEARTBEAT_SCHEDULE,
+        [s[0] for s in scheduled.SCHEDULES],
+        scheduled.METRICS_QUEUE_NAME,
     )
 
     stop = {"now": False, "count": 0}
@@ -71,7 +67,7 @@ def main() -> None:
     while not stop["now"]:
         time.sleep(1)
     LOG.info("shutting down")
-    DBOS.destroy()
+    DBOS.destroy(workflow_completion_timeout_sec=15)
 
 
 if __name__ == "__main__":

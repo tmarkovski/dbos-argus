@@ -4,7 +4,7 @@
   "private": true,
   "description": "Turborepo task runner shim for the Python DBOS sample app.",
   "scripts": {
-    "demo": "trap 'kill 0' INT TERM; uv run argus-simulator & uv run argus-scheduler & uv run argus-heartbeat-runner & wait",
+    "demo": "uv run argus-runner prepare && (trap 'kill 0' INT TERM; uv run argus-simulator & uv run argus-scheduler & uv run argus-metrics-runner & wait)",
     "lint": "uv run ruff check . && uv run ruff format --check .",
     "build": "echo 'sample-app build is handled via uv workspaces'"
   }

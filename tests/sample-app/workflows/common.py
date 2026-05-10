@@ -13,6 +13,16 @@ LOG = logging.getLogger("demo")
 DEFAULT_FAILURE_RATE = 0.30
 
 
+class SimulatedFailure(RuntimeError):
+    """Marker exception raised by `maybe_fail`.
+
+    Distinguishes intentional demo failures from real errors so the DBOS-logger
+    filter installed in `_dbos_setup` can suppress only the simulated tracebacks.
+    Workflows still transition to ERROR in `dbos.workflow_status` — the filter
+    is purely cosmetic, not state-changing.
+    """
+
+
 def _pause(min_sec: float = 1.0, max_sec: float = 4.0) -> None:
     """Random sleep so steps take long enough to watch in the dashboard."""
     time.sleep(random.uniform(min_sec, max_sec))
@@ -35,4 +45,4 @@ def maybe_fail(label: str, rate: float = DEFAULT_FAILURE_RATE) -> None:
     """Raise with probability `rate`. Used to give every use case a failure path."""
     _pause(0.5, 2.0)
     if random.random() < rate:
-        raise RuntimeError(f"simulated failure: {label}")
+        raise SimulatedFailure(f"simulated failure: {label}")

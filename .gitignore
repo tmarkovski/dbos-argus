@@ -46,3 +46,5 @@ packages/server/dbos_argus/_console/
 *.sqlite-journal
 *.sqlite-wal
 *.sqlite-shm
+
+.playwright-mcp/

@@ -35,7 +35,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 import click
-from _dbos_setup import init_dbos
+from _dbos_setup import init_dbos, register_queues
 from dbos import DBOS
 
 LOG = logging.getLogger("simulator")
@@ -269,6 +269,7 @@ def main(once: bool) -> None:
     import workflows  # noqa: F401
 
     DBOS.launch()
+    register_queues()
     use_cases = _build_use_cases()
 
     if once:
