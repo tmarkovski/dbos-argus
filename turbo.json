@@ -10,6 +10,11 @@
       "persistent": true,
       "passThroughEnv": ["ARGUS_DATABASE_URL", "ARGUS_*"]
     },
+    "demo": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["ARGUS_DATABASE_URL", "ARGUS_*", "DBOS_SYSTEM_DATABASE_URL"]
+    },
     "lint": {
       "outputs": []
     },

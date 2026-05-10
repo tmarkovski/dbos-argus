@@ -21,9 +21,9 @@ from typing import Any
 from dbos import DBOS
 from workflows import audit, log_event
 
-HEARTBEAT_SCHEDULE_NAME = "argus-demo-heartbeat"
+HEARTBEAT_SCHEDULE_NAME = "demo-heartbeat"
 HEARTBEAT_SCHEDULE = "* * * * *"
-HEARTBEAT_QUEUE_NAME = "argus-heartbeats"
+HEARTBEAT_QUEUE_NAME = "heartbeats"
 
 HEARTBEAT_JITTER_MIN_SEC = 0
 HEARTBEAT_JITTER_MAX_SEC = 2

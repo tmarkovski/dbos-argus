@@ -1,6 +1,6 @@
 """Argus dev scheduler — long-running process that owns the cron schedule.
 
-Sets `executor_id="argus-scheduler"` so the heartbeat workflow runs under its
+Sets `executor_id="scheduler"` so the heartbeat workflow runs under its
 own identity, separate from `argus-runner` (demo workflows) and `argus-ops`
 (short-lived CLI). That way you can stop the runner — or run another sample
 variant — without the heartbeat tagging along, and DBOS recovery only resumes
@@ -26,11 +26,11 @@ import click
 from _dbos_setup import init_dbos
 from dbos import DBOS, Queue
 
-LOG = logging.getLogger("argus-scheduler")
+LOG = logging.getLogger("scheduler")
 
-EXECUTOR_ID = "argus-scheduler"
+EXECUTOR_ID = "scheduler"
 
-init_dbos(EXECUTOR_ID)
+init_dbos(EXECUTOR_ID, worker_queue=None)
 
 import scheduled  # noqa: E402  — defines `heartbeat_check` workflow + register_schedules()
 
@@ -47,7 +47,7 @@ def main() -> None:
     DBOS.launch()
     scheduled.register_schedules()
     LOG.info(
-        "argus-scheduler up — executor_id=%s, schedule=%s @ %s",
+        "scheduler up — executor_id=%s, schedule=%s @ %s",
         EXECUTOR_ID,
         scheduled.HEARTBEAT_SCHEDULE_NAME,
         scheduled.HEARTBEAT_SCHEDULE,

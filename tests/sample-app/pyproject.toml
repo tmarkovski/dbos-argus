@@ -11,6 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
+argus-simulator = "simulator:main"
 argus-runner = "runner:main"
 argus-ops = "ops:cli"
 argus-scheduler = "scheduler:main"
@@ -22,4 +23,13 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
-include = ["runner.py", "ops.py", "workflows.py", "scheduled.py", "scheduler.py", "heartbeat_runner.py", "_dbos_setup.py"]
+include = [
+  "simulator.py",
+  "runner.py",
+  "ops.py",
+  "scheduled.py",
+  "scheduler.py",
+  "heartbeat_runner.py",
+  "_dbos_setup.py",
+  "workflows/**/*.py",
+]

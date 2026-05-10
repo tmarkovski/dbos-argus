@@ -1,17 +1,14 @@
-"""Argus dev runner — long-running process that hosts the example workflows.
+"""Argus dev runner — short-lived queue worker.
 
-Sets `executor_id="argus-runner"` so it owns the workflows it starts. The
-sibling `argus-ops` (short-lived CLI) and `argus-scheduler` (cron heartbeat)
-processes use distinct executor IDs and share the Postgres; DBOS recovery
-filters by executor_id, so none of them pick up each other's PENDING work.
+Spawned by `argus-simulator` to drain a single queue for a fixed duration, then
+exit. All instances of a worker for the same queue share an executor_id (e.g.
+`orders-worker`) so DBOS recovery can pick up a predecessor's PENDING
+work on the next spawn.
 
 Run:
 
-    cd tests/sample-app
-    uv sync
-    uv run argus-runner            # seeds the demo tree and idles
-    uv run argus-runner start-order ord-2002
-    uv run argus-runner --help
+    argus-runner --queue orders --duration 60
+    argus-runner idle                       # launch DBOS, register workflows, idle (recovery only)
 """
 
 from __future__ import annotations
@@ -20,120 +17,102 @@ import logging
 import os
 import signal
 import time
-import uuid
 
 import click
-from _dbos_setup import init_dbos
-from dbos import DBOS, SetWorkflowID
+from _dbos_setup import QUEUE_CONFIGS, init_dbos
+from dbos import DBOS
 
-LOG = logging.getLogger("argus-runner")
+LOG = logging.getLogger("runner")
 
-EXECUTOR_ID = "argus-runner"
 
-init_dbos(EXECUTOR_ID)
-
-# Decorators in `workflows` register against the DBOS singleton constructed
-# above — so this import must come AFTER `DBOS(...)`.
-from workflows import (  # noqa: E402
-    fulfill_order,
-    process_order,
-    send_campaign,
-)
+def _executor_id_for(queue: str) -> str:
+    return f"{queue}-worker"
 
 
 @click.group(invoke_without_command=True)
+@click.option(
+    "--queue",
+    "queue",
+    type=click.Choice(sorted(QUEUE_CONFIGS), case_sensitive=False),
+    default=None,
+    help="Subscribe as a worker for this queue and drain for --duration seconds.",
+)
+@click.option(
+    "--duration",
+    type=int,
+    default=60,
+    show_default=True,
+    help="How many seconds to drain the queue before exiting (with --queue).",
+)
 @click.pass_context
-def main(ctx: click.Context) -> None:
-    """Run example workflows under executor_id='argus-runner' and idle."""
+def main(ctx: click.Context, queue: str | None, duration: int) -> None:
+    """Drain a queue for N seconds and exit. With no flags, defaults to `idle`."""
     logging.basicConfig(level=logging.INFO)
-    if ctx.invoked_subcommand is None:
-        ctx.invoke(seed)
-
-
-@main.command()
-def seed() -> None:
-    """Spawn the full demo workflow tree, then idle until ctrl-C."""
-    DBOS.launch()
-    LOG.info("argus-runner up — executor_id=%s", EXECUTOR_ID)
-
-    # Fire-and-forget so all three trees run concurrently — with the random
-    # 3-10s step pauses, awaiting `process_order` / `send_campaign` here would
-    # delay `fulfill_order`'s start by minutes.
-    process_handle = DBOS.start_workflow(process_order, "ord-1001")
-    campaign_handle = DBOS.start_workflow(send_campaign, "spring-sale", 20)
-    LOG.info("started process_order: %s", process_handle.workflow_id)
-    LOG.info("started send_campaign: %s", campaign_handle.workflow_id)
-
-    fulfill_workflow_id = f"fulfill-{uuid.uuid4().hex[:8]}"
-    with SetWorkflowID(fulfill_workflow_id):
-        DBOS.start_workflow(fulfill_order, "ord-1001")
-    LOG.info("started fulfill_order: %s", fulfill_workflow_id)
-    LOG.info("  carrier child:    %s-carrier", fulfill_workflow_id)
-    LOG.info("  reconcile child:  %s-reconcile", fulfill_workflow_id)
-    LOG.info("  stock grandchild: %s-reconcile-stock", fulfill_workflow_id)
-    LOG.info("Run from another shell:")
-    LOG.info("  uv run argus-ops carrier-confirm %s", fulfill_workflow_id)
-    LOG.info("  uv run argus-ops cancel-stock    %s", fulfill_workflow_id)
-    LOG.info("  uv run argus-ops ops-signoff     %s", fulfill_workflow_id)
-
-    _idle()
-
-
-@main.command("start-order")
-@click.argument("order_id")
-def start_order(order_id: str) -> None:
-    """Run a single process_order workflow synchronously, then idle."""
-    DBOS.launch()
-    LOG.info("process_order result: %s", process_order(order_id))
-    _idle()
-
-
-@main.command("start-campaign")
-@click.argument("campaign_id")
-@click.option("-n", "--count", default=5, type=int, show_default=True)
-def start_campaign(campaign_id: str, count: int) -> None:
-    """Run a single send_campaign workflow synchronously, then idle."""
-    DBOS.launch()
-    LOG.info("send_campaign result: %s", send_campaign(campaign_id, count))
-    _idle()
-
-
-@main.command("start-fulfill")
-@click.argument("order_id")
-def start_fulfill(order_id: str) -> None:
-    """Spawn fulfill_order(order_id) fire-and-forget, print its id, then idle."""
-    DBOS.launch()
-    fulfill_workflow_id = f"fulfill-{uuid.uuid4().hex[:8]}"
-    with SetWorkflowID(fulfill_workflow_id):
-        DBOS.start_workflow(fulfill_order, order_id)
-    LOG.info("started fulfill_order: %s", fulfill_workflow_id)
-    _idle()
+    if ctx.invoked_subcommand is not None:
+        return
+    if queue is None:
+        ctx.invoke(idle)
+        return
+    _drain(queue, duration)
 
 
 @main.command()
 def idle() -> None:
-    """Launch DBOS and idle — useful to recover prior runner workflows."""
+    """Launch DBOS without subscribing to any queue. Useful for recovery testing."""
+    init_dbos("runner-idle", worker_queue=None)
+    import workflows  # noqa: F401  — register workflow decorators
+
     DBOS.launch()
-    LOG.info("argus-runner up — executor_id=%s (no new workflows seeded)", EXECUTOR_ID)
-    _idle()
+    LOG.info("runner idle — no queues subscribed")
+    _idle_loop()
 
 
-def _idle() -> None:
-    LOG.info("idle — workflows owned by executor_id=%s; ctrl-C to exit", EXECUTOR_ID)
+def _drain(queue: str, duration: int) -> None:
+    executor_id = _executor_id_for(queue)
+    init_dbos(executor_id, worker_queue=queue)
+
+    import workflows  # noqa: F401  — register workflow decorators
+
+    DBOS.launch()
+    LOG.info(
+        "draining queue=%s as executor_id=%s for %ds (concurrency=%d)",
+        queue,
+        executor_id,
+        duration,
+        QUEUE_CONFIGS[queue],
+    )
+
     stop = {"now": False, "count": 0}
 
-    # First SIGINT requests graceful shutdown. `DBOS.destroy()` waits for
-    # in-flight workflow threads to drain — a workflow mid-`DBOS.sleep(N)`
-    # holds the process for up to N seconds because DBOS.sleep is not
-    # interruptible. A second SIGINT escalates to a hard exit so the user
-    # is never stuck staring at "shutting down".
     def _on_signal(_signum, _frame):
         stop["count"] += 1
         if stop["count"] >= 2:
-            LOG.warning("force exit (second ctrl-C)")
+            LOG.warning("force exit (second signal)")
             os._exit(130)
         stop["now"] = True
-        LOG.info("shutdown requested — ctrl-C again to force exit")
+        LOG.info("shutdown requested — second signal forces exit")
+
+    signal.signal(signal.SIGINT, _on_signal)
+    signal.signal(signal.SIGTERM, _on_signal)
+
+    deadline = time.monotonic() + duration
+    while not stop["now"] and time.monotonic() < deadline:
+        time.sleep(0.5)
+
+    LOG.info("worker draining complete — destroying DBOS")
+    DBOS.destroy()
+
+
+def _idle_loop() -> None:
+    stop = {"now": False, "count": 0}
+
+    def _on_signal(_signum, _frame):
+        stop["count"] += 1
+        if stop["count"] >= 2:
+            LOG.warning("force exit (second signal)")
+            os._exit(130)
+        stop["now"] = True
+        LOG.info("shutdown requested — second signal forces exit")
 
     signal.signal(signal.SIGINT, _on_signal)
     signal.signal(signal.SIGTERM, _on_signal)

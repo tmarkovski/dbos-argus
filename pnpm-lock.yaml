@@ -129,6 +129,8 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(lightningcss@1.32.0)
 
+  tests/sample-app: {}
+
 packages:
 
   '@dagrejs/dagre@2.0.4':

@@ -26,11 +26,11 @@ import click
 from _dbos_setup import init_dbos
 from dbos import DBOS, Queue
 
-LOG = logging.getLogger("argus-heartbeat-runner")
+LOG = logging.getLogger("heartbeat-runner")
 
-EXECUTOR_ID = "argus-heartbeat-runner"
+EXECUTOR_ID = "heartbeat-runner"
 
-init_dbos(EXECUTOR_ID)
+init_dbos(EXECUTOR_ID, worker_queue=None)
 
 # Decorator in `scheduled` registers `heartbeat_check` against the DBOS
 # singleton constructed above — this import must come AFTER `DBOS(...)`.
@@ -46,7 +46,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO)
     DBOS.launch()
     LOG.info(
-        "argus-heartbeat-runner up — executor_id=%s, queue=%s",
+        "heartbeat-runner up — executor_id=%s, queue=%s",
         EXECUTOR_ID,
         scheduled.HEARTBEAT_QUEUE_NAME,
     )
