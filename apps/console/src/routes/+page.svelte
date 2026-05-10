@@ -46,12 +46,6 @@
       .slice(0, 3);
   });
 
-  const topQueuesMax = $derived(
-    topQueues.length > 0
-      ? Math.max(...topQueues.map((q) => q.enqueued + q.running))
-      : 0,
-  );
-
   $effect(() => {
     breadcrumb.items = [{ label: "Dashboard", icon: "home" }];
     return () => {
@@ -313,34 +307,32 @@
         {:else if topQueues.length === 0}
           <div class="text-muted-foreground text-xs">No queues registered.</div>
         {:else}
-          {#each topQueues as q, i (q.queue_id)}
-            {@const total = q.enqueued + q.running}
-            {@const pct = topQueuesMax > 0 ? (total / topQueuesMax) * 100 : 0}
-            {@const barColor =
-              i === 0 ? "bg-chart-3" : i === 1 ? "bg-chart-2" : "bg-chart-1"}
+          <div class="text-muted-foreground flex items-center gap-3 text-[10px] font-medium tracking-wide uppercase">
+            <span class="min-w-0 flex-1"></span>
+            <span class="text-status-queued/80 w-10 flex-none text-right">Queued</span>
+            <span class="text-status-running/80 w-10 flex-none text-right">Running</span>
+          </div>
+          {#each topQueues as q (q.queue_id)}
             <a
               href="/workflows/?queue_name={encodeURIComponent(
                 q.name,
               )}&status=ENQUEUED&status=PENDING"
-              class="group relative z-10 flex items-center gap-2 text-xs"
+              class="group relative z-10 flex items-center gap-3 text-xs"
             >
               <span
                 class="text-muted-foreground group-hover:text-foreground min-w-0 flex-1 truncate font-mono"
               >
                 {q.name}
               </span>
-              <div
-                class="bg-foreground/10 dark:bg-background h-1.5 w-20 flex-none overflow-hidden rounded-full"
-              >
-                <div
-                  class="h-full rounded-full {barColor}"
-                  style="width: {pct}%"
-                ></div>
-              </div>
               <span
-                class="text-muted-foreground w-6 flex-none text-right font-mono tabular-nums"
+                class="text-status-queued w-10 flex-none text-right font-mono font-semibold tabular-nums"
               >
-                {total}
+                {q.enqueued}
+              </span>
+              <span
+                class="text-status-running w-10 flex-none text-right font-mono font-semibold tabular-nums"
+              >
+                {q.running}
               </span>
             </a>
           {/each}
