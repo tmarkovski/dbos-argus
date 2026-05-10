@@ -274,6 +274,10 @@ export class RealtimeClient {
           /* already closed */
         }
       }
+      // Cancel any pending reconnect — without this, a backoff timer scheduled
+      // by an earlier failure would later fire and open a zombie socket.
+      if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
   }
 
