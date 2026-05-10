@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { onDestroy, tick } from "svelte";
   import type { FlowSelection } from "./WorkflowFlow.svelte";
   import { formatStatus, statusBadgeClass } from "$lib/workflow-tree";
   import { Badge } from "$lib/components/ui/badge/index.js";
@@ -303,6 +303,11 @@
   let eventPreferredMode = $state<ViewMode>("decoded");
   let eventCopyKey = $state<string | null>(null);
   let eventCopyTimer: ReturnType<typeof setTimeout> | null = null;
+
+  onDestroy(() => {
+    if (copyTimer) clearTimeout(copyTimer);
+    if (eventCopyTimer) clearTimeout(eventCopyTimer);
+  });
 
   // Tracks which side-pane card is acting as the View Transition anchor.
   // Multiple cards can be visible, so we tag exactly one with the shared
