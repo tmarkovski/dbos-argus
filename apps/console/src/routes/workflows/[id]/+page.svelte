@@ -137,9 +137,6 @@
 
   $effect(() => {
     const id = workflowId;
-    // Tear down any prior subscription before rebinding to the new id.
-    workflowHandle?.dispose();
-    workflowHandle = null;
     detail = null;
     error = null;
     selection = null;
@@ -187,7 +184,7 @@
       }
     };
 
-    workflowHandle = realtimeClient.subscribe(
+    const handle = realtimeClient.subscribe(
       "workflow",
       { id },
       {
@@ -198,6 +195,12 @@
         },
       },
     );
+    workflowHandle = handle;
+
+    return () => {
+      handle.dispose();
+      if (workflowHandle === handle) workflowHandle = null;
+    };
   });
 
   $effect(() => {
@@ -283,7 +286,6 @@
   });
 
   onDestroy(() => {
-    workflowHandle?.dispose();
     breadcrumb.items = [];
   });
 </script>
