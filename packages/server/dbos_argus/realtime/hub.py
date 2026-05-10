@@ -63,7 +63,13 @@ class Connection:
 
     def enqueue(self, msg: ServerMessage) -> bool:
         """Try to enqueue `msg` for sending. Returns False if the queue is
-        full — caller should close the connection rather than block.
+        full or the connection is already closed.
+
+        On a full queue, marks the connection closed and schedules a
+        websocket close — otherwise the read loop keeps awaiting frames
+        from a peer that's no longer draining, and the queued messages +
+        subscription set stay pinned until TCP eventually times out
+        (which can be minutes on some networks).
         """
         if self.closed:
             return False
@@ -71,7 +77,20 @@ class Connection:
             self.out_queue.put_nowait(msg)
             return True
         except asyncio.QueueFull:
+            self.closed = True
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                return False
+            loop.create_task(self._force_close())
             return False
+
+    async def _force_close(self) -> None:
+        try:
+            await self.websocket.close(code=1011, reason="outbound queue full")
+        except Exception:
+            # Already closed, or socket in an unsendable state — fine.
+            pass
 
 
 class Poller:

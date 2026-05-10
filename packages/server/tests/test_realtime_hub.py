@@ -19,7 +19,14 @@ class _FakeWebSocket:
     """Stand-in for the FastAPI WebSocket so the hub can hand out Connections
     in tests without an actual socket. Only the attributes the hub touches
     matter — `headers`, `accept`, `send_json` aren't reached because the
-    writer task isn't started in these tests."""
+    writer task isn't started in these tests. `close` is awaited by the
+    queue-full force-close path."""
+
+    def __init__(self) -> None:
+        self.close_calls: list[tuple[int | None, str | None]] = []
+
+    async def close(self, code: int | None = None, reason: str | None = None) -> None:
+        self.close_calls.append((code, reason))
 
 
 def _make_conn() -> Connection:
@@ -328,6 +335,33 @@ async def test_detach_unsubscribes_all_and_cleans_pollers() -> None:
     hub.detach(conn)
     assert hub.poller_count == 0
     assert hub.connection_count == 0
+
+
+async def test_full_out_queue_force_closes_connection() -> None:
+    """A stalled client whose out_queue fills up should be force-closed so
+    the read loop exits and `hub.detach` runs — otherwise per-connection
+    state stays pinned until TCP timeout.
+    """
+    conn = _make_conn()
+    # Fill the queue to capacity.
+    while True:
+        try:
+            conn.out_queue.put_nowait(AckMessage(sub_id="x", op="subscribe"))
+        except asyncio.QueueFull:
+            break
+
+    accepted = conn.enqueue(AckMessage(sub_id="y", op="subscribe"))
+    assert accepted is False
+    assert conn.closed is True
+
+    # The force-close runs as a background task — let it execute.
+    await asyncio.sleep(0)
+    fake_ws: _FakeWebSocket = conn.websocket  # type: ignore[assignment]
+    assert len(fake_ws.close_calls) == 1
+    assert fake_ws.close_calls[0][0] == 1011
+
+    # Subsequent enqueues are no-ops.
+    assert conn.enqueue(AckMessage(sub_id="z", op="subscribe")) is False
 
 
 async def test_max_subs_per_connection_enforced() -> None:
