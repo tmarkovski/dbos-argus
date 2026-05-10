@@ -82,6 +82,14 @@ async def _writer(conn: Connection) -> None:
         raise
     except Exception as e:
         logger.warning("realtime: ws writer error: %s", e)
+        # Mark closed and force the socket shut so the receive loop
+        # unblocks and `hub.detach` runs — otherwise the reader keeps
+        # awaiting frames the peer is no longer reading.
+        conn.closed = True
+        try:
+            await conn.websocket.close(code=1011, reason="writer error")
+        except Exception:
+            pass
 
 
 async def _handle_client_message(hub: RealtimeHub, conn: Connection, msg: Any) -> None:
