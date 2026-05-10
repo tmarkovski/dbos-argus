@@ -1,0 +1,27 @@
+modules = ["python-3.12", "nodejs-20", "web", "bash"]
+
+[nix]
+channel = "stable-25_05"
+
+[env]
+NODE_OPTIONS = "--max-old-space-size=4096"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm install && uv sync && pnpm demo"
+waitForPort = 5000
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 8090
+externalPort = 3000
