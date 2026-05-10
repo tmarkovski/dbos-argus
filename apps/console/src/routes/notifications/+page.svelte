@@ -85,6 +85,7 @@
 
   onDestroy(() => {
     handle?.dispose();
+    if (copyTimer) clearTimeout(copyTimer);
   });
 
   const messagePayload = $derived.by<{
