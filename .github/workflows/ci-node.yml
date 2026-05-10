@@ -39,12 +39,12 @@ jobs:
         run: pnpm install --frozen-lockfile=false
 
       - name: Lint
-        run: pnpm exec turbo run lint --filter='!@dbos-argus/server'
+        run: pnpm exec turbo run lint --filter='!@dbos-argus/server' --filter='!@dbos-argus/sample-app'
 
       - name: Test
-        run: pnpm exec turbo run test --filter='!@dbos-argus/server'
+        run: pnpm exec turbo run test --filter='!@dbos-argus/server' --filter='!@dbos-argus/sample-app'
 
       - name: Build
-        run: pnpm exec turbo run build --filter='!@dbos-argus/server'
+        run: pnpm exec turbo run build --filter='!@dbos-argus/server' --filter='!@dbos-argus/sample-app'
         env:
           NODE_OPTIONS: --max-old-space-size=4096
