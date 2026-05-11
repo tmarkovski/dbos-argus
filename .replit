@@ -25,3 +25,11 @@ externalPort = 80
 [[ports]]
 localPort = 8090
 externalPort = 3000
+
+[agent]
+expertMode = true
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["uv", "run", "dbos-argus", "--host", "0.0.0.0", "--port", "8080"]
+build = ["bash", "-c", "pnpm install && uv sync && pnpm --filter console build && mkdir -p packages/server/dbos_argus/_console && cp -r apps/console/build/. packages/server/dbos_argus/_console/"]
