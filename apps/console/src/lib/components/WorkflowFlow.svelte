@@ -653,6 +653,7 @@
             eventDirection: eventDirection(s),
             eventKey: s.event_key,
             sleepRequestedMs: s.sleep_requested_ms,
+            startedAt: s.started_at,
             isFirst: childNode.id === firstStepNodeId,
             isLast: childNode.id === lastStepNodeId,
           },

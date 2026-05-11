@@ -19,6 +19,7 @@
     eventDirection?: EventDirection;
     eventKey?: string | null;
     sleepRequestedMs?: number | null;
+    startedAt?: string | null;
     isFirst?: boolean;
     isLast?: boolean;
   };
@@ -57,6 +58,68 @@
   const displayDurationMs = $derived(
     data.sleepRequestedMs != null ? data.sleepRequestedMs : data.durationMs,
   );
+
+  let now = $state(Date.now());
+
+  // DBOS writes the sleep row with both started_at and completed_at as soon
+  // as it's encountered — the wake-up time is stored in `output` and the
+  // workflow is parked outside of step-tracking until then. So step status
+  // is always "success" for a sleep; "currently sleeping" means: this row is
+  // DBOS.sleep, it's the workflow's last step, and the wake-up time is still
+  // in the future.
+  const wakeMs = $derived.by(() => {
+    if (data.functionName !== "DBOS.sleep") return null;
+    if (data.sleepRequestedMs == null || data.sleepRequestedMs <= 0) return null;
+    if (!data.startedAt) return null;
+    if (data.isLast !== true) return null;
+    return new Date(data.startedAt).getTime() + data.sleepRequestedMs;
+  });
+
+  // Countdown ring only appears in the final minute (per spec). Above 1m, the
+  // ring would move imperceptibly anyway, so we render the static total like
+  // any other sleep step. The ring fills against a 60s window — not the
+  // original requested sleep — so a 60s remaining means empty and 0s means
+  // full regardless of whether the workflow was sleeping for 2m or 2h.
+  const RING_WINDOW_MS = 60_000;
+  const ringState = $derived.by(() => {
+    if (wakeMs == null) return null;
+    const remaining = wakeMs - now;
+    if (remaining <= 0 || remaining >= RING_WINDOW_MS) return null;
+    const ratio = Math.min(1, Math.max(0, (RING_WINDOW_MS - remaining) / RING_WINDOW_MS));
+    const seconds = Math.max(0, Math.ceil(remaining / 1000));
+    return { remaining, ratio, seconds };
+  });
+
+  $effect(() => {
+    if (wakeMs == null) return;
+    const wake = wakeMs;
+
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    let frameId: number | null = null;
+
+    const tick = () => {
+      now = Date.now();
+      const remaining = wake - now;
+      if (remaining <= 0) return;
+      if (remaining < 60_000) {
+        // In the final minute: rAF for smooth fill + per-second number update.
+        frameId = requestAnimationFrame(tick);
+      } else {
+        // Otherwise sleep until we cross into the final-minute window. One
+        // timer total, not one per second — cheap for long sleeps.
+        timerId = setTimeout(tick, remaining - 60_000 + 50);
+      }
+    };
+    tick();
+
+    return () => {
+      if (timerId !== null) clearTimeout(timerId);
+      if (frameId !== null) cancelAnimationFrame(frameId);
+    };
+  });
+
+  const RING_RADIUS = 9.5;
+  const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 </script>
 
 <div
@@ -106,7 +169,45 @@
         : data.functionName}
     </span>
   {/if}
-  {#if data.awaitedWorkflowName || data.spawnedWorkflowName || displayDurationMs !== null}
+  {#if ringState}
+    <span
+      class="text-status-running ml-auto flex flex-none items-center"
+      title="Sleep — {ringState.seconds}s remaining"
+    >
+      <span class="relative inline-flex h-5 w-5 items-center justify-center">
+        <svg
+          class="absolute inset-0 h-full w-full"
+          viewBox="0 0 22 22"
+          aria-hidden="true"
+        >
+          <circle
+            cx="11"
+            cy="11"
+            r={RING_RADIUS}
+            fill="none"
+            stroke="currentColor"
+            stroke-opacity="0.25"
+            stroke-width="1.5"
+          />
+          <circle
+            cx="11"
+            cy="11"
+            r={RING_RADIUS}
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-dasharray={RING_CIRCUMFERENCE}
+            stroke-dashoffset={RING_CIRCUMFERENCE * (1 - ringState.ratio)}
+            transform="rotate(-90 11 11)"
+          />
+        </svg>
+        <span class="relative font-mono text-[8px] leading-none tabular-nums">
+          {ringState.seconds}s
+        </span>
+      </span>
+    </span>
+  {:else if data.awaitedWorkflowName || data.spawnedWorkflowName || displayDurationMs !== null}
     <span
       class="text-muted-foreground ml-auto flex flex-none items-center gap-1 font-mono text-[10px]"
     >
