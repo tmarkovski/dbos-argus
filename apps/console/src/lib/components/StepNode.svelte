@@ -118,7 +118,7 @@
     };
   });
 
-  const RING_RADIUS = 9.5;
+  const RING_RADIUS = 11;
   const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 </script>
 
@@ -171,18 +171,18 @@
   {/if}
   {#if ringState}
     <span
-      class="text-status-running ml-auto flex flex-none items-center"
+      class="text-status-running ml-auto -mr-2 flex flex-none items-center"
       title="Sleep — {ringState.seconds}s remaining"
     >
-      <span class="relative inline-flex h-5 w-5 items-center justify-center">
+      <span class="relative inline-flex h-6 w-6 items-center justify-center">
         <svg
           class="absolute inset-0 h-full w-full"
-          viewBox="0 0 22 22"
+          viewBox="0 0 24 24"
           aria-hidden="true"
         >
           <circle
-            cx="11"
-            cy="11"
+            cx="12"
+            cy="12"
             r={RING_RADIUS}
             fill="none"
             stroke="currentColor"
@@ -190,8 +190,8 @@
             stroke-width="1.5"
           />
           <circle
-            cx="11"
-            cy="11"
+            cx="12"
+            cy="12"
             r={RING_RADIUS}
             fill="none"
             stroke="currentColor"
@@ -199,10 +199,10 @@
             stroke-linecap="round"
             stroke-dasharray={RING_CIRCUMFERENCE}
             stroke-dashoffset={RING_CIRCUMFERENCE * (1 - ringState.ratio)}
-            transform="rotate(-90 11 11)"
+            transform="rotate(-90 12 12)"
           />
         </svg>
-        <span class="relative font-mono text-[8px] leading-none tabular-nums">
+        <span class="relative font-mono text-[9px] leading-none tabular-nums">
           {ringState.seconds}s
         </span>
       </span>
