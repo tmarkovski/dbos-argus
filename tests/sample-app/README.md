@@ -67,7 +67,7 @@ Six top-level workflows, each with sub-workflows, recv calls, set_event broadcas
 | --- | --- | --- |
 | `onboard_user(email)` | `onboarding` | recv with timeout (email-verify click), sub-workflow `provision_account`, branch on timeout to `cleanup_unverified`. |
 | `fulfill_order(order_id)` | `orders` | Multi-stage pipeline. `authorize_payment` is enqueued onto the rate-limited `payments` queue. recv with timeout for delivery confirmation. |
-| `run_billing_cycle(account_id)` | `billing` | Sub-workflow `charge_card` enqueued onto `payments`. On failure: dunning state, recv waiting for retry, then second charge attempt or `mark_delinquent`. |
+| `run_billing_cycle(account_id)` | `billing` | Sub-workflow `charge_card` started via `DBOS.start_workflow` (child on the parent's executor, no queue) and awaited with `handle.get_result()`. On failure: dunning state, recv waiting for retry, then second charge attempt or `mark_delinquent`. |
 | `send_campaign(campaign_id)` | `emails` | Fan-out: enqueues 5–15 `deliver_message` children onto `emails` (concurrency=20), waits for all results. |
 | `process_return(order_id)` | `returns` | recv with timeout for ops approval; auto-decides 50/50 on timeout. Sub-workflows `issue_refund` (via `payments`) + `restock_items`. |
 | `generate_daily_report(date)` | `reports` | Long single-step job. `reports` queue has `worker_concurrency=1`, so multiple enqueues serialize visibly. |

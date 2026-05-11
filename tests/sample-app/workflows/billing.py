@@ -1,7 +1,8 @@
 """Subscription billing.
 
 `run_billing_cycle` runs on the `billing` queue. Demonstrates:
-- sub-workflow `charge_card` enqueued onto the rate-limited `payments` queue
+- sub-workflow `charge_card` started as a child via `DBOS.start_workflow`
+  (no queue), then awaited with `handle.get_result()`
 - recv with timeout for "user retried payment from billing portal"
 - branch on success / dunning / delinquent
 """
@@ -10,7 +11,6 @@ from __future__ import annotations
 
 import random
 
-from _dbos_setup import QUEUES
 from dbos import DBOS
 
 from .common import _pause, audit, log_event, maybe_fail
@@ -64,7 +64,7 @@ def run_billing_cycle(account_id: str) -> dict:
     sub = lookup_subscription(account_id)
     DBOS.set_event("status", {"stage": "charging"})
 
-    charge_handle = QUEUES["payments"].enqueue(charge_card, account_id, sub["amount"])
+    charge_handle = DBOS.start_workflow(charge_card, account_id, sub["amount"])
     try:
         charge_handle.get_result()
         DBOS.set_event("status", {"stage": "renewed"})
@@ -80,7 +80,7 @@ def run_billing_cycle(account_id: str) -> dict:
         DBOS.set_event("status", {"stage": "delinquent"})
         return {"account_id": account_id, "outcome": "delinquent", **marked}
 
-    retry_handle = QUEUES["payments"].enqueue(charge_card, account_id, sub["amount"])
+    retry_handle = DBOS.start_workflow(charge_card, account_id, sub["amount"])
     try:
         retry_handle.get_result()
         DBOS.set_event("status", {"stage": "renewed"})
