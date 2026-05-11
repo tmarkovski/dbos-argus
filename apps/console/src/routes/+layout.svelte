@@ -28,6 +28,7 @@
   import { Separator } from "$lib/components/ui/separator/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Table from "$lib/components/ui/table/index.js";
+  import GithubLink from "$lib/components/GithubLink.svelte";
 
   let { children } = $props();
 
@@ -480,20 +481,23 @@
           {/each}
         </Breadcrumb.List>
       </Breadcrumb.Root>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        class="ml-auto"
-        onclick={toggleTheme}
-        title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-        aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      >
-        {#if isDark}
-          <Sun />
-        {:else}
-          <Moon />
-        {/if}
-      </Button>
+      <div class="ml-auto flex items-center gap-1">
+        <GithubLink />
+        <Separator orientation="vertical" class="mx-1 !h-4" />
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onclick={toggleTheme}
+          title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {#if isDark}
+            <Sun />
+          {:else}
+            <Moon />
+          {/if}
+        </Button>
+      </div>
     </header>
     <div class="flex flex-1 flex-col overflow-hidden md:rounded-b-2xl">
       {@render children()}

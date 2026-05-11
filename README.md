@@ -2,6 +2,8 @@
 
 **A self-hosted, open-source, read-only workflow viewer for DBOS Transact applications.**
 
+> **Try it live →** [dbos-argus--tmarkovski.replit.app](https://dbos-argus--tmarkovski.replit.app) — hosted demo backed by SQLite with the bundled sample app driving continuous workflow activity. State resets on container restart.
+
 Argus is a web dashboard for visualizing the durable workflows your [DBOS Transact](https://github.com/dbos-inc/dbos-transact-py) apps are already running. It points at the database your DBOS app uses (Postgres or SQLite), opens a read-only connection, and renders the workflow state DBOS already stores there. No agents, no app-side wiring, no schema of its own, no write path.
 
 ![Argus dashboard](docs/images/dashboard.png)
