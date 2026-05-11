@@ -31,5 +31,5 @@ expertMode = true
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["uv", "run", "dbos-argus", "--host", "0.0.0.0", "--port", "8080"]
+run = ["uv", "run", "dbos-argus", "--host", "0.0.0.0", "--port", "5000"]
 build = ["bash", "-c", "NODE_OPTIONS='--max-old-space-size=4096' pnpm install && uv sync && pnpm --filter console build && mkdir -p packages/server/dbos_argus/_console && cp -r apps/console/build/. packages/server/dbos_argus/_console/"]
