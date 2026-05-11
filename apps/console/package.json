@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev --host 0.0.0.0 --port 5173",
+    "dev": "vite dev --host 0.0.0.0 --port 5000",
     "build": "svelte-kit sync && vite build",
-    "preview": "vite preview --host 0.0.0.0 --port 5173",
+    "preview": "vite preview --host 0.0.0.0 --port 5000",
     "lint": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --threshold warning",
     "test": "vitest run",
     "test:e2e": "playwright test",

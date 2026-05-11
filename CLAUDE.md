@@ -41,7 +41,7 @@ Turbo is invoked with `--filter=*` from the root scripts so it always runs again
 Targeted tasks:
 
 ```bash
-pnpm --filter console dev              # SvelteKit dev on :5173
+pnpm --filter console dev              # SvelteKit dev on :5000
 uv run pytest packages/server/tests    # all server tests
 uv run ruff check packages/server      # python lint
 uv run ruff format packages/server     # python format
@@ -60,7 +60,7 @@ Endpoints when up (single port):
 - API healthz: http://localhost:8090/healthz
 - Postgres: localhost:5432 (user/pass/db = `argus/argus/argus`)
 
-Pure frontend dev (HMR): `pnpm --filter console dev` starts Vite on :5173 and proxies `/healthz`, `/version` to a locally running server on :8090 (set `ARGUS_BACKEND_URL` to override).
+Pure frontend dev (HMR): `pnpm --filter console dev` starts Vite on :5000 and proxies `/healthz`, `/version` to a locally running server on :8090 (set `ARGUS_BACKEND_URL` to override).
 
 Argus does not own a schema. It reads DBOS Transact's system tables (`dbos.workflow_status`, etc.) from the Postgres DB that the DBOS app also uses. No migrations to run.
 
