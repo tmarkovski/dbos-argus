@@ -7,8 +7,8 @@
   "scripts": {
     "build": "turbo run build --filter=*",
     "build:pypi": "bash scripts/build-pypi.sh",
-    "dev:db": "docker compose up -d postgres && docker compose stop argus >/dev/null 2>&1 || true",
-    "dev": "pnpm dev:db && ARGUS_DATABASE_URL=postgresql+asyncpg://argus:argus@localhost:5432/argus turbo run dev --filter=*",
+    "dev:db": "docker compose up -d --wait postgres && { docker compose stop argus >/dev/null 2>&1 || true; }",
+    "dev": "pnpm dev:db && ARGUS_DATABASE_URL=postgresql+asyncpg://argus:argus@localhost:5432/argus DBOS_SYSTEM_DATABASE_URL=postgresql://argus:argus@localhost:5432/argus turbo run dev demo --filter=*",
     "dev:sqlite": "ARGUS_DATABASE_URL=sqlite+aiosqlite:///$PWD/argus-dev.sqlite turbo run dev --filter=*",
     "demo": "node scripts/demo.mjs",
     "lint": "turbo run lint --filter=*",
