@@ -63,9 +63,10 @@
   // separately with `status: ["ENQUEUED"]`.
   let enqueued = $state<Workflow[]>([]);
   // Collapse state survives reloads/navigation; SSR has no window so the
-  // initial value defaults to expanded and gets corrected on hydrate.
+  // initial value defaults to collapsed and gets corrected on hydrate if the
+  // user has previously toggled it open.
   const ENQUEUED_COLLAPSED_KEY = "argus.workflows.enqueuedCollapsed";
-  let enqueuedCollapsed = $state(false);
+  let enqueuedCollapsed = $state(true);
   let error = $state<string | null>(null);
   // Realtime subscription handles. The page holds two: the main filtered
   // list and the pinned ENQUEUED strip. Both push fresh snapshots whenever
@@ -335,7 +336,8 @@
 
   onMount(() => {
     try {
-      enqueuedCollapsed = localStorage.getItem(ENQUEUED_COLLAPSED_KEY) === "1";
+      const storedCollapsed = localStorage.getItem(ENQUEUED_COLLAPSED_KEY);
+      if (storedCollapsed !== null) enqueuedCollapsed = storedCollapsed === "1";
       hideScheduled = localStorage.getItem(HIDE_SCHEDULED_KEY) === "1";
     } catch {
       // localStorage may be unavailable (private mode, sandboxed) — fall back
