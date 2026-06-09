@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.28] - 2026-06-09
+
 > **Tested against DBOS 2.23.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dependency floor is now `dbos>=2.23.0`. Pointing Argus at an older DBOS database whose `dbos.workflow_status` lacks `completed_at` will error on the workflow list / detail reads.
 
 ### Added
@@ -619,7 +621,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.27...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.28...HEAD
+[0.0.28]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.28
 [0.0.27]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.27
 [0.0.26]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.26
 [0.0.22]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.22
