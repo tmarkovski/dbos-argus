@@ -77,8 +77,10 @@
     if (!selection) return null;
     if (selection.kind === "workflow") {
       const w = selection.workflow;
-      const dur =
-        new Date(w.updated_at).getTime() - new Date(w.started_at).getTime();
+      // For terminal workflows DBOS stamps `completed_at` (2.23.0+); it's the
+      // precise finish time. Fall back to `updated_at` while still running.
+      const end = w.completed_at ?? w.updated_at;
+      const dur = new Date(end).getTime() - new Date(w.started_at).getTime();
       return {
         resultLabel: "Workflow details",
         title: w.name ?? "—",
@@ -123,6 +125,12 @@
       items.push({ label: "Duration", value: formatDuration(heading.durationMs) });
     if (selection.kind === "workflow") {
       const w = selection.workflow;
+      if (w.completed_at)
+        items.push({
+          label: "Completed",
+          value: new Date(w.completed_at).toLocaleString(),
+          title: w.completed_at,
+        });
       if (w.queue_name) items.push({ label: "Queue", value: w.queue_name });
       if (w.executor_id)
         items.push({ label: "Executor", value: w.executor_id, title: w.executor_id });

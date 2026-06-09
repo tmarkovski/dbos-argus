@@ -1,7 +1,7 @@
 {
   "schema": "dbos",
   "meta": {
-    "dbos_version": "2.21.0",
+    "dbos_version": "2.23.0",
     "note": "Full DBOS Postgres schema. `argus: true` columns are the ones the Argus backend actively reads — diff_schemas filters to those at runtime. The CI watchdog (.github/workflows/dbos-schema-watch.yml) regenerates this file against newly released DBOS versions and opens an issue when anything changes."
   },
   "tables": [
@@ -153,7 +153,8 @@
         {"name": "serialization", "data_type": "text", "argus": true},
         {"name": "delay_until_epoch_ms", "data_type": "bigint", "argus": false},
         {"name": "was_forked_from", "data_type": "boolean", "argus": false},
-        {"name": "rate_limited", "data_type": "boolean", "argus": false}
+        {"name": "rate_limited", "data_type": "boolean", "argus": false},
+        {"name": "completed_at", "data_type": "bigint", "argus": true}
       ]
     }
   ]

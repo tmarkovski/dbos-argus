@@ -10,6 +10,9 @@ export type Workflow = {
   priority: number;
   started_at: string;
   updated_at: string;
+  // Wall-clock completion (workflow_status.completed_at). null until the
+  // workflow reaches a terminal state.
+  completed_at: string | null;
   depth: number;
   operation_count: number;
 };

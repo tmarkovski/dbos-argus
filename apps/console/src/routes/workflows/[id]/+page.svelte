@@ -20,6 +20,7 @@
     status: string | null;
     started_at: string;
     updated_at: string;
+    completed_at: string | null;
     family: FamilyWorkflow[];
     steps: Step[];
     events: WorkflowEventEntry[];

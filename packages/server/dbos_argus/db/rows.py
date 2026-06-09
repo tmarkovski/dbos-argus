@@ -43,6 +43,10 @@ class WorkflowListRow:
     priority: int | None
     started_ms: int
     updated_ms: int
+    # Wall-clock completion time (workflow_status.completed_at). None while the
+    # workflow is still running/enqueued, or null on rows DBOS wrote before it
+    # stamped completions.
+    completed_ms: int | None
     depth: int
     op_count: int
 
@@ -61,6 +65,9 @@ class WorkflowFamilyRow:
     has_error: bool
     started_ms: int
     updated_ms: int
+    # Wall-clock completion time (workflow_status.completed_at); None until the
+    # workflow reaches a terminal state.
+    completed_ms: int | None
     depth: int
 
 

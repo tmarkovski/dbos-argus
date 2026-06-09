@@ -148,30 +148,31 @@ def _seed(sync_url: str, base_ms: int) -> dict[str, object]:
                     INSERT INTO {p}workflow_status
                         (workflow_uuid, status, name, executor_id, created_at, updated_at,
                          recovery_attempts, started_at_epoch_ms, priority,
-                         parent_workflow_id, output, error, serialization, queue_name)
+                         parent_workflow_id, output, error, serialization, queue_name,
+                         completed_at)
                     VALUES
                         ('wf-root', 'PENDING', 'root_workflow', 'test',
-                         :t0, :t0, 0, :t0, 0, NULL, NULL, NULL, 'portable_json', NULL),
+                         :t0, :t0, 0, :t0, 0, NULL, NULL, NULL, 'portable_json', NULL, NULL),
                         ('wf-child-success', 'SUCCESS', 'child_a', 'test',
                          :t1, :t1, 0, :t1, 0, 'wf-root', '"hello"', NULL,
-                         'portable_json', NULL),
+                         'portable_json', NULL, :c1),
                         ('wf-child-pending', 'PENDING', 'child_b', 'test',
-                         :t2, :t2, 0, :t2, 0, 'wf-root', NULL, NULL, 'portable_json', NULL),
+                         :t2, :t2, 0, :t2, 0, 'wf-root', NULL, NULL, 'portable_json', NULL, NULL),
                         ('wf-grandchild-error', 'ERROR', 'grandchild', 'test',
                          :t3, :t3, 0, :t3, 0, 'wf-child-success', NULL, '"boom"',
-                         'portable_json', NULL),
+                         'portable_json', NULL, :c3),
                         ('wf-q-hb-enq', 'ENQUEUED', 'queued_a', 'test',
                          :t4, :t4, 0, NULL, 0, NULL, NULL, NULL,
-                         'portable_json', 'argus-heartbeats'),
+                         'portable_json', 'argus-heartbeats', NULL),
                         ('wf-q-hb-pend', 'PENDING', 'queued_b', 'test',
                          :t5, :t5, 0, :t5, 0, NULL, NULL, NULL,
-                         'portable_json', 'argus-heartbeats'),
+                         'portable_json', 'argus-heartbeats', NULL),
                         ('wf-q-plain-enq', 'ENQUEUED', 'queued_c', 'test',
                          :t6, :t6, 0, NULL, 0, NULL, NULL, NULL,
-                         'portable_json', 'plain-queue'),
+                         'portable_json', 'plain-queue', NULL),
                         ('wf-q-orphan-enq', 'ENQUEUED', 'queued_d', 'test',
                          :t7, :t7, 0, NULL, 0, NULL, NULL, NULL,
-                         'portable_json', 'orphaned-queue')
+                         'portable_json', 'orphaned-queue', NULL)
                     """
                 ),
                 {
@@ -183,6 +184,11 @@ def _seed(sync_url: str, base_ms: int) -> dict[str, object]:
                     "t5": base_ms + 500,
                     "t6": base_ms + 600,
                     "t7": base_ms + 700,
+                    # Terminal workflows carry completed_at; PENDING/ENQUEUED
+                    # rows leave it NULL. wf-child-success finishes 150ms after
+                    # it started (t1), the errored grandchild 50ms after t3.
+                    "c1": base_ms + 250,
+                    "c3": base_ms + 350,
                 },
             )
             # operation_outputs: an audit, a setEvent (joined to events_history

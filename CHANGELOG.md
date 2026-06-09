@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+> **Tested against DBOS 2.23.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dependency floor is now `dbos>=2.23.0`. Pointing Argus at an older DBOS database whose `dbos.workflow_status` lacks `completed_at` will error on the workflow list / detail reads.
+
+### Added
+- Workflow **completion time**. DBOS 2.23.0 added `dbos.workflow_status.completed_at`,
+  the canonical wall-clock timestamp for when a workflow reached a terminal
+  state. Argus now reads it: it appears as `completed_at` on the workflow
+  list and detail API/realtime payloads, and the workflow detail pane shows
+  a **Completed** row and computes the workflow **Duration** from
+  `started_at → completed_at` (falling back to `updated_at` while still
+  running). Null for workflows that haven't finished.
+
+### Changed
+- Schema snapshot regenerated against DBOS 2.23.0 (closes the `dbos-watch`
+  drift issue). `workflow_status.completed_at` is now argus-tracked.
+- Bumped the `dbos` dependency floor to `>=2.23.0` to align Argus with the
+  DBOS release that introduced `completed_at`.
+
 ## [0.0.27] - 2026-05-09
 
 > **Tested against DBOS 2.21.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Other DBOS versions may still work; the in-app connection indicator surfaces any schema mismatches.

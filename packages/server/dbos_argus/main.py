@@ -178,6 +178,11 @@ async def get_sql_diagnostics() -> SqlDiagnostics:
     )
 
 
+def _dt_from_ms(ms: int | None) -> datetime | None:
+    """Epoch-ms (DBOS' native time unit) → aware UTC datetime, or None."""
+    return datetime.fromtimestamp(ms / 1000, tz=UTC) if ms is not None else None
+
+
 class WorkflowListItem(BaseModel):
     workflow_id: str
     parent_workflow_id: str | None
@@ -189,6 +194,9 @@ class WorkflowListItem(BaseModel):
     priority: int
     started_at: datetime
     updated_at: datetime
+    # Wall-clock completion (workflow_status.completed_at). None until the
+    # workflow reaches a terminal state.
+    completed_at: datetime | None
     depth: int
     # Number of dbos.operation_outputs rows for this workflow. Computed via
     # SQL COUNT — the list endpoint never materialises individual operations.
@@ -209,6 +217,7 @@ def _to_workflow_list_item(r: WorkflowListRow) -> WorkflowListItem:
         priority=r.priority or 0,
         started_at=datetime.fromtimestamp(r.started_ms / 1000, tz=UTC),
         updated_at=datetime.fromtimestamp(r.updated_ms / 1000, tz=UTC),
+        completed_at=_dt_from_ms(r.completed_ms),
         depth=r.depth,
         operation_count=r.op_count,
     )
@@ -290,6 +299,9 @@ class WorkflowFamilyItem(BaseModel):
     workflow_timeout_ms: int | None
     started_at: datetime
     updated_at: datetime
+    # Wall-clock completion (workflow_status.completed_at). None until the
+    # workflow reaches a terminal state.
+    completed_at: datetime | None
     depth: int
     has_output: bool
     has_error: bool
@@ -324,6 +336,9 @@ class WorkflowDetail(BaseModel):
     status: str | None
     started_at: datetime
     updated_at: datetime
+    # Wall-clock completion (workflow_status.completed_at). None until the
+    # workflow reaches a terminal state.
+    completed_at: datetime | None
     # Entire workflow family rooted at the topmost ancestor, in DFS order
     # (same shape & ordering as the grouped list endpoint). Single-entry
     # when the workflow has no parent and no children.
@@ -404,6 +419,7 @@ def _build_workflow_detail(detail: WorkflowDetailRows, workflow_id: str) -> Work
             has_error=r.has_error,
             started_at=datetime.fromtimestamp(r.started_ms / 1000, tz=UTC),
             updated_at=datetime.fromtimestamp(r.updated_ms / 1000, tz=UTC),
+            completed_at=_dt_from_ms(r.completed_ms),
             depth=r.depth,
         )
         for r in detail.family
@@ -475,6 +491,7 @@ def _build_workflow_detail(detail: WorkflowDetailRows, workflow_id: str) -> Work
         status=self_item.status,
         started_at=self_item.started_at,
         updated_at=self_item.updated_at,
+        completed_at=self_item.completed_at,
         family=family,
         steps=steps,
         events=events,

@@ -121,6 +121,27 @@ async def test_get_workflow_detail_returns_family_steps_events(populated_db: DB)
     assert any(e.key == "demo" for e in detail.events)
 
 
+async def test_completed_at_terminal_vs_running(populated_db: DB) -> None:
+    """workflow_status.completed_at (DBOS 2.23.0+) flows through both the
+    detail family rows and the list rows: populated on terminal workflows,
+    NULL while still running."""
+    db, seed = populated_db
+    base_ms = int(seed["base_ms"])
+
+    detail = await db.get_workflow_detail(seed["child_success_id"])
+    fam = {f.workflow_uuid: f for f in detail.family}
+    # SUCCESS finished 150ms after start; ERROR grandchild 50ms after its start.
+    assert fam[seed["child_success_id"]].completed_ms == base_ms + 250
+    assert fam[seed["grandchild_error_id"]].completed_ms == base_ms + 350
+    # Still-running workflows have no completion stamp yet.
+    assert fam[seed["root_id"]].completed_ms is None
+    assert fam[seed["child_pending_id"]].completed_ms is None
+
+    # Same column surfaces on the list path.
+    rows = await db.list_workflows(WorkflowFilters(grouped=False, statuses=["SUCCESS"]))
+    assert rows[0].completed_ms == base_ms + 250
+
+
 async def test_get_workflow_detail_unknown_returns_empty(populated_db: DB) -> None:
     db, _ = populated_db
     detail = await db.get_workflow_detail("does-not-exist")

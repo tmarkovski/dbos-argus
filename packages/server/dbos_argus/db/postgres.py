@@ -142,6 +142,7 @@ def _build_workflow_sql(grouped: bool, filters: WorkflowFilters) -> tuple[str, d
                         ws.priority,
                         COALESCE(ws.started_at_epoch_ms, ws.created_at) AS started_ms,
                         ws.updated_at AS updated_ms,
+                        ws.completed_at AS completed_ms,
                         0 AS depth,
                         r.updated_at AS root_updated_at,
                         ARRAY[COALESCE(ws.started_at_epoch_ms, ws.created_at)] AS sort_path
@@ -160,6 +161,7 @@ def _build_workflow_sql(grouped: bool, filters: WorkflowFilters) -> tuple[str, d
                         c.priority,
                         COALESCE(c.started_at_epoch_ms, c.created_at),
                         c.updated_at,
+                        c.completed_at,
                         t.depth + 1,
                         t.root_updated_at,
                         t.sort_path || COALESCE(c.started_at_epoch_ms, c.created_at)
@@ -175,7 +177,7 @@ def _build_workflow_sql(grouped: bool, filters: WorkflowFilters) -> tuple[str, d
             SELECT
                 t.workflow_uuid, t.parent_workflow_id, t.name, t.status,
                 t.queue_name, t.executor_id, t.priority,
-                t.started_ms, t.updated_ms, t.depth,
+                t.started_ms, t.updated_ms, t.completed_ms, t.depth,
                 COALESCE(oc.op_count, 0)::bigint AS op_count
             FROM tree t
             LEFT JOIN op_counts oc ON oc.workflow_uuid = t.workflow_uuid
@@ -195,7 +197,8 @@ def _build_workflow_sql(grouped: bool, filters: WorkflowFilters) -> tuple[str, d
                     workflow_uuid, parent_workflow_id, name, status, queue_name, executor_id,
                     priority,
                     COALESCE(started_at_epoch_ms, created_at) AS started_ms,
-                    updated_at AS updated_ms
+                    updated_at AS updated_ms,
+                    completed_at AS completed_ms
                 FROM dbos.workflow_status
                 {flat_where}
                 ORDER BY COALESCE(started_at_epoch_ms, created_at) DESC
@@ -210,7 +213,7 @@ def _build_workflow_sql(grouped: bool, filters: WorkflowFilters) -> tuple[str, d
             SELECT
                 c.workflow_uuid, c.parent_workflow_id, c.name, c.status,
                 c.queue_name, c.executor_id, c.priority,
-                c.started_ms, c.updated_ms,
+                c.started_ms, c.updated_ms, c.completed_ms,
                 0 AS depth,
                 COALESCE(oc.op_count, 0)::bigint AS op_count
             FROM chosen c
@@ -253,6 +256,7 @@ _FAMILY_SQL = """
                 ws.error IS NOT NULL AS has_error,
                 COALESCE(ws.started_at_epoch_ms, ws.created_at) AS started_ms,
                 ws.updated_at AS updated_ms,
+                ws.completed_at AS completed_ms,
                 0 AS depth,
                 ARRAY[COALESCE(ws.started_at_epoch_ms, ws.created_at)] AS sort_path
             FROM dbos.workflow_status ws
@@ -273,6 +277,7 @@ _FAMILY_SQL = """
                 c.error IS NOT NULL,
                 COALESCE(c.started_at_epoch_ms, c.created_at),
                 c.updated_at,
+                c.completed_at,
                 t.depth + 1,
                 t.sort_path || COALESCE(c.started_at_epoch_ms, c.created_at)
             FROM dbos.workflow_status c
@@ -281,7 +286,7 @@ _FAMILY_SQL = """
     SELECT
         workflow_uuid, parent_workflow_id, name, status, queue_name, executor_id,
         recovery_attempts, workflow_timeout_ms,
-        has_output, has_error, started_ms, updated_ms, depth
+        has_output, has_error, started_ms, updated_ms, completed_ms, depth
     FROM tree
     ORDER BY sort_path ASC
 """
@@ -527,6 +532,7 @@ class PostgresArgusDB(ArgusDB):
                 priority=r.priority,
                 started_ms=r.started_ms,
                 updated_ms=r.updated_ms,
+                completed_ms=r.completed_ms,
                 depth=r.depth,
                 op_count=r.op_count,
             )
@@ -563,6 +569,7 @@ class PostgresArgusDB(ArgusDB):
                 has_error=r.has_error,
                 started_ms=r.started_ms,
                 updated_ms=r.updated_ms,
+                completed_ms=r.completed_ms,
                 depth=r.depth,
             )
             for r in family_rows

@@ -279,6 +279,7 @@ class SqliteArgusDB(ArgusDB):
                             ws.priority,
                             COALESCE(ws.started_at_epoch_ms, ws.created_at) AS started_ms,
                             ws.updated_at AS updated_ms,
+                            ws.completed_at AS completed_ms,
                             0 AS depth,
                             r.updated_at AS root_updated_at,
                             ws.workflow_uuid AS root_uuid
@@ -297,6 +298,7 @@ class SqliteArgusDB(ArgusDB):
                             c.priority,
                             COALESCE(c.started_at_epoch_ms, c.created_at),
                             c.updated_at,
+                            c.completed_at,
                             t.depth + 1,
                             t.root_updated_at,
                             t.root_uuid
@@ -306,7 +308,7 @@ class SqliteArgusDB(ArgusDB):
                 SELECT
                     t.workflow_uuid, t.parent_workflow_id, t.name, t.status,
                     t.queue_name, t.executor_id, t.priority,
-                    t.started_ms, t.updated_ms, t.depth,
+                    t.started_ms, t.updated_ms, t.completed_ms, t.depth,
                     t.root_updated_at, t.root_uuid,
                     COALESCE(oc.op_count, 0) AS op_count
                 FROM tree t
@@ -340,7 +342,8 @@ class SqliteArgusDB(ArgusDB):
                     workflow_uuid, parent_workflow_id, name, status, queue_name, executor_id,
                     priority,
                     COALESCE(started_at_epoch_ms, created_at) AS started_ms,
-                    updated_at AS updated_ms
+                    updated_at AS updated_ms,
+                    completed_at AS completed_ms
                 FROM workflow_status
                 {flat_where}
                 ORDER BY COALESCE(started_at_epoch_ms, created_at) DESC
@@ -349,7 +352,7 @@ class SqliteArgusDB(ArgusDB):
             SELECT
                 c.workflow_uuid, c.parent_workflow_id, c.name, c.status,
                 c.queue_name, c.executor_id, c.priority,
-                c.started_ms, c.updated_ms,
+                c.started_ms, c.updated_ms, c.completed_ms,
                 0 AS depth,
                 COALESCE(oc.op_count, 0) AS op_count
             FROM chosen c
@@ -376,6 +379,7 @@ class SqliteArgusDB(ArgusDB):
                 priority=r.priority,
                 started_ms=r.started_ms,
                 updated_ms=r.updated_ms,
+                completed_ms=r.completed_ms,
                 depth=r.depth,
                 op_count=r.op_count,
             )
@@ -422,6 +426,7 @@ class SqliteArgusDB(ArgusDB):
                                         COALESCE(ws.started_at_epoch_ms, ws.created_at)
                                             AS started_ms,
                                         ws.updated_at AS updated_ms,
+                                        ws.completed_at AS completed_ms,
                                         0 AS depth
                                     FROM workflow_status ws
                                     JOIN root r ON ws.workflow_uuid = r.workflow_uuid
@@ -441,6 +446,7 @@ class SqliteArgusDB(ArgusDB):
                                         c.error IS NOT NULL,
                                         COALESCE(c.started_at_epoch_ms, c.created_at),
                                         c.updated_at,
+                                        c.completed_at,
                                         t.depth + 1
                                     FROM workflow_status c
                                     JOIN tree t ON c.parent_workflow_id = t.workflow_uuid
@@ -526,6 +532,7 @@ class SqliteArgusDB(ArgusDB):
                 has_error=bool(r.has_error),
                 started_ms=r.started_ms,
                 updated_ms=r.updated_ms,
+                completed_ms=r.completed_ms,
                 depth=r.depth,
             )
             for r in family_sorted
@@ -1040,6 +1047,7 @@ def _to_workflow_list_row(r) -> WorkflowListRow:
         priority=r.priority,
         started_ms=r.started_ms,
         updated_ms=r.updated_ms,
+        completed_ms=r.completed_ms,
         depth=r.depth,
         op_count=r.op_count,
     )
