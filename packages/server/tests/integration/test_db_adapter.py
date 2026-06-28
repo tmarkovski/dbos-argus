@@ -112,6 +112,9 @@ async def test_get_workflow_detail_returns_family_steps_events(populated_db: DB)
         seed["child_pending_id"],
         seed["grandchild_error_id"],
     }
+    child = next(f for f in detail.family if f.workflow_uuid == seed["child_success_id"])
+    assert child.schedule_name == seed["child_success_schedule_name"]
+    assert child.attributes == seed["child_success_attributes"]
     # Steps include the seeded operation_outputs rows.
     setevent = next(s for s in detail.steps if s.function_name == "DBOS.setEvent")
     assert setevent.event_key == "demo"  # joined from workflow_events_history

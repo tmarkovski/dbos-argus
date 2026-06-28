@@ -8,6 +8,7 @@ adapters can stay dialect-neutral about timestamp conversion.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -59,6 +60,8 @@ class WorkflowFamilyRow:
     status: str | None
     queue_name: str | None
     executor_id: str | None
+    schedule_name: str | None
+    attributes: object | None
     recovery_attempts: int | None
     workflow_timeout_ms: int | None
     has_output: bool
@@ -193,3 +196,12 @@ class AncestorRow:
 class NotificationsRows:
     notifications: list[NotificationRow]
     ancestors: list[AncestorRow]
+
+
+def normalize_json_value(value: object | None) -> object | None:
+    if not isinstance(value, str):
+        return value
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return value

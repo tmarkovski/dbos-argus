@@ -24,6 +24,8 @@
     has_error: boolean;
     recovery_attempts: number | null;
     workflow_timeout_ms: number | null;
+    schedule_name: string | null;
+    attributes: unknown | null;
   };
 
   export type Step = {

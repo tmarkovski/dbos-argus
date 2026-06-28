@@ -3,7 +3,7 @@ import os
 from datetime import UTC, datetime
 from importlib.resources import files
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -291,6 +291,8 @@ class WorkflowFamilyItem(BaseModel):
     status: str | None
     queue_name: str | None
     executor_id: str | None
+    schedule_name: str | None
+    attributes: Any | None
     # Number of times this workflow was resumed after an executor crash.
     # 0 on a clean first run; > 0 means at least one recovery happened.
     recovery_attempts: int | None
@@ -413,6 +415,8 @@ def _build_workflow_detail(detail: WorkflowDetailRows, workflow_id: str) -> Work
             status=r.status,
             queue_name=r.queue_name,
             executor_id=r.executor_id,
+            schedule_name=r.schedule_name,
+            attributes=r.attributes,
             recovery_attempts=r.recovery_attempts,
             workflow_timeout_ms=r.workflow_timeout_ms,
             has_output=r.has_output,

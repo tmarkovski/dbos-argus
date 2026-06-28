@@ -38,6 +38,7 @@ from .rows import (
     WorkflowFamilyRow,
     WorkflowFilters,
     WorkflowListRow,
+    normalize_json_value,
 )
 
 # Bucket → date_trunc unit (interpolated into SQL — closed set).
@@ -250,6 +251,8 @@ _FAMILY_SQL = """
                 ws.status,
                 ws.queue_name,
                 ws.executor_id,
+                ws.schedule_name,
+                ws.attributes,
                 ws.recovery_attempts,
                 ws.workflow_timeout_ms,
                 ws.output IS NOT NULL AS has_output,
@@ -271,6 +274,8 @@ _FAMILY_SQL = """
                 c.status,
                 c.queue_name,
                 c.executor_id,
+                c.schedule_name,
+                c.attributes,
                 c.recovery_attempts,
                 c.workflow_timeout_ms,
                 c.output IS NOT NULL,
@@ -285,7 +290,7 @@ _FAMILY_SQL = """
         )
     SELECT
         workflow_uuid, parent_workflow_id, name, status, queue_name, executor_id,
-        recovery_attempts, workflow_timeout_ms,
+        schedule_name, attributes, recovery_attempts, workflow_timeout_ms,
         has_output, has_error, started_ms, updated_ms, completed_ms, depth
     FROM tree
     ORDER BY sort_path ASC
@@ -563,6 +568,8 @@ class PostgresArgusDB(ArgusDB):
                 status=r.status,
                 queue_name=r.queue_name,
                 executor_id=r.executor_id,
+                schedule_name=r.schedule_name,
+                attributes=normalize_json_value(r.attributes),
                 recovery_attempts=r.recovery_attempts,
                 workflow_timeout_ms=r.workflow_timeout_ms,
                 has_output=r.has_output,

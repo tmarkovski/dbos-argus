@@ -50,6 +50,7 @@ from .rows import (
     WorkflowFamilyRow,
     WorkflowFilters,
     WorkflowListRow,
+    normalize_json_value,
 )
 
 # Bucket → millisecond width. Buckets are aligned to UTC midnight / hour-zero
@@ -179,7 +180,11 @@ class SqliteArgusDB(ArgusDB):
                 columns = tuple(
                     ColumnInfo(
                         name=cr[1],
-                        data_type=_normalize_sqlite_type(cr[2] or ""),
+                        data_type=(
+                            "jsonb"
+                            if table_name == "workflow_status" and cr[1] == "attributes"
+                            else _normalize_sqlite_type(cr[2] or "")
+                        ),
                     )
                     for cr in col_rows
                 )
@@ -419,6 +424,8 @@ class SqliteArgusDB(ArgusDB):
                                         ws.status,
                                         ws.queue_name,
                                         ws.executor_id,
+                                        ws.schedule_name,
+                                        ws.attributes,
                                         ws.recovery_attempts,
                                         ws.workflow_timeout_ms,
                                         ws.output IS NOT NULL AS has_output,
@@ -440,6 +447,8 @@ class SqliteArgusDB(ArgusDB):
                                         c.status,
                                         c.queue_name,
                                         c.executor_id,
+                                        c.schedule_name,
+                                        c.attributes,
                                         c.recovery_attempts,
                                         c.workflow_timeout_ms,
                                         c.output IS NOT NULL,
@@ -526,6 +535,8 @@ class SqliteArgusDB(ArgusDB):
                 status=r.status,
                 queue_name=r.queue_name,
                 executor_id=r.executor_id,
+                schedule_name=r.schedule_name,
+                attributes=normalize_json_value(r.attributes),
                 recovery_attempts=r.recovery_attempts,
                 workflow_timeout_ms=r.workflow_timeout_ms,
                 has_output=bool(r.has_output),
