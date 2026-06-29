@@ -191,6 +191,22 @@ def _seed(sync_url: str, base_ms: int) -> dict[str, object]:
                     "c3": base_ms + 350,
                 },
             )
+            attrs_expr = ":attrs" if _is_sqlite(sync_url) else "CAST(:attrs AS JSONB)"
+            conn.execute(
+                text(
+                    f"""
+                    UPDATE {p}workflow_status
+                    SET schedule_name = :schedule_name,
+                        attributes = {attrs_expr}
+                    WHERE workflow_uuid = :workflow_uuid
+                    """
+                ),
+                {
+                    "workflow_uuid": "wf-child-success",
+                    "schedule_name": "demo-schedule",
+                    "attrs": '{"tenant":"acme","attempt":2,"flags":["demo"]}',
+                },
+            )
             # operation_outputs: an audit, a setEvent (joined to events_history
             # below), a sleep (so sleep_requested_ms gets exercised), and an
             # error step on the grandchild.
@@ -298,6 +314,8 @@ def _seed(sync_url: str, base_ms: int) -> dict[str, object]:
         "child_success_id": "wf-child-success",
         "child_pending_id": "wf-child-pending",
         "grandchild_error_id": "wf-grandchild-error",
+        "child_success_schedule_name": "demo-schedule",
+        "child_success_attributes": {"tenant": "acme", "attempt": 2, "flags": ["demo"]},
         "base_ms": base_ms,
     }
 

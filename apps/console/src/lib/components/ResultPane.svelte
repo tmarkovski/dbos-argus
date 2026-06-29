@@ -73,6 +73,17 @@
     return `${(m / 60).toFixed(1)}h`;
   }
 
+  function formatAttributes(attributes: unknown): string {
+    if (typeof attributes === "string") {
+      try {
+        return JSON.stringify(JSON.parse(attributes), null, 2);
+      } catch {
+        return attributes;
+      }
+    }
+    return JSON.stringify(attributes, null, 2);
+  }
+
   const heading = $derived.by(() => {
     if (!selection) return null;
     if (selection.kind === "workflow") {
@@ -132,6 +143,7 @@
           title: w.completed_at,
         });
       if (w.queue_name) items.push({ label: "Queue", value: w.queue_name });
+      if (w.schedule_name) items.push({ label: "Schedule", value: w.schedule_name });
       if (w.executor_id)
         items.push({ label: "Executor", value: w.executor_id, title: w.executor_id });
       if (w.workflow_timeout_ms !== null && w.workflow_timeout_ms !== undefined)
@@ -160,6 +172,13 @@
     if (s.sleep_requested_ms !== null)
       items.push({ label: "Requested", value: formatDuration(s.sleep_requested_ms) });
     return items;
+  });
+
+  const attributesText = $derived.by(() => {
+    if (!selection || selection.kind !== "workflow") return null;
+    const attributes = selection.workflow.attributes;
+    if (attributes === null || attributes === undefined) return null;
+    return formatAttributes(attributes);
   });
 
   type Payload =
@@ -450,6 +469,18 @@
         </dl>
       {/if}
     </div>
+
+    {#if attributesText !== null}
+      <div class="border-border flex flex-col gap-2 border-b px-4 py-3">
+        <div class="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+          Attributes
+        </div>
+        <JsonView
+          text={attributesText}
+          class="border-border bg-muted/40 max-h-56 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words"
+        />
+      </div>
+    {/if}
 
     {#if visibleEvents.length > 0}
       <div class="border-border flex flex-col gap-2 border-b px-4 py-3">
