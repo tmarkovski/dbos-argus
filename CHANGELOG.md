@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.29] - 2026-06-29
+
+> **Tested against DBOS 2.25.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture floor is now `dbos>=2.25.0`. Pointing Argus at an older DBOS database whose `dbos.workflow_status` lacks `schedule_name` / `attributes` will error on the workflow detail reads.
+
 ### Added
 - Workflow detail pane now shows DBOS 2.25.0 `workflow_status.schedule_name`
   and renders `workflow_status.attributes` as JSON when present.
