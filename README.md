@@ -158,7 +158,7 @@ The console is built as a static SPA and served by the FastAPI process on the sa
 
 ## Project layout
 
-This is a pnpm + uv monorepo orchestrated with Turborepo.
+This is a pnpm + uv monorepo. Plain root `package.json` scripts fan tasks out to both toolchains (`pnpm -r` for JS, `uv run` for Python).
 
 | Path | Package | Purpose |
 |---|---|---|

@@ -1,4 +1,3 @@
 packages:
   - "apps/*"
   - "packages/*"
-  - "tests/sample-app"

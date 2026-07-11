@@ -32,10 +32,10 @@ One command from the repo root brings up the Argus dev server and all sample-app
 pnpm demo
 ```
 
-That sets `ARGUS_DATABASE_URL` and `DBOS_SYSTEM_DATABASE_URL` to the same `argus-demo.sqlite` file at the repo root, then `turbo run dev demo` fans out:
+That sets `ARGUS_DATABASE_URL` and `DBOS_SYSTEM_DATABASE_URL` to the same `argus-demo.sqlite` file at the repo root, then `scripts/dev.mjs` brings up:
 
-- `dev` on `@dbos-argus/server` and `console` (FastAPI + SvelteKit dev server)
-- `demo` on `@dbos-argus/sample-app` (simulator + scheduler + metrics-runner)
+- the FastAPI backend (uvicorn on :8090) and the SvelteKit dev server (:5000)
+- the sample-app workload via `scripts/demo-app.mjs` (one-shot `argus-runner prepare`, then simulator + scheduler + metrics-runner)
 
 Ctrl+C tears everything down together.
 

@@ -9,7 +9,6 @@ on:
       - "package.json"
       - "pnpm-workspace.yaml"
       - "pnpm-lock.yaml"
-      - "turbo.json"
       - ".github/workflows/ci-node.yml"
   pull_request:
     paths:
@@ -18,7 +17,6 @@ on:
       - "package.json"
       - "pnpm-workspace.yaml"
       - "pnpm-lock.yaml"
-      - "turbo.json"
       - ".github/workflows/ci-node.yml"
   workflow_dispatch:
 
@@ -39,12 +37,12 @@ jobs:
         run: pnpm install --frozen-lockfile=false
 
       - name: Lint
-        run: pnpm exec turbo run lint --filter='!@dbos-argus/server' --filter='!@dbos-argus/sample-app'
+        run: pnpm -r run lint
 
       - name: Test
-        run: pnpm exec turbo run test --filter='!@dbos-argus/server' --filter='!@dbos-argus/sample-app'
+        run: pnpm -r run test
 
       - name: Build
-        run: pnpm exec turbo run build --filter='!@dbos-argus/server' --filter='!@dbos-argus/sample-app'
+        run: pnpm -r run build
         env:
           NODE_OPTIONS: --max-old-space-size=4096

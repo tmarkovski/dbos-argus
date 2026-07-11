@@ -42,10 +42,10 @@ docker compose up
 ## Common commands
 
 ```bash
-pnpm run lint     # turbo run lint across all packages
-pnpm run test     # turbo run test across all packages
-pnpm run build    # turbo run build (console + libs)
-pnpm run dev      # turbo run dev (all dev servers)
+pnpm run lint     # ruff + svelte-check + tsc across all packages
+pnpm run test     # vitest + pytest across all packages
+pnpm run build    # console + libs
+pnpm run dev      # full dev stack: Postgres, server, console, sample app
 ```
 
 Python-only commands run through `uv`:

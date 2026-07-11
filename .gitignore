@@ -1,7 +1,6 @@
 # JavaScript / TypeScript
 node_modules/
 .pnpm-store/
-.turbo/
 dist/
 build/
 .svelte-kit/

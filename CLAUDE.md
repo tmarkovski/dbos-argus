@@ -10,7 +10,7 @@ See [README.md](./README.md) for the product framing and architecture diagram; s
 
 ## Repo layout
 
-Mixed-language monorepo: **pnpm workspaces** for JS/TS, **uv workspaces** for Python, **Turborepo** as the cross-language task runner.
+Mixed-language monorepo: **pnpm workspaces** for JS/TS, **uv workspaces** for Python. No task-runner layer: the root `package.json` scripts fan out with `pnpm -r` for the JS side and direct `uv run` commands for Python; the dev stack is orchestrated by `scripts/dev.mjs` (concurrently).
 
 | Path | Package | Role |
 |---|---|---|
@@ -28,7 +28,7 @@ pnpm install
 uv sync
 ```
 
-Cross-language tasks (Turbo fans out to all packages):
+Cross-language tasks (root scripts fan out to both toolchains):
 
 ```bash
 pnpm run lint      # ruff + svelte-check + tsc across all workspaces
@@ -36,12 +36,13 @@ pnpm run test      # pytest + vitest across all workspaces
 pnpm run build     # SvelteKit build + tsc --noEmit for libs
 ```
 
-Turbo is invoked with `--filter=*` from the root scripts so it always runs against every workspace, regardless of git state.
+The root scripts run the same commands CI runs: `pnpm -r run <task>` for the JS workspaces plus direct `uv run ruff` / `uv run pytest` for the Python packages.
 
 Targeted tasks:
 
 ```bash
 pnpm --filter console dev              # SvelteKit dev on :5000
+pnpm dev:server                        # FastAPI backend on :8090 (uvicorn --reload)
 uv run pytest packages/server/tests    # all server tests
 uv run ruff check packages/server      # python lint
 uv run ruff format packages/server     # python format
@@ -103,7 +104,7 @@ Workflow status colors (`--status-*`) are intentionally outside the preset so SU
 
 Three GitHub Actions workflows:
 - `.github/workflows/ci-python.yml` — uv + ruff + pytest for `packages/server` and the example.
-- `.github/workflows/ci-node.yml` — pnpm + turbo lint/test/build for `apps/**` and the TS packages.
+- `.github/workflows/ci-node.yml` — pnpm -r lint/test/build for `apps/**` and the TS packages.
 - `.github/workflows/release.yml` — fires on `v*` tags. Three sequenced jobs: `pypi` (OIDC trusted publishing) → `docker` (multi-arch push to `tmarkovski/dbos-argus`) → `release` (GitHub Release with CHANGELOG body). See **Releasing** in `CONTRIBUTING.md`.
 
 ## Releasing
