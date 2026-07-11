@@ -455,7 +455,7 @@
 
 {#snippet highlighted(text: string | null, query: string)}{#each highlightSegments(text, query) as part, i (i)}{#if part.match}<mark class="bg-highlight/40 text-highlight-foreground dark:bg-highlight/30 rounded-sm">{part.text}</mark>{:else}{part.text}{/if}{/each}{/snippet}
 
-<div class="flex flex-col gap-4 p-6">
+<div class="flex flex-col gap-4 p-4 md:p-5">
   {#if enqueued.length > 0}
     <div
       class="border-status-queued/30 bg-status-queued/5 overflow-hidden rounded-lg border"
@@ -487,7 +487,7 @@
           <table class="w-full text-left text-sm">
             <thead>
               <tr
-                class="border-status-queued/15 text-status-queued/70 border-b text-[10px] font-medium tracking-wide uppercase"
+                class="border-status-queued/15 text-status-queued/70 border-b text-xs font-medium tracking-wide uppercase"
               >
                 <th class="px-4 py-1.5 font-medium">Queue</th>
                 <th class="px-4 py-1.5 text-right font-medium" title="Lower runs first">
@@ -597,7 +597,7 @@
           <button
             type="button"
             onclick={() => toggleStatus(opt.value)}
-            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-2xl px-2 py-1.5 text-left text-sm"
+            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm"
           >
             <CheckIcon class="size-4 {checked ? 'opacity-100' : 'opacity-0'}" />
             {opt.label}
@@ -609,7 +609,7 @@
             type="button"
             onclick={() =>
               (selectedStatuses = allSelected ? new Set() : allStatuses())}
-            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-2xl px-2 py-1.5 text-left text-sm"
+            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm"
           >
             <ListChecksIcon class="size-4" />
             {allSelected ? "Deselect all" : "Select all"}
@@ -618,7 +618,7 @@
       </Popover.Content>
     </Popover.Root>
 
-    <InputGroup.Root class="w-96">
+    <InputGroup.Root class="w-full sm:w-96">
       <InputGroup.Addon>
         <SearchIcon />
       </InputGroup.Addon>
@@ -640,7 +640,7 @@
     <DateRangePicker bind:value={dateRange} placeholder="Started" />
 
     <label
-      class="border-border bg-background hover:bg-muted hover:text-foreground text-foreground flex h-9 cursor-pointer items-center gap-1.5 rounded-4xl border px-3 text-sm font-medium select-none dark:bg-transparent dark:hover:bg-input/30"
+      class="border-border bg-background hover:bg-muted hover:text-foreground text-foreground flex h-9 cursor-pointer items-center gap-1.5 rounded-md border px-3 text-sm font-medium select-none dark:bg-transparent dark:hover:bg-input/30"
       title="Hide scheduled-workflow runs (workflow IDs starting with 'sched-')"
     >
       <Checkbox checked={hideScheduled} onCheckedChange={(v) => setHideScheduled(!!v)} />
@@ -697,7 +697,7 @@
             type="button"
             disabled={required}
             onclick={() => (columns[k] = !columns[k])}
-            class="flex w-full items-center gap-2 rounded-2xl px-2 py-1.5 text-left text-sm {required
+            class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm {required
               ? 'text-muted-foreground cursor-not-allowed'
               : 'hover:bg-muted cursor-pointer'}"
           >
@@ -716,7 +716,7 @@
               const next = !allSelected;
               for (const k of optionalKeys) columns[k] = next;
             }}
-            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-2xl px-2 py-1.5 text-left text-sm"
+            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm"
           >
             <ListChecksIcon class="size-4" />
             {allSelected ? "Deselect all" : "Select all"}
@@ -743,7 +743,7 @@
           : "No workflows yet. Run a DBOS app pointed at this database to see data here."}
     </p>
   {:else}
-    <Card.Root class="gap-0 py-0 shadow-xs">
+    <Card.Root class="gap-0 py-0">
       <Table.Root>
         <Table.Header class="bg-muted/40">
           <Table.Row class="hover:bg-muted/40">

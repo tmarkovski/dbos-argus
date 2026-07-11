@@ -84,6 +84,7 @@
   let dragFromCollapsed = false;
   const MIN_RIGHT = 280;
   const MAX_RIGHT = 900;
+  const RESIZE_STEP = 24;
   // Width left visible when collapsed: just enough to show the eyebrow's
   // 32px (icon-sm) toggle button + the eyebrow's px-4 horizontal padding.
   const PEEK_WIDTH = 64;
@@ -129,6 +130,26 @@
     }
     dragFromCollapsed = false;
     (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+  }
+
+  function onHandleKeyDown(e: KeyboardEvent) {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+
+    const step = e.shiftKey ? RESIZE_STEP * 2 : RESIZE_STEP;
+    if (e.key === "ArrowLeft") {
+      if (collapsed) {
+        collapsed = false;
+        rightWidth = Math.max(MIN_RIGHT, rightWidth);
+        return;
+      }
+      rightWidth = Math.min(MAX_RIGHT, rightWidth + step);
+      return;
+    }
+
+    if (!collapsed) {
+      rightWidth = Math.max(MIN_RIGHT, rightWidth - step);
+    }
   }
 
   let workflowHandle: SubscriptionHandle | null = null;
@@ -302,8 +323,11 @@
 {:else if detail === null}
   <p class="text-muted-foreground p-6 text-sm">Loading…</p>
 {:else}
-  <div class="flex h-[calc(100vh-4rem)]" class:select-none={dragging}>
-    <div class="min-w-0 flex-1">
+  <div
+    class="relative flex min-h-0 flex-1 overflow-hidden"
+    class:select-none={dragging}
+  >
+    <div class="min-h-0 min-w-0 flex-1">
       <WorkflowFlow
         family={detail.family}
         steps={detail.steps}
@@ -312,14 +336,20 @@
         onSelect={(s) => (selection = s)}
       />
     </div>
-    <div class="bg-border relative w-px flex-none" class:!bg-primary={dragging}>
+    <div
+      class="bg-border relative hidden w-px flex-none lg:block"
+      class:!bg-primary={dragging}
+    >
       <button
         type="button"
-        aria-label="Resize result pane"
+        aria-label={`Resize result pane. ${collapsed ? "Currently collapsed" : `Current width ${effectiveRightWidth} pixels`}. Use Left and Right arrow keys.`}
+        aria-keyshortcuts="ArrowLeft ArrowRight"
+        title="Resize details pane with Left and Right arrow keys"
         onpointerdown={onHandlePointerDown}
         onpointermove={onHandlePointerMove}
         onpointerup={onHandlePointerUp}
-        class="bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted absolute top-1/2 left-1/2 z-10 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-col-resize items-center justify-center rounded-full border shadow-sm"
+        onkeydown={onHandleKeyDown}
+        class="bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-ring absolute top-1/2 left-1/2 z-10 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-col-resize items-center justify-center rounded-full border shadow-sm focus-visible:ring-2 focus-visible:outline-none"
         class:!bg-primary={dragging}
         class:!border-primary={dragging}
         class:!text-primary-foreground={dragging}
@@ -331,11 +361,11 @@
       </button>
     </div>
     <div
-      class="flex-none overflow-hidden"
+      class="absolute inset-y-0 right-0 w-[var(--result-pane-width)] max-w-[calc(100%-3rem)] flex-none overflow-hidden border-l shadow-lg lg:static lg:border-l-0 lg:shadow-none"
       class:transition-[width]={!dragging}
       class:duration-200={!dragging}
       class:ease-out={!dragging}
-      style="width: {effectiveRightWidth}px"
+      style="--result-pane-width: {effectiveRightWidth}px"
     >
       <ResultPane
         {selection}

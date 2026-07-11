@@ -789,7 +789,7 @@
   });
 </script>
 
-<div class="bg-card h-full w-full overflow-hidden">
+<div class="bg-background h-full min-h-0 w-full overflow-hidden">
   <SvelteFlow
     bind:nodes
     bind:edges
@@ -824,26 +824,9 @@
     opacity: 0;
   }
 
-  /* Subtle ambient gradient on the flow surface — uses chart tokens so it
-     tracks the active preset's palette and gives the canvas depth without
-     competing with the workflow nodes. */
+  /* Keep the canvas visually quiet so workflow state and relationships carry
+     the hierarchy instead of decorative surface effects. */
   :global(.svelte-flow) {
-    background:
-      radial-gradient(
-        ellipse 80% 60% at 25% 0%,
-        color-mix(in oklab, var(--color-chart-1) 14%, transparent),
-        transparent 60%
-      ),
-      radial-gradient(
-        ellipse 65% 50% at 0% 100%,
-        color-mix(in oklab, var(--color-chart-2) 12%, transparent),
-        transparent 55%
-      ),
-      radial-gradient(
-        ellipse 70% 55% at 100% 100%,
-        color-mix(in oklab, var(--color-chart-5) 12%, transparent),
-        transparent 55%
-      ),
-      var(--color-card) !important;
+    background: var(--color-background) !important;
   }
 </style>

@@ -93,13 +93,13 @@
   });
 
   const chartConfig = {
-    succeeded: { label: "Succeeded", color: "#22c55e" },
-    errored: { label: "Errored", color: "#ef4444" },
-    running: { label: "Running", color: "#3b82f6" },
+    succeeded: { label: "Succeeded", color: "var(--color-status-success)" },
+    errored: { label: "Errored", color: "var(--color-status-error)" },
+    running: { label: "Running", color: "var(--color-status-running)" },
   } satisfies Chart.ChartConfig;
 </script>
 
-<Card.Root class="@container/card gap-0 py-0 shadow-xs">
+<Card.Root class="@container/card gap-0 py-0">
   <Card.Header class="border-b py-4">
     <Card.Title class="text-base font-semibold">Workflow throughput</Card.Title>
     <Card.Description>
@@ -127,10 +127,10 @@
         >
           <span data-slot="select-value">{rangeLabel}</span>
         </Select.Trigger>
-        <Select.Content class="rounded-xl">
-          <Select.Item value="24h" class="rounded-lg">Last 24 hours</Select.Item>
-          <Select.Item value="7d" class="rounded-lg">Last 7 days</Select.Item>
-          <Select.Item value="30d" class="rounded-lg">Last 30 days</Select.Item>
+        <Select.Content>
+          <Select.Item value="24h">Last 24 hours</Select.Item>
+          <Select.Item value="7d">Last 7 days</Select.Item>
+          <Select.Item value="30d">Last 30 days</Select.Item>
         </Select.Content>
       </Select.Root>
     </Card.Action>

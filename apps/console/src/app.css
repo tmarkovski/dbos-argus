@@ -7,10 +7,9 @@
    fonts). Generated — see scripts/sync-theme.sh. */
 @import "./theme.css";
 
-/* Font packages must match the --font-sans / --font-heading values declared
-   in theme.css. Update these imports when swapping presets. */
+/* Argus uses one UI family throughout. Keeping headings in the same family
+   gives dense operational screens a calmer, more consistent hierarchy. */
 @import "@fontsource-variable/inter";
-@import "@fontsource-variable/roboto-slab";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -30,9 +29,7 @@
      --primary in light, brightens it in dark where some presets pick a
      deeper primary that reads dim against the dark card surface. */
   --workflow-accent: var(--primary);
-  /* Darken the sidebar wrapper in light mode — the preset puts it at
-     ~0.985 which barely separates from the white inset surface. */
-  --sidebar: oklch(0.94 0 0);
+  --font-heading: "Inter Variable", sans-serif;
 }
 
 .dark {
@@ -44,9 +41,6 @@
   --highlight: oklch(0.85 0.18 95);
   --highlight-foreground: oklch(0.2 0.05 80);
   --workflow-accent: oklch(from var(--primary) 0.82 calc(c + 0.06) h);
-  /* Mirror the light-mode darker-frame pattern: push the sidebar wrapper
-     below the inset bg so the rounded inset reads as a lifted panel. */
-  --sidebar: oklch(0.1 0 0);
 }
 
 body {
@@ -110,7 +104,7 @@ body {
 		@apply border-border outline-ring/50;
   }
 	body {
-		@apply bg-sidebar text-foreground;
+		@apply bg-background text-foreground;
   }
 	html {
 		@apply font-sans;

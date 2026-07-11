@@ -78,7 +78,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-4 p-6">
+<div class="flex flex-col gap-4 p-4 md:p-5">
   <header class="flex min-h-9 items-center justify-between">
     <p class="text-muted-foreground text-xs">
       Queues registered with DBOS, with their persisted concurrency and rate-limit configuration.
@@ -96,7 +96,7 @@
   {:else if queues.length === 0}
     <p class="text-muted-foreground text-sm">No queues registered.</p>
   {:else}
-    <Card.Root class="gap-0 py-0 shadow-xs">
+    <Card.Root class="gap-0 py-0">
       <Table.Root>
         <Table.Header class="bg-muted/40">
           <Table.Row class="hover:bg-muted/40">

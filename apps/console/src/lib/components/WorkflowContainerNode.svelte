@@ -21,7 +21,7 @@
 </script>
 
 <div
-  class="bg-card relative flex h-full w-full cursor-pointer flex-col rounded-2xl border
+  class="bg-card relative flex h-full w-full cursor-pointer flex-col rounded-lg border
     {selected
       ? 'border-primary'
       : data.isCurrent

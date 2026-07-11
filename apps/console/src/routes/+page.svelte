@@ -144,13 +144,13 @@
   });
 </script>
 
-<div class="@container/main flex flex-col gap-4 p-4 md:gap-6 md:p-6">
+<div class="@container/main flex flex-col gap-4 p-4 md:gap-5 md:p-5">
   {#if connectionAlert}
     <button
       type="button"
       onclick={() => connectionState.open()}
       transition:slide={{ duration: 220 }}
-      class="flex w-full items-center gap-3 rounded-xl border p-4 text-left text-sm shadow-xs transition-colors {connectionAlert.tone ===
+      class="flex w-full items-center gap-3 rounded-lg border p-4 text-left text-sm transition-colors {connectionAlert.tone ===
       'error'
         ? 'border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15'
         : 'border-status-warning/40 bg-status-warning/10 text-status-warning hover:bg-status-warning/15'}"
@@ -179,12 +179,12 @@
   {/if}
 
   <div
-    class="*:data-[slot=card]:relative *:data-[slot=card]:cursor-pointer *:data-[slot=card]:from-foreground/5 *:data-[slot=card]:to-card *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs *:data-[slot=card]:transition *:data-[slot=card]:hover:shadow-md *:data-[slot=card]:hover:ring-foreground/15 dark:*:data-[slot=card]:bg-card dark:*:data-[slot=card]:hover:ring-foreground/20 grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4"
+    class="*:data-[slot=card]:relative *:data-[slot=card]:cursor-pointer *:data-[slot=card]:transition-colors *:data-[slot=card]:hover:border-foreground/20 *:data-[slot=card]:hover:bg-muted/20 grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4"
   >
     <Card.Root>
       <a
         href="/workflows/"
-        class="absolute inset-0 rounded-4xl"
+        class="absolute inset-0 rounded-lg"
         aria-label="View all workflows"
       ></a>
       <Card.Header>
@@ -228,7 +228,7 @@
     <Card.Root>
       <a
         href="/notifications/"
-        class="absolute inset-0 rounded-4xl"
+        class="absolute inset-0 rounded-lg"
         aria-label="View notifications"
       ></a>
       <Card.Header>
@@ -256,7 +256,7 @@
     <Card.Root>
       <a
         href="/schedules/"
-        class="absolute inset-0 rounded-4xl"
+        class="absolute inset-0 rounded-lg"
         aria-label="View schedules"
       ></a>
       <Card.Header>
@@ -284,7 +284,7 @@
     <Card.Root>
       <a
         href="/queues/"
-        class="absolute inset-0 rounded-4xl"
+        class="absolute inset-0 rounded-lg"
         aria-label="View queues"
       ></a>
       <Card.Header>
@@ -307,7 +307,7 @@
         {:else if topQueues.length === 0}
           <div class="text-muted-foreground text-xs">No queues registered.</div>
         {:else}
-          <div class="text-muted-foreground flex items-center gap-3 text-[10px] font-medium tracking-wide uppercase">
+          <div class="text-muted-foreground flex items-center gap-3 text-xs font-medium tracking-wide uppercase">
             <span class="min-w-0 flex-1"></span>
             <span class="text-status-queued/80 w-10 flex-none text-right">Queued</span>
             <span class="text-status-running/80 w-10 flex-none text-right">Running</span>
@@ -341,10 +341,10 @@
     </Card.Root>
   </div>
 
-  <div class="grid grid-cols-1 items-start gap-4 @5xl/main:grid-cols-2 md:gap-6">
+  <div class="grid grid-cols-1 items-start gap-4 @5xl/main:grid-cols-2 md:gap-5">
     <WorkflowThroughputChart />
 
-    <Card.Root class="gap-0 overflow-hidden py-0 shadow-xs">
+    <Card.Root class="gap-0 overflow-hidden py-0">
       <Card.Header class="border-b py-4">
         <Card.Title class="text-base font-semibold">Recent workflows</Card.Title>
         <Card.Description>The most recent workflow runs from this database.</Card.Description>

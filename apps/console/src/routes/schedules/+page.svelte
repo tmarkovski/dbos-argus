@@ -60,7 +60,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-4 p-6">
+<div class="flex flex-col gap-4 p-4 md:p-5">
   <header class="flex min-h-9 items-center justify-between">
     <p class="text-muted-foreground text-xs">
       Cron-style scheduled workflows registered with DBOS.
@@ -80,7 +80,7 @@
       No scheduled workflows registered.
     </p>
   {:else}
-    <Card.Root class="gap-0 py-0 shadow-xs">
+    <Card.Root class="gap-0 py-0">
       <Table.Root>
         <Table.Header class="bg-muted/40">
           <Table.Row class="hover:bg-muted/40">

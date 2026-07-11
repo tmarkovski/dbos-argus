@@ -402,8 +402,8 @@
   }
 </script>
 
-<aside class="bg-card flex h-full w-full flex-col overflow-hidden">
-  <div class="border-border bg-muted/30 flex min-h-10 items-center gap-2 border-b px-4 py-2.5">
+<aside class="bg-background flex h-full min-h-0 w-full flex-col overflow-hidden">
+  <div class="border-border flex min-h-10 items-center gap-2 border-b px-4 py-2.5">
     <span class="text-muted-foreground truncate text-xs font-medium tracking-wide uppercase">
       {heading?.resultLabel ?? "Result"}
     </span>
@@ -443,15 +443,15 @@
           </Badge>
         {/if}
       </div>
-      <div class="text-muted-foreground truncate font-mono text-[10px]" title={heading.subtitle}>
+      <div class="text-muted-foreground truncate font-mono text-xs" title={heading.subtitle}>
         {heading.subtitle}
       </div>
       {#if metadata.length > 0}
-        <dl class="mt-4 flex flex-col gap-5">
+        <dl class="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
           {#each metadata as item (item.label)}
-            <div class="flex flex-col gap-1.5">
+            <div class="flex min-w-0 flex-col gap-1">
               <dt
-                class="text-muted-foreground text-[11px] font-medium uppercase tracking-wide"
+                class="text-muted-foreground text-xs font-medium uppercase tracking-wide"
               >
                 {item.label}
               </dt>
@@ -472,7 +472,7 @@
 
     {#if attributesText !== null}
       <div class="border-border flex flex-col gap-2 border-b px-4 py-3">
-        <div class="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+        <div class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
           Attributes
         </div>
         <JsonView
@@ -484,17 +484,17 @@
 
     {#if visibleEvents.length > 0}
       <div class="border-border flex flex-col gap-2 border-b px-4 py-3">
-        <div class="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+        <div class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
           Published events
         </div>
-        <ul class="flex flex-col gap-1.5">
+        <ul class="divide-border flex flex-col divide-y">
           {#each visibleEvents as ev (ev.key)}
             <li>
               <button
                 type="button"
                 onclick={() => transitionOpenEvent(ev)}
                 title="Open event details"
-                class="group border-border bg-muted/30 hover:bg-muted hover:border-workflow-accent/60 relative flex w-full flex-col gap-1 rounded-md border px-2.5 py-2 pr-10 text-left transition-colors"
+                class="group hover:bg-muted/50 relative flex w-full flex-col gap-1 px-2 py-2 pr-10 text-left transition-colors"
                 style:view-transition-name={pendingEventKey === ev.key &&
                 openedEvent?.key !== ev.key
                   ? "result-event"
@@ -505,20 +505,20 @@
                     {ev.key}
                   </span>
                   {#if ev.history.length > 1}
-                    <Badge variant="secondary" class="text-[10px]">
+                    <Badge variant="secondary" class="text-xs">
                       {ev.history.length} updates
                     </Badge>
                   {/if}
                 </div>
                 <div
-                  class="text-muted-foreground truncate font-mono text-[11px]"
+                  class="text-muted-foreground truncate font-mono text-xs"
                   title={eventPreview(ev.value, ev.value_decoded)}
                 >
                   {eventPreview(ev.value, ev.value_decoded)}
                 </div>
                 <span
                   aria-hidden="true"
-                  class="bg-background/80 text-muted-foreground group-hover:text-foreground group-hover:bg-muted group-hover:border-workflow-accent/60 border-border/60 hover:bg-foreground/10 hover:border-workflow-accent absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-md border shadow-sm backdrop-blur-sm transition-colors"
+                  class="text-muted-foreground group-hover:text-foreground group-hover:bg-background group-hover:border-border border-transparent absolute top-2 right-1 flex h-7 w-7 items-center justify-center rounded-md border transition-colors"
                 >
                   <Maximize2 class="h-3.5 w-3.5" />
                 </span>
@@ -541,12 +541,12 @@
       {:else}
         <div class="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
           <div class="flex items-center gap-2">
-            <span class="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+            <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               {payload.kind === "error" ? "Error" : payload.label}
             </span>
             {#if payload.serialization}
               <span
-                class="bg-muted text-muted-foreground inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium"
+                class="bg-muted text-muted-foreground inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-xs font-medium"
                 title="Serialization format (DBOS `serialization` column)"
               >
                 {payload.serialization}
@@ -570,7 +570,7 @@
             <div class="bg-muted flex items-center rounded-md p-0.5">
               <button
                 type="button"
-                class="rounded px-2 py-0.5 text-[11px] font-medium transition
+                class="rounded px-2 py-0.5 text-xs font-medium transition
                   {effectiveMode === 'raw'
                     ? 'bg-background text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'}"
@@ -581,7 +581,7 @@
               <button
                 type="button"
                 disabled={payload.decoded === null}
-                class="rounded px-2 py-0.5 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40
+                class="rounded px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40
                   {effectiveMode === 'decoded'
                     ? 'bg-background text-foreground shadow-xs'
                     : 'text-muted-foreground enabled:hover:text-foreground'}"
@@ -633,7 +633,7 @@
             </span>
           </button>
           {#if payload.decoded === null && payload.serialization && payload.serialization.toLowerCase().includes("pickle")}
-            <p class="text-muted-foreground mt-2 text-[11px]">
+            <p class="text-muted-foreground mt-2 text-xs">
               Pickled Python value couldn't be decoded safely (likely a custom class). Showing
               the raw on-disk base64 payload.
             </p>
@@ -662,12 +662,12 @@
       <div class="flex min-h-0 flex-1 flex-col gap-2">
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2">
-          <span class="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+          <span class="text-muted-foreground text-xs font-medium uppercase tracking-wide">
             {payload.kind === "error" ? "Error" : payload.label}
           </span>
           {#if payload.serialization}
             <span
-              class="bg-muted text-muted-foreground inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium"
+              class="bg-muted text-muted-foreground inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-xs font-medium"
               title="Serialization format (DBOS `serialization` column)"
             >
               {payload.serialization}
@@ -691,7 +691,7 @@
           <div class="bg-muted flex items-center rounded-md p-0.5">
             <button
               type="button"
-              class="rounded px-2 py-0.5 text-[11px] font-medium transition
+              class="rounded px-2 py-0.5 text-xs font-medium transition
                 {effectiveMode === 'raw'
                   ? 'bg-background text-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'}"
@@ -702,7 +702,7 @@
             <button
               type="button"
               disabled={payload.decoded === null}
-              class="rounded px-2 py-0.5 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40
+              class="rounded px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40
                 {effectiveMode === 'decoded'
                   ? 'bg-background text-foreground shadow-xs'
                   : 'text-muted-foreground enabled:hover:text-foreground'}"
@@ -752,12 +752,12 @@
       <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-2">
-            <span class="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+            <span class="text-muted-foreground text-xs font-medium uppercase tracking-wide">
               Current value
             </span>
             {#if openedEvent.serialization}
               <span
-                class="bg-muted text-muted-foreground inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium"
+                class="bg-muted text-muted-foreground inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-xs font-medium"
                 title="Serialization format (DBOS `serialization` column)"
               >
                 {openedEvent.serialization}
@@ -783,7 +783,7 @@
             <div class="bg-muted flex items-center rounded-md p-0.5">
               <button
                 type="button"
-                class="rounded px-2 py-0.5 text-[11px] font-medium transition
+                class="rounded px-2 py-0.5 text-xs font-medium transition
                   {effectiveEventMode === 'raw'
                     ? 'bg-background text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'}"
@@ -794,7 +794,7 @@
               <button
                 type="button"
                 disabled={!eventAnyDecoded}
-                class="rounded px-2 py-0.5 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40
+                class="rounded px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40
                   {effectiveEventMode === 'decoded'
                     ? 'bg-background text-foreground shadow-xs'
                     : 'text-muted-foreground enabled:hover:text-foreground'}"
@@ -815,13 +815,13 @@
       </div>
       {#if openedEvent.history.length > 0}
         <div class="flex min-h-0 flex-1 flex-col gap-2">
-          <div class="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+          <div class="text-muted-foreground text-xs font-medium uppercase tracking-wide">
             History
           </div>
           <ol class="flex min-h-0 flex-1 flex-col gap-3 overflow-auto">
             {#each openedEvent.history as h (h.function_id)}
               <li class="flex flex-col gap-1.5">
-                <div class="text-muted-foreground flex items-center gap-2 text-[11px]">
+                <div class="text-muted-foreground flex items-center gap-2 text-xs">
                   <span class="font-mono">Step #{h.function_id}</span>
                   {#if h.completed_at}
                     <span title={h.completed_at}>

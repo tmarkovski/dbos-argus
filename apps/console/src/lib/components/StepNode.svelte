@@ -123,7 +123,7 @@
 </script>
 
 <div
-  class="flex h-full w-full cursor-pointer items-center gap-2 rounded-full border px-3 py-1
+  class="flex h-full w-full cursor-pointer items-center gap-2 rounded-md border px-3 py-1
     {selected
       ? 'border-primary bg-primary/5'
       : 'border-border hover:bg-muted/40'}"

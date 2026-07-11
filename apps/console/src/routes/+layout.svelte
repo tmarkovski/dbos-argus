@@ -180,7 +180,7 @@
 </script>
 
 <Sidebar.Provider bind:open={sidebarOpen} onOpenChange={persistSidebarOpen}>
-  <Sidebar.Root collapsible="icon" variant="inset">
+  <Sidebar.Root collapsible="icon" variant="sidebar">
     <Sidebar.Header>
       <Sidebar.Menu>
         <Sidebar.MenuItem>
@@ -239,11 +239,11 @@
                   >
                     {#each pills as pill (pill.label)}
                       <div
-                        class="text-muted-foreground flex h-6 items-center justify-between pr-2 pl-9 text-[11px]"
+                        class="text-muted-foreground flex h-6 items-center justify-between pr-2 pl-9 text-xs"
                       >
                         <span>{pill.label}</span>
                         <span
-                          class="flex h-4 min-w-4 items-center justify-center rounded-xl px-1 text-[11px] font-medium tabular-nums select-none {pill.class}"
+                          class="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-medium tabular-nums select-none {pill.class}"
                         >
                           {formatBadge(pill.count)}
                         </span>
@@ -282,7 +282,7 @@
                     </span>
                     {#if dbDetail}
                       <span
-                        class="text-muted-foreground/80 truncate font-mono text-[11px]"
+                        class="text-muted-foreground/80 truncate font-mono text-xs"
                         title={dbDetail}
                       >
                         {dbDetail}
@@ -419,17 +419,23 @@
 
   <Sidebar.Inset>
     <header
-      class="bg-background sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b px-4 md:rounded-t-2xl"
+      class="bg-background sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b px-4"
     >
       <Sidebar.Trigger class="-ml-1" />
       <Separator orientation="vertical" class="mr-2 !h-4" />
-      <Breadcrumb.Root>
-        <Breadcrumb.List>
+      <Breadcrumb.Root class="min-w-0 flex-1 overflow-hidden">
+        <Breadcrumb.List class="flex-nowrap overflow-hidden">
           {#each breadcrumb.items as item, i (i)}
+            {@const collapseOnNarrow =
+              breadcrumb.items.length > 2 && i > 0 && i < breadcrumb.items.length - 1}
             {#if i > 0}
-              <Breadcrumb.Separator />
+              <Breadcrumb.Separator class={collapseOnNarrow ? "hidden md:list-item" : undefined} />
             {/if}
-            <Breadcrumb.Item class="inline-flex items-center gap-1.5">
+            <Breadcrumb.Item
+              class="inline-flex min-w-0 items-center gap-1.5 {i === breadcrumb.items.length - 1
+                ? 'flex-1'
+                : 'flex-none'} {collapseOnNarrow ? 'hidden md:inline-flex' : ''}"
+            >
               {#if item.status !== undefined}
                 <span
                   aria-hidden="true"
@@ -442,7 +448,7 @@
                   href={item.href}
                   title={item.tooltip}
                   aria-label={item.icon === "home" ? item.label : undefined}
-                  class="inline-flex items-center"
+                  class="inline-flex max-w-40 items-center truncate"
                 >
                   {#if item.icon === "home"}
                     <House class="size-3.5" />
@@ -460,7 +466,10 @@
                   {/if}
                 </Breadcrumb.Link>
               {:else}
-                <Breadcrumb.Page title={item.tooltip} class="inline-flex items-center">
+                <Breadcrumb.Page
+                  title={item.tooltip}
+                  class="inline-flex min-w-0 items-center truncate"
+                >
                   {#if item.icon === "home"}
                     <House class="size-3.5" />
                   {:else}
@@ -481,7 +490,7 @@
           {/each}
         </Breadcrumb.List>
       </Breadcrumb.Root>
-      <div class="ml-auto flex items-center gap-1">
+      <div class="ml-auto flex flex-none items-center gap-1">
         <GithubLink />
         <Separator orientation="vertical" class="mx-1 !h-4" />
         <Button
@@ -499,7 +508,7 @@
         </Button>
       </div>
     </header>
-    <div class="flex flex-1 flex-col overflow-hidden md:rounded-b-2xl">
+    <div class="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
       {@render children()}
     </div>
   </Sidebar.Inset>

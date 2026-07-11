@@ -123,7 +123,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-4 p-6">
+<div class="flex flex-col gap-4 p-4 md:p-5">
   <header class="flex min-h-9 flex-wrap items-center justify-between gap-3">
     <p class="text-muted-foreground text-xs">
       Messages from <code class="font-mono">DBOS.send</code>; pending ones are waiting on a
@@ -157,7 +157,7 @@
         : "No notifications recorded."}
     </p>
   {:else}
-    <Card.Root class="gap-0 py-0 shadow-xs">
+    <Card.Root class="gap-0 py-0">
       <Table.Root>
         <Table.Header class="bg-muted/40">
           <Table.Row class="hover:bg-muted/40">
@@ -291,7 +291,7 @@
         <dl class="flex flex-col gap-5">
           <div class="flex flex-col gap-1.5">
             <dt
-              class="text-muted-foreground text-[11px] font-medium uppercase tracking-wide"
+              class="text-muted-foreground text-xs font-medium uppercase tracking-wide"
             >
               Topic
             </dt>
@@ -306,7 +306,7 @@
 
           <div class="flex flex-col gap-1.5">
             <dt
-              class="text-muted-foreground text-[11px] font-medium uppercase tracking-wide"
+              class="text-muted-foreground text-xs font-medium uppercase tracking-wide"
             >
               Sent
             </dt>
@@ -320,7 +320,7 @@
 
           <div class="flex flex-col gap-1.5">
             <dt
-              class="text-muted-foreground text-[11px] font-medium uppercase tracking-wide"
+              class="text-muted-foreground text-xs font-medium uppercase tracking-wide"
             >
               Destination
             </dt>
@@ -381,7 +381,7 @@
             <div class="flex items-center gap-2">
               {#if selected.serialization}
                 <span
-                  class="bg-muted text-muted-foreground inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium"
+                  class="bg-muted text-muted-foreground inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-xs font-medium"
                   title="Serialization format (DBOS `serialization` column)"
                 >
                   {selected.serialization}
@@ -404,7 +404,7 @@
                 <div class="bg-muted flex items-center rounded-md p-0.5">
                   <button
                     type="button"
-                    class="rounded px-2 py-0.5 text-[11px] font-medium transition
+                    class="rounded px-2 py-0.5 text-xs font-medium transition
                       {effectiveMode === 'raw'
                         ? 'bg-background text-foreground shadow-xs'
                         : 'text-muted-foreground hover:text-foreground'}"
@@ -415,7 +415,7 @@
                   <button
                     type="button"
                     disabled={messagePayload.decoded === null}
-                    class="rounded px-2 py-0.5 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40
+                    class="rounded px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40
                       {effectiveMode === 'decoded'
                         ? 'bg-background text-foreground shadow-xs'
                         : 'text-muted-foreground enabled:hover:text-foreground'}"
@@ -436,7 +436,7 @@
             <pre
               class="border-border bg-muted/40 max-h-[60vh] overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{displayedMessage}</pre>
             {#if messagePayload.decoded === null && selected.serialization && selected.serialization.toLowerCase().includes("pickle")}
-              <p class="text-muted-foreground text-[11px]">
+              <p class="text-muted-foreground text-xs">
                 Pickled Python value couldn't be decoded safely (likely a custom class).
                 Showing the raw on-disk base64 payload.
               </p>
