@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.30] - 2026-07-11
+
+### Added
+- Self-contained demo image (`Dockerfile.demo`): the released server plus the
+  sample-app workload running against an ephemeral SQLite file, for hosted
+  demos. No external database; state resets on every container start.
+
+### Changed
+- Console design pass: headings and body now share one type family (Inter,
+  Roboto Slab removed), tighter corner radii across the shadcn components,
+  simplified sidebar and page framing.
+- Workflow detail pane: the resize divider is keyboard-accessible (Left/Right
+  arrows resize, Shift for larger steps, ARIA labels for screen readers) and
+  hidden on small screens where the pane stacks instead.
+- Dev tooling: replaced Turborepo with plain root `package.json` scripts
+  (`pnpm -r` for JS workspaces, direct `uv run` for Python). No behavior
+  change in the shipped package.
+
 ## [0.0.29] - 2026-06-29
 
 > **Tested against DBOS 2.25.0** — see `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture floor is now `dbos>=2.25.0`. Pointing Argus at an older DBOS database whose `dbos.workflow_status` lacks `schedule_name` / `attributes` will error on the workflow detail reads.
@@ -633,7 +651,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.28...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.30...HEAD
+[0.0.30]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.30
+[0.0.29]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.29
 [0.0.28]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.28
 [0.0.27]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.27
 [0.0.26]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.26
