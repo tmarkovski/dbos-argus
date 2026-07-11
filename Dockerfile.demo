@@ -1,0 +1,33 @@
+# Self-contained demo image: the released dbos-argus server plus the
+# tests/sample-app workload generating live workflow activity against an
+# ephemeral SQLite file. No external database; state resets on every
+# container start. This is the image behind the hosted demo — the production
+# image is ./Dockerfile.
+#
+# Build from the repo root (the sample app is installed from source):
+#   docker build -f Dockerfile.demo -t dbos-argus-demo .
+# Pin the server release with --build-arg ARGUS_VERSION=<X.Y.Z>.
+
+FROM python:3.12-slim
+
+ARG ARGUS_VERSION=
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# dbos is pinned to the version Argus is tested against (see uv.lock); the
+# sample app's own floor is >=, which would otherwise float to newest.
+COPY tests/sample-app /opt/sample-app
+RUN if [ -n "$ARGUS_VERSION" ]; then \
+      pip install "dbos-argus==${ARGUS_VERSION}" "dbos==2.25.0" /opt/sample-app; \
+    else \
+      pip install dbos-argus "dbos==2.25.0" /opt/sample-app; \
+    fi
+
+COPY scripts/demo-entrypoint.sh /usr/local/bin/demo-entrypoint.sh
+RUN chmod +x /usr/local/bin/demo-entrypoint.sh
+
+EXPOSE 8090
+
+CMD ["demo-entrypoint.sh"]

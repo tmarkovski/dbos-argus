@@ -1,0 +1,19 @@
+# Keep docker build contexts small (matters for `az acr build`, which
+# uploads the context). The release Dockerfile copies nothing from the
+# context; Dockerfile.demo needs only tests/sample-app and scripts/.
+.git
+node_modules
+**/node_modules
+.venv
+**/__pycache__
+.svelte-kit
+**/.svelte-kit
+apps/console/build
+dist
+.pytest_cache
+.ruff_cache
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.log
