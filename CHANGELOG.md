@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.31] - 2026-07-17
+
+> **Tested against DBOS 2.27.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture floor is now `dbos>=2.27.0`.
+
+### Changed
+- Schema snapshot regenerated against DBOS 2.27.0. The two new
+  `workflow_status` columns, `debounce_deadline_epoch_ms` and `is_debounced`
+  (DBOS request debouncing), are recorded as untracked (`argus: false`).
+  Argus does not read them, so there is no change to the REST/realtime
+  payloads or the console. The DBOS dev fixture now requires `dbos>=2.27.0`.
+
 ## [0.0.30] - 2026-07-11
 
 ### Added
@@ -651,7 +662,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.30...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.31...HEAD
+[0.0.31]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.31
 [0.0.30]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.30
 [0.0.29]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.29
 [0.0.28]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.28

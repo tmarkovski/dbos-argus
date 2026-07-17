@@ -1,7 +1,7 @@
 {
   "schema": "dbos",
   "meta": {
-    "dbos_version": "2.25.0",
+    "dbos_version": "2.27.0",
     "note": "Full DBOS Postgres schema. `argus: true` columns are the ones the Argus backend actively reads — diff_schemas filters to those at runtime. The CI watchdog (.github/workflows/dbos-schema-watch.yml) regenerates this file against newly released DBOS versions and opens an issue when anything changes."
   },
   "tables": [
@@ -156,7 +156,9 @@
         {"name": "rate_limited", "data_type": "boolean", "argus": false},
         {"name": "completed_at", "data_type": "bigint", "argus": true},
         {"name": "attributes", "data_type": "jsonb", "argus": true},
-        {"name": "schedule_name", "data_type": "text", "argus": true}
+        {"name": "schedule_name", "data_type": "text", "argus": true},
+        {"name": "debounce_deadline_epoch_ms", "data_type": "bigint", "argus": false},
+        {"name": "is_debounced", "data_type": "boolean", "argus": false}
       ]
     }
   ]
