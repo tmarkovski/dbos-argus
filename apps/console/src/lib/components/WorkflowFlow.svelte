@@ -779,6 +779,12 @@
 </script>
 
 <div class="bg-background relative h-full min-h-0 w-full overflow-hidden">
+  <!-- Elevation is disabled because selecting a node otherwise raises it
+       (and, via subflow children, every edge touching it) to z 1000+,
+       painting spawn/return edges over other containers' step and
+       "N more steps" rows. With elevation off, edges tie with child rows
+       at z 1 and the node layer wins by paint order, so lines always pass
+       under rows. -->
   <SvelteFlow
     bind:nodes
     bind:edges
@@ -789,6 +795,8 @@
     nodesDraggable={false}
     nodesConnectable={false}
     elementsSelectable
+    elevateEdgesOnSelect={false}
+    elevateNodesOnSelect={false}
     zoomOnDoubleClick={false}
     minZoom={0.2}
     proOptions={{ hideAttribution: true }}
