@@ -12,7 +12,30 @@ Argus is a web dashboard for visualizing the durable workflows your [DBOS Transa
 
 > **Status:** Pre-alpha. Everything will change. Not production-ready. Argus is built for development and quick inspection of a running DBOS database.
 
-> **DBOS compatibility.** Each release is validated against a specific DBOS version — see the "Tested against DBOS …" line in [CHANGELOG.md](./CHANGELOG.md) (and in the release notes on the [Releases page](https://github.com/tmarkovski/dbos-argus/releases)), or call `GET /version` (`tested_dbos_version`) on a running instance. Older / newer DBOS versions usually still work; the connection sidebar in the UI flags any schema mismatches it finds.
+> **DBOS compatibility.** Argus grades your database automatically. It reads DBOS Transact's own schema revision counter (`dbos.dbos_migrations.version`) and, if your database is older than the columns Argus queries, the connection sidebar tells you which Argus version to install instead. See [Which Argus version do I need?](#which-argus-version-do-i-need) below.
+
+---
+
+## Which Argus version do I need?
+
+Argus reads DBOS's system tables directly, so a database migrated by an older DBOS release can be missing a column Argus queries. Rather than matching version numbers, Argus checks the migration counter DBOS maintains in its own schema:
+
+```bash
+psql "$ARGUS_DATABASE_URL" -c 'SELECT version FROM dbos.dbos_migrations'
+```
+
+| Your `dbos_migrations.version` | | Use Argus | Because it reads |
+|---|---|---|---|
+| Postgres | SQLite | | |
+| ≥ 41 | ≥ 36 | latest | — |
+| 36 – 40 | 33 – 35 | `0.0.28` | `workflow_status.attributes`, `.schedule_name` |
+| < 36 | < 33 | `0.0.27` | `workflow_status.completed_at` |
+
+Postgres and SQLite have separate counters because DBOS's migration lists for the two dialects diverge, so the same number means different things on each backend.
+
+You do not have to look this up by hand. Open the connection panel in the console (click the database indicator in the sidebar): if the database is behind, it names the exact `pip install` line and the DBOS version to upgrade to instead. The same verdict is on `GET /api/sql-diagnostics` under `compat`, and `GET /version` reports the revision this build requires without touching the database.
+
+Each release is also validated end to end against a specific DBOS version — see the "Tested against DBOS …" line in [CHANGELOG.md](./CHANGELOG.md), or `tested_dbos_version` on `GET /version`.
 
 ---
 

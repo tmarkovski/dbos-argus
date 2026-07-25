@@ -14,16 +14,27 @@ import click
 import uvicorn
 
 from . import __version__
+from .compat import required_revision
 from .schema_dump import load_full_dump
 
 
 def _version_message() -> str:
-    """`dbos-argus X.Y.Z (tested against DBOS Y.Y.Y)` for `--version`."""
+    """`dbos-argus X.Y.Z (tested against DBOS Y.Y.Y, needs schema revision N)`.
+
+    The revision is the actionable half: it's what `dbos.dbos_migrations.version`
+    must reach for this build's queries to work, and it's printable without a
+    database connection.
+    """
     try:
         tested = load_full_dump().meta.get("dbos_version", "unknown")
     except Exception:
         tested = "unknown"
-    return f"%(prog)s %(version)s (tested against DBOS {tested})"
+    pg = required_revision("postgres")
+    sqlite = required_revision("sqlite")
+    return (
+        f"%(prog)s %(version)s (tested against DBOS {tested}; "
+        f"needs dbos_migrations.version >= {pg} on Postgres, >= {sqlite} on SQLite)"
+    )
 
 
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
