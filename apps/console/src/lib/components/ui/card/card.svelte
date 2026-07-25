@@ -15,7 +15,7 @@
 	bind:this={ref}
 	data-slot="card"
 	data-size={size}
-	class={cn("border-border bg-card text-card-foreground gap-5 overflow-hidden rounded-lg border py-5 text-sm shadow-none has-[>img:first-child]:pt-0 data-[size=sm]:gap-4 data-[size=sm]:py-4 *:[img:first-child]:rounded-t-lg *:[img:last-child]:rounded-b-lg group/card flex flex-col", className)}
+	class={cn("bg-card text-card-foreground shadow-surface gap-5 overflow-hidden rounded-lg py-5 text-sm has-[>img:first-child]:pt-0 data-[size=sm]:gap-4 data-[size=sm]:py-4 *:[img:first-child]:rounded-t-lg *:[img:last-child]:rounded-b-lg group/card flex flex-col", className)}
 	{...restProps}
 >
 	{@render children?.()}

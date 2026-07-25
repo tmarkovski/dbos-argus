@@ -30,6 +30,18 @@
      deeper primary that reads dim against the dark card surface. */
   --workflow-accent: var(--primary);
   --font-heading: "Inter Variable", sans-serif;
+  /* Canvas redesign: the page is a soft gray canvas and containers are
+     borderless white surfaces separated by shadow, not gray outlines. These
+     intentionally override the preset in theme.css and survive preset swaps. */
+  --background: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.44 0.01 285.9);
+  /* Sidebar sits directly on the canvas; the active item is a raised card. */
+  --sidebar: var(--background);
+  --sidebar-accent: var(--card);
+  --surface-shadow: 0 1px 2px oklch(0.145 0 0 / 7%), 0 0 0 1px oklch(0.145 0 0 / 4.5%);
+  --surface-shadow-lg:
+    0 4px 12px oklch(0.145 0 0 / 8%), 0 1px 2px oklch(0.145 0 0 / 6%),
+    0 0 0 1px oklch(0.145 0 0 / 4%);
 }
 
 .dark {
@@ -41,6 +53,15 @@
   --highlight: oklch(0.85 0.18 95);
   --highlight-foreground: oklch(0.2 0.05 80);
   --workflow-accent: oklch(from var(--primary) 0.82 calc(c + 0.06) h);
+  /* Restate the preset's dark values: the :root canvas overrides above come
+     later in the cascade than theme.css's .dark block and would otherwise
+     leak the light canvas into dark mode. */
+  --background: oklch(0.145 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  /* Shadows barely read in dark mode, so the surface treatment leans on the
+     hairline ring plus the lighter card color for separation. */
+  --surface-shadow: 0 1px 2px oklch(0 0 0 / 40%), 0 0 0 1px oklch(1 0 0 / 9%);
+  --surface-shadow-lg: 0 4px 12px oklch(0 0 0 / 45%), 0 0 0 1px oklch(1 0 0 / 10%);
 }
 
 body {
@@ -59,6 +80,8 @@ body {
   --color-highlight: var(--highlight);
   --color-highlight-foreground: var(--highlight-foreground);
   --color-workflow-accent: var(--workflow-accent);
+  --shadow-surface: var(--surface-shadow);
+  --shadow-surface-lg: var(--surface-shadow-lg);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -97,6 +120,13 @@ body {
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer components {
+  /* The active sidebar item reads as a raised white pill on the canvas. */
+  [data-slot="sidebar-menu-button"][data-active="true"] {
+    box-shadow: var(--surface-shadow);
+  }
 }
 
 @layer base {

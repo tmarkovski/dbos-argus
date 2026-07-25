@@ -179,7 +179,7 @@
   {/if}
 
   <div
-    class="*:data-[slot=card]:relative *:data-[slot=card]:cursor-pointer *:data-[slot=card]:transition-colors *:data-[slot=card]:hover:border-foreground/20 *:data-[slot=card]:hover:bg-muted/20 grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4"
+    class="*:data-[slot=card]:relative *:data-[slot=card]:cursor-pointer *:data-[slot=card]:transition-shadow *:data-[slot=card]:hover:shadow-surface-lg grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4"
   >
     <Card.Root>
       <a
@@ -198,13 +198,13 @@
         </Card.Title>
         <Card.Action class="flex flex-col items-end gap-1">
           <a href={inFlightHref} class="relative z-10 hover:opacity-80">
-            <Badge variant="outline" class="gap-1">
+            <Badge variant="secondary" class="bg-status-running/15 text-status-running gap-1">
               <ActivityIcon class="size-3" />
               {stats?.in_flight ?? "—"} in flight
             </Badge>
           </a>
           <a href={enqueuedHref} class="relative z-10 hover:opacity-80">
-            <Badge variant="outline" class="gap-1">
+            <Badge variant="secondary" class="bg-status-queued/15 text-status-queued gap-1">
               <ListTodoIcon class="size-3" />
               {stats?.enqueued ?? "—"} queued
             </Badge>
@@ -241,7 +241,7 @@
           </span>
         </Card.Title>
         <Card.Action>
-          <Badge variant="outline" class="gap-1">
+          <Badge variant="secondary" class="gap-1">
             <BellIcon class="size-3" />
             Inbox
           </Badge>
@@ -269,7 +269,7 @@
           </span>
         </Card.Title>
         <Card.Action>
-          <Badge variant="outline" class="gap-1">
+          <Badge variant="secondary" class="gap-1">
             <CalendarClockIcon class="size-3" />
             Cron
           </Badge>
@@ -295,7 +295,7 @@
           </span>
         </Card.Title>
         <Card.Action>
-          <Badge variant="outline" class="gap-1 tabular-nums">
+          <Badge variant="secondary" class="gap-1 tabular-nums">
             <LayersIcon class="size-3" />
             {stats?.total_queues ?? "—"}
           </Badge>

@@ -89,6 +89,8 @@ The console's visual theme is split into two files so shadcn presets can be swap
 - **`apps/console/src/theme.css`** — generated. Holds the preset's `:root` and `.dark` blocks: base palette (background/foreground/card/popover/muted/accent/border/input/ring), `--primary`, `--secondary`, `--destructive`, `--chart-1..5`, sidebar tokens, `--radius`, `--font-sans`, `--font-heading`. Header comment records the preset code. **Do not hand-edit.**
 - **`apps/console/src/app.css`** — hand-maintained. Imports `theme.css`, declares Argus-specific tokens that survive preset swaps (`--status-success/running/queued/warning/error`, `--highlight*`, `--font-mono`), registers everything in `@theme inline`, and holds `@layer base`.
 
+The console deliberately diverges from the preset's surface treatment ("canvas" redesign): `app.css` overrides `--background` (soft gray canvas), `--muted-foreground` (darker, for contrast), and points `--sidebar`/`--sidebar-accent` at the canvas/card colors. Containers are borderless white surfaces separated by `--surface-shadow` / `--surface-shadow-lg` (registered as `shadow-surface` / `shadow-surface-lg` utilities); the `ui/card` and outline-button components use them instead of `border`. Cascade gotcha: any light-mode token overridden in `app.css`'s `:root` outranks `theme.css`'s `.dark` block by source order, so its dark value must be restated in `app.css`'s `.dark` block (see `--background`, `--muted-foreground`). Preset swaps still control primary/radius/fonts/dark palette.
+
 To swap to a new preset:
 
 1. Pick a preset at https://ui.shadcn.com/create — the URL ends with `?preset=<code>`.

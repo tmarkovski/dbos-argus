@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Tested against DBOS 2.27.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility.
 
+### Changed
+- **Console "canvas" redesign.** The console moves from white-on-white panels
+  with gray hairline borders to a soft gray canvas with borderless white
+  surfaces separated by shadow. The header loses its bottom border and
+  separators and gets slightly shorter; the sidebar drops its border and
+  renders the active item as a raised pill; cards, outline buttons, and filter
+  controls swap gray outlines for a subtle shadow ring; secondary text is
+  darker for contrast. In the workflow graph, step nodes are now flat
+  full-width rows (no boxes, no borders, no connecting lines between steps —
+  status dots and order carry the sequence), workflow containers float as
+  shadowed cards on a dotted canvas, and the details pane is a floating
+  rounded card that collapses to a single expand button, giving its space back
+  to the graph. Dark mode keeps the same structure with hairline rings in
+  place of shadows.
+
 ## [0.0.32] - 2026-07-25
 
 > **Tested against DBOS 2.27.0.** Requires DBOS schema revision 41 (Postgres) / 36 (SQLite) — see `required_dbos_schema_revision` in `GET /version`, or the compatibility table in [README.md](./README.md#which-argus-version-do-i-need). Argus tracks the latest DBOS schema and does not aim for backward compatibility.

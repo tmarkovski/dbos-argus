@@ -10,7 +10,6 @@
   import Check from "@lucide/svelte/icons/check";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import PanelRightClose from "@lucide/svelte/icons/panel-right-close";
-  import PanelRightOpen from "@lucide/svelte/icons/panel-right-open";
 
   // Result data is loaded lazily by the parent page (cached for the lifetime
   // of the page) so we never drag potentially-large output blobs through
@@ -47,14 +46,12 @@
     result,
     loading = false,
     events = [],
-    collapsed = false,
     onToggleCollapse,
   }: {
     selection: FlowSelection;
     result: ResultData | null;
     loading?: boolean;
     events?: WorkflowEventEntry[];
-    collapsed?: boolean;
     onToggleCollapse?: () => void;
   } = $props();
 
@@ -402,7 +399,7 @@
   }
 </script>
 
-<aside class="bg-background flex h-full min-h-0 w-full flex-col overflow-hidden">
+<aside class="bg-card flex h-full min-h-0 w-full flex-col overflow-hidden">
   <div class="border-border flex min-h-10 items-center gap-2 border-b px-4 py-2.5">
     <span class="text-muted-foreground truncate text-xs font-medium tracking-wide uppercase">
       {heading?.resultLabel ?? "Result"}
@@ -413,21 +410,15 @@
         size="icon-sm"
         class="ml-auto"
         onclick={onToggleCollapse}
-        title={collapsed ? "Expand" : "Collapse"}
-        aria-label={collapsed ? "Expand details pane" : "Collapse details pane"}
+        title="Collapse"
+        aria-label="Collapse details pane"
       >
-        {#if collapsed}
-          <PanelRightOpen />
-        {:else}
-          <PanelRightClose />
-        {/if}
+        <PanelRightClose />
       </Button>
     {/if}
   </div>
 
-  {#if collapsed}
-    <!-- Body hidden — only the eyebrow header is visible, acting as a tab. -->
-  {:else if !selection || !heading}
+  {#if !selection || !heading}
     <div class="text-muted-foreground flex flex-1 items-center justify-center p-6 text-sm">
       Select a workflow or step to see its result.
     </div>
@@ -477,7 +468,7 @@
         </div>
         <JsonView
           text={attributesText}
-          class="border-border bg-muted/40 max-h-56 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words"
+          class="bg-muted/40 max-h-56 overflow-auto rounded-lg p-3 font-mono text-xs whitespace-pre-wrap break-words"
         />
       </div>
     {/if}
@@ -720,7 +711,7 @@
         {:else}
           <JsonView
             text={displayedText}
-            class="border-border bg-muted/40 min-h-0 flex-1 overflow-auto rounded-lg border p-4 font-mono text-xs whitespace-pre-wrap break-words"
+            class="bg-muted/40 min-h-0 flex-1 overflow-auto rounded-lg p-4 font-mono text-xs whitespace-pre-wrap break-words"
           />
         {/if}
       </div>
@@ -810,7 +801,7 @@
         </div>
         <JsonView
           text={eventDisplay(openedEvent.value, openedEvent.value_decoded)}
-          class="border-border bg-muted/40 max-h-48 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words"
+          class="bg-muted/40 max-h-48 overflow-auto rounded-lg p-3 font-mono text-xs whitespace-pre-wrap break-words"
         />
       </div>
       {#if openedEvent.history.length > 0}
@@ -831,7 +822,7 @@
                 </div>
                 <JsonView
                   text={eventDisplay(h.value, h.value_decoded)}
-                  class="border-border bg-muted/40 max-h-48 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words"
+                  class="bg-muted/40 max-h-48 overflow-auto rounded-lg p-3 font-mono text-xs whitespace-pre-wrap break-words"
                 />
               </li>
             {/each}

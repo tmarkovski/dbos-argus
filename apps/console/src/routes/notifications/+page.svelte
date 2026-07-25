@@ -434,7 +434,7 @@
             <p class="text-muted-foreground text-sm">No message payload.</p>
           {:else}
             <pre
-              class="border-border bg-muted/40 max-h-[60vh] overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{displayedMessage}</pre>
+              class="bg-muted/40 max-h-[60vh] overflow-auto rounded-lg p-3 font-mono text-xs whitespace-pre-wrap break-words">{displayedMessage}</pre>
             {#if messagePayload.decoded === null && selected.serialization && selected.serialization.toLowerCase().includes("pickle")}
               <p class="text-muted-foreground text-xs">
                 Pickled Python value couldn't be decoded safely (likely a custom class).

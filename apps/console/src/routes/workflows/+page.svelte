@@ -640,7 +640,7 @@
     <DateRangePicker bind:value={dateRange} placeholder="Started" />
 
     <label
-      class="border-border bg-background hover:bg-muted hover:text-foreground text-foreground flex h-9 cursor-pointer items-center gap-1.5 rounded-md border px-3 text-sm font-medium select-none dark:bg-transparent dark:hover:bg-input/30"
+      class="bg-card shadow-surface hover:bg-muted hover:text-foreground text-foreground flex h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 text-sm font-medium select-none dark:hover:bg-input/30"
       title="Hide scheduled-workflow runs (workflow IDs starting with 'sched-')"
     >
       <Checkbox checked={hideScheduled} onCheckedChange={(v) => setHideScheduled(!!v)} />

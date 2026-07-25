@@ -2,6 +2,7 @@
   import { onDestroy, onMount, untrack } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import {
+    Background,
     Controls,
     SvelteFlow,
     type ColorMode,
@@ -60,7 +61,9 @@
     onSelect?: (sel: FlowSelection) => void;
   } = $props();
 
-  const STEP_WIDTH = 220;
+  // Step rows span the full container width (no L/R padding), so STEP_WIDTH
+  // is also the container width for any workflow with steps.
+  const STEP_WIDTH = 252;
   const STEP_HEIGHT = 32;
   const ELLIPSIS_HEIGHT = 22;
   const HEAD = 5;
@@ -69,8 +72,8 @@
   // Minimum container size — ELK collapses empty containers to ~0, which hides
   // the workflow header (name + id). Floor the layout output so a workflow
   // with zero steps yet still renders a proper container box.
-  const CONTAINER_MIN_WIDTH = STEP_WIDTH + 32; // step width + L/R padding
-  const CONTAINER_MIN_HEIGHT = 108; // top padding 60 + 1 step (32) + bottom 16
+  const CONTAINER_MIN_WIDTH = STEP_WIDTH;
+  const CONTAINER_MIN_HEIGHT = 100; // top padding 60 + 1 step (32) + bottom 8
 
   const elk = new ELK();
   const nodeTypes: NodeTypes = {
@@ -497,9 +500,9 @@
           layoutOptions: {
             "elk.algorithm": "layered",
             "elk.direction": "DOWN",
-            "elk.padding": "[top=60,left=16,right=16,bottom=16]",
-            "elk.spacing.nodeNode": "12",
-            "elk.layered.spacing.nodeNodeBetweenLayers": "12",
+            "elk.padding": "[top=60,left=0,right=0,bottom=8]",
+            "elk.spacing.nodeNode": "0",
+            "elk.layered.spacing.nodeNodeBetweenLayers": "0",
             "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
             "elk.layered.crossingMinimization.forceNodeModelOrder": "true",
           },
@@ -666,23 +669,9 @@
           selectable: true,
         });
       }
-      let previousStepId: string | null = null;
-      for (const it of items) {
-        if (it.kind !== "step") continue;
-        const stepId = itemId(c.id!, it);
-        if (!previousStepId) {
-          previousStepId = stepId;
-          continue;
-        }
-        nextEdges.push({
-          id: `seq:${c.id}:${previousStepId}->${stepId}`,
-          source: previousStepId,
-          target: stepId,
-          type: "straight",
-          style: "stroke: var(--color-border); stroke-width: 1px;",
-        });
-        previousStepId = stepId;
-      }
+      // No rendered edges between consecutive steps — the vertical order and
+      // status dots carry the sequence. ELK still gets sequence edges (stage 1
+      // above) so the layout keeps the top→bottom ordering.
     }
 
     // Spawn edges connect step→child container directly via xyflow handles
@@ -806,6 +795,7 @@
     onnodeclick={handleNodeClick}
     onpaneclick={handlePaneClick}
   >
+    <Background gap={18} patternColor="var(--color-border)" />
     <Controls showLock={false} />
   </SvelteFlow>
 </div>

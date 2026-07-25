@@ -21,12 +21,12 @@
 </script>
 
 <div
-  class="bg-card relative flex h-full w-full cursor-pointer flex-col rounded-lg border
+  class="bg-card shadow-surface-lg relative flex h-full w-full cursor-pointer flex-col rounded-lg
     {selected
-      ? 'border-primary'
+      ? 'ring-2 ring-primary'
       : data.isCurrent
-        ? 'border-primary/50'
-        : 'border-foreground/15'}"
+        ? 'ring-primary/50 ring-1'
+        : ''}"
 >
   <Handle
     id="spawn"
@@ -61,7 +61,7 @@
       type="button"
       onclick={handleToggle}
       onmousedown={(e) => e.stopPropagation()}
-      class="border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted absolute -left-3 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm"
+      class="bg-card shadow-surface text-muted-foreground hover:text-foreground hover:bg-muted absolute -left-3 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full"
       aria-label="Collapse steps"
       title="Collapse"
     >
@@ -71,7 +71,7 @@
       type="button"
       onclick={handleToggle}
       onmousedown={(e) => e.stopPropagation()}
-      class="border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted absolute -right-3 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm"
+      class="bg-card shadow-surface text-muted-foreground hover:text-foreground hover:bg-muted absolute -right-3 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full"
       aria-label="Collapse steps"
       title="Collapse"
     >
