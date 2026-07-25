@@ -778,7 +778,10 @@
   });
 </script>
 
-<div class="bg-background relative h-full min-h-0 w-full overflow-hidden">
+<!-- `isolate` keeps the edge-fade overlays' large z-indexes contained in
+     this container so page-level popovers (nav tooltips, menus, portaled at
+     z-50) still paint above them. -->
+<div class="bg-background relative isolate h-full min-h-0 w-full overflow-hidden">
   <!-- Elevation is disabled because selecting a node otherwise raises it
        (and, via subflow children, every edge touching it) to z 1000+,
        painting spawn/return edges over other containers' step and
