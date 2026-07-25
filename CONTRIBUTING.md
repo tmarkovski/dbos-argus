@@ -122,7 +122,11 @@ git commit -am "release vX.Y.Z"
 git push
 
 # 3. Tag and push the tag. The pipeline takes it from here.
-git tag vX.Y.Z
+#    `-m` makes this an annotated tag, which a bare `git tag vX.Y.Z` is not.
+#    Required if you have `tag.gpgsign = true` (that config turns tags into
+#    signed annotated tags, and git then aborts with "fatal: no tag message?").
+#    Harmless otherwise, so this form works either way.
+git tag -m "vX.Y.Z" vX.Y.Z
 git push origin vX.Y.Z
 ```
 

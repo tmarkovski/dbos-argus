@@ -109,4 +109,4 @@ Three GitHub Actions workflows:
 
 ## Releasing
 
-Tag-driven. Bump `CHANGELOG.md` (move `[Unreleased]` → dated `[X.Y.Z]`), commit, then `git tag vX.Y.Z && git push origin vX.Y.Z`. Version comes from `hatch-vcs` reading the tag — nothing to bump in `pyproject.toml` or `__init__.py`. PyPI rejects re-uploading the same version, so each release must bump.
+Tag-driven. Bump `CHANGELOG.md` (move `[Unreleased]` → dated `[X.Y.Z]`), commit, then `git tag -m "vX.Y.Z" vX.Y.Z && git push origin vX.Y.Z`. Use `-m`: with `tag.gpgsign = true` (set globally in the maintainer's git config, not per-repo) tags become signed *annotated* tags and a bare `git tag vX.Y.Z` aborts with `fatal: no tag message?`. The `-m` form is harmless without that config, so prefer it unconditionally. Version comes from `hatch-vcs` reading the tag — nothing to bump in `pyproject.toml` or `__init__.py`. PyPI rejects re-uploading the same version, so each release must bump.
