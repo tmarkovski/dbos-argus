@@ -509,7 +509,7 @@
                 </div>
                 <span
                   aria-hidden="true"
-                  class="text-muted-foreground group-hover:text-foreground group-hover:bg-background group-hover:border-border border-transparent absolute top-2 right-1 flex h-7 w-7 items-center justify-center rounded-md border transition-colors"
+                  class="text-muted-foreground group-hover:text-foreground group-hover:bg-card group-hover:border-border border-transparent absolute top-2 right-1 flex h-7 w-7 items-center justify-center rounded-md border transition-colors"
                 >
                   <Maximize2 class="h-3.5 w-3.5" />
                 </span>
@@ -558,12 +558,12 @@
                 <Copy class="h-3.5 w-3.5" />
               {/if}
             </button>
-            <div class="bg-muted flex items-center rounded-md p-0.5">
+            <div class="flex items-center gap-0.5">
               <button
                 type="button"
                 class="rounded px-2 py-0.5 text-xs font-medium transition
                   {effectiveMode === 'raw'
-                    ? 'bg-background text-foreground shadow-xs'
+                    ? 'bg-card text-foreground shadow-surface'
                     : 'text-muted-foreground hover:text-foreground'}"
                 onclick={() => (preferredMode = "raw")}
               >
@@ -574,7 +574,7 @@
                 disabled={payload.decoded === null}
                 class="rounded px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40
                   {effectiveMode === 'decoded'
-                    ? 'bg-background text-foreground shadow-xs'
+                    ? 'bg-card text-foreground shadow-surface'
                     : 'text-muted-foreground enabled:hover:text-foreground'}"
                 onclick={() => (preferredMode = "decoded")}
                 title={payload.decoded === null
@@ -618,7 +618,7 @@
             {/if}
             <span
               aria-hidden="true"
-              class="bg-background/80 text-muted-foreground group-hover:text-foreground group-hover:bg-muted group-hover:border-workflow-accent/60 border-border/60 hover:bg-foreground/10 hover:border-workflow-accent absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-md border shadow-sm backdrop-blur-sm transition-colors"
+              class="bg-card/80 text-muted-foreground group-hover:text-foreground group-hover:bg-muted group-hover:border-workflow-accent/60 border-border/60 hover:bg-foreground/10 hover:border-workflow-accent absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-md border shadow-sm backdrop-blur-sm transition-colors"
             >
               <Maximize2 class="h-3.5 w-3.5" />
             </span>
@@ -679,12 +679,12 @@
               <Copy class="h-3.5 w-3.5" />
             {/if}
           </button>
-          <div class="bg-muted flex items-center rounded-md p-0.5">
+          <div class="flex items-center gap-0.5">
             <button
               type="button"
               class="rounded px-2 py-0.5 text-xs font-medium transition
                 {effectiveMode === 'raw'
-                  ? 'bg-background text-foreground shadow-xs'
+                  ? 'bg-card text-foreground shadow-surface'
                   : 'text-muted-foreground hover:text-foreground'}"
               onclick={() => (preferredMode = "raw")}
             >
@@ -695,7 +695,7 @@
               disabled={payload.decoded === null}
               class="rounded px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40
                 {effectiveMode === 'decoded'
-                  ? 'bg-background text-foreground shadow-xs'
+                  ? 'bg-card text-foreground shadow-surface'
                   : 'text-muted-foreground enabled:hover:text-foreground'}"
               onclick={() => (preferredMode = "decoded")}
             >
@@ -771,12 +771,12 @@
                 <Copy class="h-3.5 w-3.5" />
               {/if}
             </button>
-            <div class="bg-muted flex items-center rounded-md p-0.5">
+            <div class="flex items-center gap-0.5">
               <button
                 type="button"
                 class="rounded px-2 py-0.5 text-xs font-medium transition
                   {effectiveEventMode === 'raw'
-                    ? 'bg-background text-foreground shadow-xs'
+                    ? 'bg-card text-foreground shadow-surface'
                     : 'text-muted-foreground hover:text-foreground'}"
                 onclick={() => (eventPreferredMode = "raw")}
               >
@@ -787,7 +787,7 @@
                 disabled={!eventAnyDecoded}
                 class="rounded px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40
                   {effectiveEventMode === 'decoded'
-                    ? 'bg-background text-foreground shadow-xs'
+                    ? 'bg-card text-foreground shadow-surface'
                     : 'text-muted-foreground enabled:hover:text-foreground'}"
                 onclick={() => (eventPreferredMode = "decoded")}
                 title={eventAnyDecoded
