@@ -13,8 +13,10 @@
   import { page } from "$app/state";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
   import {
+    argusPinCommand,
     connectionIndicatorClass,
     connectionIndicatorLabel,
+    dbosCompatOutdated,
     diagnosticsIssueSummary,
     formatDialectLabel,
     getConnectionIndicatorState,
@@ -177,6 +179,11 @@
     ),
   );
   const dbSchemaRev = $derived(connectionState.health?.dbos_schema_revision ?? null);
+  // Non-null only when the server graded this DB's revision as too old for the
+  // running Argus build; carries the version to pin and the DBOS version to
+  // upgrade to instead.
+  const dbCompatOutdated = $derived(dbosCompatOutdated(connectionState.diagnostics));
+  const dbPinCommand = $derived(argusPinCommand(dbCompatOutdated));
 </script>
 
 <Sidebar.Provider bind:open={sidebarOpen} onOpenChange={persistSidebarOpen}>
@@ -333,10 +340,61 @@
                         >
                           DBOS schema revision
                         </dt>
-                        <dd class="font-mono text-xs">{dbSchemaRev}</dd>
+                        <dd class="font-mono text-xs">
+                          {dbSchemaRev}
+                          {#if dbCompatOutdated}
+                            <span class="text-status-warning"
+                              >/ {dbCompatOutdated.required_revision} needed</span
+                            >
+                          {/if}
+                        </dd>
                       </div>
                     {/if}
                   </dl>
+                {/if}
+
+                {#if dbCompatOutdated}
+                  <div
+                    class="border-status-warning/40 bg-status-warning/5 flex flex-col gap-3 rounded-lg border p-4"
+                  >
+                    <div class="flex flex-col gap-1.5">
+                      <span class="text-status-warning text-xs uppercase tracking-wide">
+                        Argus version mismatch
+                      </span>
+                      <p class="text-sm">
+                        This database was migrated by an older DBOS release than this Argus
+                        build supports. Upgrade DBOS to
+                        <span class="font-mono text-xs"
+                          >{dbCompatOutdated.recommended_dbos_version}</span
+                        >
+                        or newer and let your app run its migrations, or downgrade Argus.
+                      </p>
+                    </div>
+
+                    {#if dbPinCommand}
+                      <div class="flex flex-col gap-1.5">
+                        <span class="text-muted-foreground text-xs uppercase tracking-wide">
+                          Last Argus release that supports this database
+                        </span>
+                        <p class="bg-muted/40 rounded px-2 py-1.5 font-mono text-xs break-all">
+                          {dbPinCommand}
+                        </p>
+                      </div>
+                    {/if}
+
+                    {#if dbCompatOutdated.missing_columns.length > 0}
+                      <div class="flex flex-col gap-1.5">
+                        <span class="text-muted-foreground text-xs uppercase tracking-wide">
+                          Columns Argus needs that this database lacks
+                        </span>
+                        <ul class="flex flex-col gap-0.5">
+                          {#each dbCompatOutdated.missing_columns as column (column)}
+                            <li class="font-mono text-xs">dbos.{column}</li>
+                          {/each}
+                        </ul>
+                      </div>
+                    {/if}
+                  </div>
                 {/if}
 
                 {#if dbConnected}
@@ -396,15 +454,19 @@
                             </Table.Body>
                           </Table.Root>
                         </div>
-                        <div class="flex flex-col gap-1.5">
-                          <span class="text-muted-foreground text-xs uppercase tracking-wide">
-                            Note
-                          </span>
-                          <p class="text-muted-foreground text-sm">
-                            This is likely due to an older version of DBOS than Argus currently
-                            expects.
-                          </p>
-                        </div>
+                        {#if !dbCompatOutdated}
+                          <!-- Only guess when the revision check didn't already
+                               give a definite answer above. -->
+                          <div class="flex flex-col gap-1.5">
+                            <span class="text-muted-foreground text-xs uppercase tracking-wide">
+                              Note
+                            </span>
+                            <p class="text-muted-foreground text-sm">
+                              This is likely due to an older version of DBOS than Argus currently
+                              expects.
+                            </p>
+                          </div>
+                        {/if}
                       {/if}
                     {/if}
                   </div>

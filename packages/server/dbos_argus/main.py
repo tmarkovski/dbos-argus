@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 
 from . import __version__
+from .compat import required_revision
 from .db import db
 from .db.rows import (
     NotificationFilters,
@@ -139,6 +140,10 @@ async def version() -> dict[str, str]:
     return {
         "version": __version__,
         "tested_dbos_version": str(snapshot.meta.get("dbos_version", "unknown")),
+        # Lowest dbos.dbos_migrations.version this build can read, per dialect.
+        # Reported unconditionally (no DB access) so `curl /version` is enough to
+        # answer "will this Argus work against my database?" offline.
+        "required_dbos_schema_revision": str(required_revision(db.dialect)),
     }
 
 
@@ -151,19 +156,37 @@ class SqlDiagnosticIssue(BaseModel):
     detail: str
 
 
+class DbosCompat(BaseModel):
+    """DBOS schema revision grading. `compatible` is False only when the
+    revision is known and below what this Argus build requires; an unreadable
+    revision (`revision: null`) makes no claim and leaves `issues` as the
+    authority."""
+
+    dialect: Literal["postgres", "sqlite"]
+    revision: int | None
+    required_revision: int
+    compatible: bool
+    recommended_argus_version: str | None
+    recommended_dbos_version: str | None
+    missing_columns: list[str]
+    message: str | None
+
+
 class SqlDiagnostics(BaseModel):
     ok: bool
     issues: list[SqlDiagnosticIssue]
+    compat: DbosCompat
 
 
 @app.get("/api/sql-diagnostics")
 async def get_sql_diagnostics() -> SqlDiagnostics:
     try:
-        issues = await inspect_dbos_schema(db)
+        report = await inspect_dbos_schema(db)
     except SQLAlchemyError as e:
         raise HTTPException(status_code=503, detail="database diagnostics unavailable") from e
+    compat = report.compat
     return SqlDiagnostics(
-        ok=not issues,
+        ok=not report.issues,
         issues=[
             SqlDiagnosticIssue(
                 kind=issue.kind,
@@ -173,8 +196,18 @@ async def get_sql_diagnostics() -> SqlDiagnostics:
                 actual_type=issue.actual_type,
                 detail=issue.detail,
             )
-            for issue in issues
+            for issue in report.issues
         ],
+        compat=DbosCompat(
+            dialect=compat.dialect,
+            revision=compat.revision,
+            required_revision=compat.required_revision,
+            compatible=compat.compatible,
+            recommended_argus_version=compat.recommended_argus_version,
+            recommended_dbos_version=compat.recommended_dbos_version,
+            missing_columns=list(compat.missing_columns),
+            message=compat.message,
+        ),
     )
 
 

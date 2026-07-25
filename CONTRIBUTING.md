@@ -88,6 +88,25 @@ uv run --with asyncpg --with sqlalchemy \
 
 **When you adopt a new DBOS column** (flipping `argus: true` and adding a query in `main.py`), bump it in the snapshot directly. The watchdog only carries flags forward — it never sets `argus: true`.
 
+### Bumping the compatibility floor
+
+Adopting a column that arrived in a newer DBOS migration raises the minimum DBOS schema revision Argus can read, so `packages/server/dbos_argus/compat.py` needs a matching edit. That file maps `dbos.dbos_migrations.version` (DBOS' own migration counter) to the newest Argus release that works against it — it's what tells a user on an older DBOS to `pip install 'dbos-argus==0.0.28'` instead of hitting an opaque "column does not exist".
+
+1. Find the migration ordinal that introduces the column, **per dialect** (the two lists diverge, so the numbers differ):
+
+   ```bash
+   uv run python -c '
+   from dbos import _migration as m
+   col = "schedule_name"   # the column you just adopted
+   for label, lst in (("postgres", m.get_dbos_migrations("dbos", True, False)), ("sqlite", m.sqlite_migrations)):
+       hits = [i for i, s in enumerate(lst, 1) if f"ADD COLUMN IF NOT EXISTS \"{col}\"" in s or f"ADD COLUMN \"{col}\"" in s]
+       print(label, hits)'
+   ```
+
+2. In `compat.py`, set the previously-final `CompatStep`'s `max_argus_version` to the last released Argus version (the newest one that still works *without* the new column), then append a new step with the ordinals from step 1, the DBOS version that shipped them, and the column in `requires`.
+3. Add the new row to the table in README.md → "Which Argus version do I need?".
+4. `uv run pytest packages/server/tests/test_compat.py`. `test_declared_sqlite_floor_is_exact` replays DBOS' real SQLite migrations and fails if the declared floor is either too low (a column isn't there yet) or higher than necessary, so a forgotten or mistyped bump is caught here rather than by a user.
+
 ## Releasing
 
 Releases are tag-driven — pushing a `v*` tag fires `.github/workflows/release.yml`, which publishes to PyPI, builds and pushes the multi-arch Docker image, and creates the GitHub Release.

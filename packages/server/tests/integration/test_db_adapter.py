@@ -8,6 +8,7 @@ fixture — there is no per-dialect branching here.
 
 from __future__ import annotations
 
+from dbos_argus.compat import required_revision
 from dbos_argus.db.base import ArgusDB
 from dbos_argus.db.rows import NotificationFilters, WorkflowFilters
 from dbos_argus.sql_diagnostics import inspect_dbos_schema
@@ -47,8 +48,28 @@ async def test_live_schema_matches_pinned_snapshot(populated_db: DB) -> None:
     not the other, the matrix leg pointing at the affected backend will
     fail here — surfacing drift the PG-only watchdog can't see."""
     db, _ = populated_db
-    issues = await inspect_dbos_schema(db)
-    assert issues == [], "schema drift: " + "; ".join(i.detail for i in issues)
+    report = await inspect_dbos_schema(db)
+    assert report.issues == [], "schema drift: " + "; ".join(i.detail for i in report.issues)
+
+
+async def test_fully_migrated_db_meets_declared_revision_floor(populated_db: DB) -> None:
+    """The fixture is migrated by DBOS' own runner, so its `dbos_migrations`
+    version is ground truth for what the current DBOS release reaches. Guards
+    `compat.COMPAT_STEPS` against a floor that no real database can satisfy —
+    e.g. a typo'd bump, or one made against the wrong dialect's numbering."""
+    db, _ = populated_db
+    revision = await db.dbos_schema_revision()
+    floor = required_revision(db.dialect)
+    assert revision is not None, "bootstrap should have created dbos_migrations"
+    assert revision >= floor, (
+        f"declared floor {floor} for {db.dialect} exceeds what DBOS actually "
+        f"migrates to ({revision}) — COMPAT_STEPS is unsatisfiable"
+    )
+
+    report = await inspect_dbos_schema(db)
+    assert report.compat.compatible
+    assert report.compat.revision == revision
+    assert report.compat.recommended_argus_version is None
 
 
 async def test_list_workflows_grouped_returns_full_tree(populated_db: DB) -> None:

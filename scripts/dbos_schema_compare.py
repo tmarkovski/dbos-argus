@@ -216,7 +216,12 @@ def _format_report(
         lines.append("")
         lines.append(
             "DBOS shipped these — Argus doesn't currently read them. "
-            "Adopt one by flipping `argus: true` in the snapshot and adding queries."
+            "Adopt one by flipping `argus: true` in the snapshot and adding queries. "
+            "Adopting a column also raises the minimum DBOS schema revision Argus "
+            "can read, so update `packages/server/dbos_argus/compat.py` in the same "
+            'change — see CONTRIBUTING.md → "Bumping the compatibility floor". '
+            "CI enforces this: the floor tests fail if the ladder and the adopted "
+            "columns disagree."
         )
         lines.append("")
         if deltas.added_tables:

@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+> **Tested against DBOS 2.27.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility.
+
+## [0.0.32] - 2026-07-25
+
+> **Tested against DBOS 2.27.0.** Requires DBOS schema revision 41 (Postgres) / 36 (SQLite) — see `required_dbos_schema_revision` in `GET /version`, or the compatibility table in [README.md](./README.md#which-argus-version-do-i-need). Argus tracks the latest DBOS schema and does not aim for backward compatibility.
+
+### Added
+- **Version compatibility advice.** Pointing Argus at a database migrated by an
+  older DBOS release used to fail with an opaque "column does not exist". Argus
+  now reads DBOS' own schema revision counter (`dbos.dbos_migrations.version`)
+  and, when the database is behind what this build queries, names the newest
+  Argus release that does work — e.g. `pip install 'dbos-argus==0.0.28'` — plus
+  the DBOS version to upgrade to instead. Surfaced in the console's connection
+  panel, on `GET /api/sql-diagnostics` under a new `compat` object, and as a
+  compatibility table in the README.
+  - The revision counter is used rather than the `dbos` package version because
+    the package version isn't recorded in the database at all
+    (`dbos.application_versions` holds the *host app's* version), and can
+    disagree with the database when the library is upgraded without the app
+    re-running its migrations.
+  - Floors are tracked per dialect: DBOS' Postgres and SQLite migration lists
+    diverge, so the current requirement is revision 41 on Postgres and 36 on
+    SQLite.
+  - A database with no `dbos_migrations` table (fresh, or legacy
+    Alembic-managed) is not graded — the existing column diff remains the
+    authority there.
+- `GET /version` reports `required_dbos_schema_revision`, and
+  `dbos-argus --version` prints the per-dialect floors. Neither needs a
+  database connection.
+
+### Changed
+- `inspect_dbos_schema()` returns a `DbosSchemaReport` (issues + compat report)
+  rather than a bare list of issues. Internal API; the REST shape is additive.
+- The connection panel's generic "likely an older version of DBOS" note is now
+  suppressed when the revision check has already given a definite answer.
+
+### Internal
+- CI guards the compatibility ladder from both directions. The SQLite floor is
+  proven exactly by replaying DBOS' SQLite migrations in memory; the Postgres
+  floor by migrating a throwaway schema with DBOS' real DDL on the `postgres`
+  matrix leg. Both assert the declared floor is the *lowest* revision providing
+  every argus-tracked column, so adopting a column without bumping the ladder
+  fails CI, as does bumping it too far. A further test keeps the README
+  compatibility table in sync with the ladder.
+- Running the suite without a Postgres server emits an explicit warning that
+  the Postgres floor went unverified, rather than a silent skip.
+
 ## [0.0.31] - 2026-07-17
 
 > **Tested against DBOS 2.27.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture floor is now `dbos>=2.27.0`.
@@ -662,7 +709,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.31...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.32...HEAD
+[0.0.32]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.32
 [0.0.31]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.31
 [0.0.30]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.30
 [0.0.29]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.29

@@ -1,4 +1,5 @@
 from dbos_argus import main
+from dbos_argus.compat import COMPAT_STEPS, Dialect, required_revision, resolve_compat
 from dbos_argus.main import app
 from dbos_argus.schema_diff import SchemaIssue, diff_schemas
 from dbos_argus.schema_dump import (
@@ -8,6 +9,7 @@ from dbos_argus.schema_dump import (
     argus_only,
     load_full_dump,
 )
+from dbos_argus.sql_diagnostics import DbosSchemaReport
 from fastapi.testclient import TestClient
 
 
@@ -119,20 +121,31 @@ def test_version_endpoint_includes_tested_dbos_version() -> None:
     assert "tested_dbos_version" in body
     # Snapshot ships with a real version string; reject "unknown" fallback in tests.
     assert body["tested_dbos_version"] not in ("", "unknown")
+    # Reported without touching the DB, so it's always a positive integer.
+    assert int(body["required_dbos_schema_revision"]) > 0
+
+
+def _report(
+    issues: list[SchemaIssue],
+    *,
+    revision: int | None,
+    dialect: Dialect = "postgres",
+) -> DbosSchemaReport:
+    return DbosSchemaReport(issues=issues, compat=resolve_compat(dialect, revision))
 
 
 def test_sql_diagnostics_endpoint_returns_schema_issues(monkeypatch) -> None:
-    async def fake_inspect_dbos_schema(_db: object) -> list[SchemaIssue]:
-        return [
-            SchemaIssue(
-                kind="missing_table",
-                table_name="workflow_schedules",
-                column_name=None,
-                expected_type=None,
-                actual_type=None,
-                detail="Missing required table dbos.workflow_schedules.",
-            )
-        ]
+    issue = SchemaIssue(
+        kind="missing_table",
+        table_name="workflow_schedules",
+        column_name=None,
+        expected_type=None,
+        actual_type=None,
+        detail="Missing required table dbos.workflow_schedules.",
+    )
+
+    async def fake_inspect_dbos_schema(_db: object) -> DbosSchemaReport:
+        return _report([issue], revision=required_revision("postgres"))
 
     monkeypatch.setattr(main, "inspect_dbos_schema", fake_inspect_dbos_schema)
 
@@ -140,16 +153,56 @@ def test_sql_diagnostics_endpoint_returns_schema_issues(monkeypatch) -> None:
         response = client.get("/api/sql-diagnostics")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "ok": False,
-        "issues": [
-            {
-                "kind": "missing_table",
-                "table_name": "workflow_schedules",
-                "column_name": None,
-                "expected_type": None,
-                "actual_type": None,
-                "detail": "Missing required table dbos.workflow_schedules.",
-            }
-        ],
-    }
+    body = response.json()
+    assert body["ok"] is False
+    assert body["issues"] == [
+        {
+            "kind": "missing_table",
+            "table_name": "workflow_schedules",
+            "column_name": None,
+            "expected_type": None,
+            "actual_type": None,
+            "detail": "Missing required table dbos.workflow_schedules.",
+        }
+    ]
+    # Schema issues and revision compatibility are graded independently: a
+    # dropped table on an otherwise-current DBOS is not a version problem.
+    assert body["compat"]["compatible"] is True
+    assert body["compat"]["recommended_argus_version"] is None
+
+
+def test_sql_diagnostics_endpoint_recommends_a_pin_for_an_old_revision(monkeypatch) -> None:
+    floor = required_revision("postgres")
+
+    async def fake_inspect_dbos_schema(_db: object) -> DbosSchemaReport:
+        return _report([], revision=floor - 1)
+
+    monkeypatch.setattr(main, "inspect_dbos_schema", fake_inspect_dbos_schema)
+
+    with TestClient(app) as client:
+        response = client.get("/api/sql-diagnostics")
+
+    assert response.status_code == 200
+    compat = response.json()["compat"]
+    assert compat["compatible"] is False
+    assert compat["revision"] == floor - 1
+    assert compat["required_revision"] == floor
+    assert compat["recommended_argus_version"] == COMPAT_STEPS[-2].max_argus_version
+    assert compat["missing_columns"] == list(COMPAT_STEPS[-1].requires)
+    assert "dbos-argus==" in compat["message"]
+
+
+def test_sql_diagnostics_endpoint_makes_no_claim_without_a_revision(monkeypatch) -> None:
+    # Legacy Alembic-managed DB: no dbos_migrations table to read.
+    async def fake_inspect_dbos_schema(_db: object) -> DbosSchemaReport:
+        return _report([], revision=None)
+
+    monkeypatch.setattr(main, "inspect_dbos_schema", fake_inspect_dbos_schema)
+
+    with TestClient(app) as client:
+        response = client.get("/api/sql-diagnostics")
+
+    compat = response.json()["compat"]
+    assert compat["revision"] is None
+    assert compat["compatible"] is True
+    assert compat["message"] is None
