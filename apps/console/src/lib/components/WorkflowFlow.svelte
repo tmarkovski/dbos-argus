@@ -778,7 +778,7 @@
   });
 </script>
 
-<div class="bg-background h-full min-h-0 w-full overflow-hidden">
+<div class="bg-background relative h-full min-h-0 w-full overflow-hidden">
   <SvelteFlow
     bind:nodes
     bind:edges
@@ -798,6 +798,19 @@
     <Background gap={18} patternColor="var(--color-border)" />
     <Controls showLock={false} />
   </SvelteFlow>
+  <!-- The canvas shares the page background, so panned content would
+       otherwise hard-stop at the container edge. Fade the top and left
+       edges to signal "the graph continues past here". z-index sits above
+       xyflow's elevated selected nodes (1000); controls are raised higher
+       in the style block below so they stay crisp. -->
+  <div
+    aria-hidden="true"
+    class="from-background pointer-events-none absolute inset-x-0 top-0 z-[1001] h-10 bg-linear-to-b to-transparent"
+  ></div>
+  <div
+    aria-hidden="true"
+    class="from-background pointer-events-none absolute inset-y-0 left-0 z-[1001] w-10 bg-linear-to-r to-transparent"
+  ></div>
 </div>
 
 <style>
@@ -818,5 +831,11 @@
      the hierarchy instead of decorative surface effects. */
   :global(.svelte-flow) {
     background: var(--color-background) !important;
+  }
+
+  /* Zoom controls sit inside the left edge-fade strip; raise them above the
+     fade overlays so they don't get veiled. */
+  :global(.svelte-flow__controls) {
+    z-index: 1010;
   }
 </style>
