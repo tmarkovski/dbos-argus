@@ -32,12 +32,18 @@
   --font-heading: "Inter Variable", sans-serif;
   /* Canvas redesign: the page is a soft gray canvas and containers are
      borderless white surfaces separated by shadow, not gray outlines. These
-     intentionally override the preset in theme.css and survive preset swaps. */
-  --background: oklch(0.967 0.001 286.375);
+     intentionally override the preset in theme.css and survive preset swaps.
+     Warm stone-family gray rather than the preset's cool zinc so the shell
+     feels softer. Chroma is nudged above Tailwind stone-100 (0.001), which
+     is visually indistinguishable from zinc at this lightness. */
+  --background: oklch(0.967 0.003 75);
   --muted-foreground: oklch(0.44 0.01 285.9);
   /* Sidebar sits directly on the canvas; the active item is a raised card. */
   --sidebar: var(--background);
   --sidebar-accent: var(--card);
+  /* Accent: muted iris instead of the preset's violet-700 — same family
+     with chroma pulled down so it reads calm rather than royal. */
+  --primary: oklch(0.55 0.17 285);
   --surface-shadow: 0 1px 2px oklch(0.145 0 0 / 7%), 0 0 0 1px oklch(0.145 0 0 / 4.5%);
   --surface-shadow-lg:
     0 4px 12px oklch(0.145 0 0 / 8%), 0 1px 2px oklch(0.145 0 0 / 6%),
@@ -58,6 +64,9 @@
      leak the light canvas into dark mode. */
   --background: oklch(0.145 0 0);
   --muted-foreground: oklch(0.708 0 0);
+  /* Iris accent restated for dark: same value as light — it clears white
+     text either way — stated explicitly rather than relying on the leak. */
+  --primary: oklch(0.55 0.17 285);
   /* Shadows barely read in dark mode, so the surface treatment leans on the
      hairline ring plus the lighter card color for separation. */
   --surface-shadow: 0 1px 2px oklch(0 0 0 / 40%), 0 0 0 1px oklch(1 0 0 / 9%);
