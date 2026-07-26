@@ -2,6 +2,7 @@
   import { onDestroy, onMount, untrack } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import {
+    Background,
     Controls,
     SvelteFlow,
     type ColorMode,
@@ -60,7 +61,9 @@
     onSelect?: (sel: FlowSelection) => void;
   } = $props();
 
-  const STEP_WIDTH = 220;
+  // Step rows span the full container width (no L/R padding), so STEP_WIDTH
+  // is also the container width for any workflow with steps.
+  const STEP_WIDTH = 252;
   const STEP_HEIGHT = 32;
   const ELLIPSIS_HEIGHT = 22;
   const HEAD = 5;
@@ -69,8 +72,8 @@
   // Minimum container size — ELK collapses empty containers to ~0, which hides
   // the workflow header (name + id). Floor the layout output so a workflow
   // with zero steps yet still renders a proper container box.
-  const CONTAINER_MIN_WIDTH = STEP_WIDTH + 32; // step width + L/R padding
-  const CONTAINER_MIN_HEIGHT = 108; // top padding 60 + 1 step (32) + bottom 16
+  const CONTAINER_MIN_WIDTH = STEP_WIDTH;
+  const CONTAINER_MIN_HEIGHT = 100; // top padding 60 + 1 step (32) + bottom 8
 
   const elk = new ELK();
   const nodeTypes: NodeTypes = {
@@ -497,9 +500,9 @@
           layoutOptions: {
             "elk.algorithm": "layered",
             "elk.direction": "DOWN",
-            "elk.padding": "[top=60,left=16,right=16,bottom=16]",
-            "elk.spacing.nodeNode": "12",
-            "elk.layered.spacing.nodeNodeBetweenLayers": "12",
+            "elk.padding": "[top=60,left=0,right=0,bottom=8]",
+            "elk.spacing.nodeNode": "0",
+            "elk.layered.spacing.nodeNodeBetweenLayers": "0",
             "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
             "elk.layered.crossingMinimization.forceNodeModelOrder": "true",
           },
@@ -597,6 +600,9 @@
         draggable: false,
         connectable: false,
         selectable: true,
+        // Above the edge layer (z auto) so the container's protruding
+        // expand/collapse buttons aren't crossed by dashed spawn/return edges.
+        zIndex: 1,
         style: `width: ${c.width}px; height: ${c.height}px;`,
       });
       const items = itemsByWf.get(c.id!) ?? [];
@@ -666,23 +672,9 @@
           selectable: true,
         });
       }
-      let previousStepId: string | null = null;
-      for (const it of items) {
-        if (it.kind !== "step") continue;
-        const stepId = itemId(c.id!, it);
-        if (!previousStepId) {
-          previousStepId = stepId;
-          continue;
-        }
-        nextEdges.push({
-          id: `seq:${c.id}:${previousStepId}->${stepId}`,
-          source: previousStepId,
-          target: stepId,
-          type: "straight",
-          style: "stroke: var(--color-border); stroke-width: 1px;",
-        });
-        previousStepId = stepId;
-      }
+      // No rendered edges between consecutive steps — the vertical order and
+      // status dots carry the sequence. ELK still gets sequence edges (stage 1
+      // above) so the layout keeps the top→bottom ordering.
     }
 
     // Spawn edges connect step→child container directly via xyflow handles
@@ -789,7 +781,16 @@
   });
 </script>
 
-<div class="bg-background h-full min-h-0 w-full overflow-hidden">
+<!-- `isolate` keeps the edge-fade overlays' large z-indexes contained in
+     this container so page-level popovers (nav tooltips, menus, portaled at
+     z-50) still paint above them. -->
+<div class="bg-background relative isolate h-full min-h-0 w-full overflow-hidden">
+  <!-- Elevation is disabled because selecting a node otherwise raises it
+       (and, via subflow children, every edge touching it) to z 1000+,
+       painting spawn/return edges over other containers' step and
+       "N more steps" rows. With elevation off, edges tie with child rows
+       at z 1 and the node layer wins by paint order, so lines always pass
+       under rows. -->
   <SvelteFlow
     bind:nodes
     bind:edges
@@ -800,14 +801,30 @@
     nodesDraggable={false}
     nodesConnectable={false}
     elementsSelectable
+    elevateEdgesOnSelect={false}
+    elevateNodesOnSelect={false}
     zoomOnDoubleClick={false}
     minZoom={0.2}
     proOptions={{ hideAttribution: true }}
     onnodeclick={handleNodeClick}
     onpaneclick={handlePaneClick}
   >
+    <Background gap={18} patternColor="var(--color-border)" />
     <Controls showLock={false} />
   </SvelteFlow>
+  <!-- The canvas shares the page background, so panned content would
+       otherwise hard-stop at the container edge. Fade the top and left
+       edges to signal "the graph continues past here". z-index sits above
+       xyflow's elevated selected nodes (1000); controls are raised higher
+       in the style block below so they stay crisp. -->
+  <div
+    aria-hidden="true"
+    class="from-background pointer-events-none absolute inset-x-0 top-0 z-[1001] h-10 bg-linear-to-b to-transparent"
+  ></div>
+  <div
+    aria-hidden="true"
+    class="from-background pointer-events-none absolute inset-y-0 left-0 z-[1001] w-10 bg-linear-to-r to-transparent"
+  ></div>
 </div>
 
 <style>
@@ -828,5 +845,11 @@
      the hierarchy instead of decorative surface effects. */
   :global(.svelte-flow) {
     background: var(--color-background) !important;
+  }
+
+  /* Zoom controls sit inside the left edge-fade strip; raise them above the
+     fade overlays so they don't get veiled. */
+  :global(.svelte-flow__controls) {
+    z-index: 1010;
   }
 </style>

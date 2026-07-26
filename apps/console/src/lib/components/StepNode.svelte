@@ -122,15 +122,15 @@
   const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 </script>
 
+<!-- Flat full-bleed row: no border, no rounding, no connecting edges — the
+     status dot and vertical order carry the sequence; selection is a primary
+     tint + inset bar. -->
 <div
-  class="flex h-full w-full cursor-pointer items-center gap-2 rounded-md border px-3 py-1
+  class="flex h-full w-full cursor-pointer items-center gap-2 px-3 py-1
     {selected
-      ? 'border-primary bg-primary/5'
-      : 'border-border hover:bg-muted/40'}"
+      ? 'bg-primary/8 shadow-[inset_2px_0_0_var(--color-primary)]'
+      : 'hover:bg-muted/60'}"
 >
-  {#if !data.isFirst}
-    <Handle type="target" position={Position.Top} isConnectable={false} />
-  {/if}
   {#if data.eventDirection}
     <Zap
       class="fill-status-warning text-status-warning dark:fill-highlight dark:text-highlight h-3 w-3 flex-none"
@@ -220,9 +220,6 @@
         <span>{formatDuration(displayDurationMs)}</span>
       {/if}
     </span>
-  {/if}
-  {#if !data.isLast}
-    <Handle type="source" position={Position.Bottom} isConnectable={false} />
   {/if}
   {#if data.kind === "child"}
     <Handle id="spawn" type="source" position={Position.Right} isConnectable={false} />

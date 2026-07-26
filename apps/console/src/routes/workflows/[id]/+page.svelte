@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { page } from "$app/state";
+  import PanelRightOpen from "@lucide/svelte/icons/panel-right-open";
   import ResultPane, {
     type ResultData,
     type WorkflowEventEntry,
@@ -79,56 +80,25 @@
   let dragging = $state(false);
   let dragStartX = 0;
   let dragStartWidth = 0;
-  // Width to restore if a drag-from-collapsed releases below MIN_RIGHT.
-  let savedRightWidth = 0;
-  let dragFromCollapsed = false;
   const MIN_RIGHT = 280;
   const MAX_RIGHT = 900;
   const RESIZE_STEP = 24;
-  // Width left visible when collapsed: just enough to show the eyebrow's
-  // 32px (icon-sm) toggle button + the eyebrow's px-4 horizontal padding.
-  const PEEK_WIDTH = 64;
-
-  const effectiveRightWidth = $derived(collapsed ? PEEK_WIDTH : rightWidth);
 
   function onHandlePointerDown(e: PointerEvent) {
     dragging = true;
     dragStartX = e.clientX;
-    dragFromCollapsed = collapsed;
-    if (collapsed) {
-      // Drag from collapsed: anchor the drag at the peek width so the pane
-      // grows out of the peek under the cursor instead of jumping straight
-      // to the saved expanded width.
-      savedRightWidth = rightWidth;
-      dragStartWidth = PEEK_WIDTH;
-      rightWidth = PEEK_WIDTH;
-      collapsed = false;
-    } else {
-      dragStartWidth = rightWidth;
-    }
+    dragStartWidth = rightWidth;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
 
   function onHandlePointerMove(e: PointerEvent) {
     if (!dragging) return;
     const delta = e.clientX - dragStartX;
-    const next = dragStartWidth - delta;
-    // Drag-from-collapsed allows widths down to PEEK_WIDTH so the user can
-    // back out of an expand. Drag-from-expanded keeps MIN_RIGHT so the pane
-    // stays usable.
-    const min = dragFromCollapsed ? PEEK_WIDTH : MIN_RIGHT;
-    rightWidth = Math.max(min, Math.min(MAX_RIGHT, next));
+    rightWidth = Math.max(MIN_RIGHT, Math.min(MAX_RIGHT, dragStartWidth - delta));
   }
 
   function onHandlePointerUp(e: PointerEvent) {
     dragging = false;
-    if (dragFromCollapsed && rightWidth < MIN_RIGHT) {
-      // Released without expanding past MIN_RIGHT — snap back to collapsed
-      // and restore the previously-expanded width for next expand.
-      collapsed = true;
-      rightWidth = savedRightWidth;
-    }
-    dragFromCollapsed = false;
     (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
   }
 
@@ -138,16 +108,8 @@
 
     const step = e.shiftKey ? RESIZE_STEP * 2 : RESIZE_STEP;
     if (e.key === "ArrowLeft") {
-      if (collapsed) {
-        collapsed = false;
-        rightWidth = Math.max(MIN_RIGHT, rightWidth);
-        return;
-      }
       rightWidth = Math.min(MAX_RIGHT, rightWidth + step);
-      return;
-    }
-
-    if (!collapsed) {
+    } else {
       rightWidth = Math.max(MIN_RIGHT, rightWidth - step);
     }
   }
@@ -336,43 +298,56 @@
         onSelect={(s) => (selection = s)}
       />
     </div>
-    <div
-      class="bg-border relative hidden w-px flex-none lg:block"
-      class:!bg-primary={dragging}
-    >
+    {#if collapsed}
+      <!-- Collapsed: the pane gives its space back to the graph and leaves
+           only this floating expand button behind. -->
       <button
         type="button"
-        aria-label={`Resize result pane. ${collapsed ? "Currently collapsed" : `Current width ${effectiveRightWidth} pixels`}. Use Left and Right arrow keys.`}
-        aria-keyshortcuts="ArrowLeft ArrowRight"
-        title="Resize details pane with Left and Right arrow keys"
-        onpointerdown={onHandlePointerDown}
-        onpointermove={onHandlePointerMove}
-        onpointerup={onHandlePointerUp}
-        onkeydown={onHandleKeyDown}
-        class="bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-ring absolute top-1/2 left-1/2 z-10 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-col-resize items-center justify-center rounded-full border shadow-sm focus-visible:ring-2 focus-visible:outline-none"
-        class:!bg-primary={dragging}
-        class:!border-primary={dragging}
-        class:!text-primary-foreground={dragging}
+        onclick={() => (collapsed = false)}
+        title="Expand details pane"
+        aria-label="Expand details pane"
+        class="bg-card shadow-surface-lg text-muted-foreground hover:text-foreground hover:bg-muted absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg"
       >
-        <span class="flex h-3 items-center gap-0.5">
-          <span class="bg-current h-full w-px"></span>
-          <span class="bg-current h-full w-px"></span>
-        </span>
+        <PanelRightOpen class="size-4" />
       </button>
-    </div>
+    {:else}
+      <div
+        class="relative hidden w-px flex-none lg:block"
+        class:!bg-primary={dragging}
+      >
+        <button
+          type="button"
+          aria-label={`Resize result pane. Current width ${rightWidth} pixels. Use Left and Right arrow keys.`}
+          aria-keyshortcuts="ArrowLeft ArrowRight"
+          title="Resize details pane with Left and Right arrow keys"
+          onpointerdown={onHandlePointerDown}
+          onpointermove={onHandlePointerMove}
+          onpointerup={onHandlePointerUp}
+          onkeydown={onHandleKeyDown}
+          class="bg-card shadow-surface text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-ring absolute top-1/2 left-1/2 z-10 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-col-resize items-center justify-center rounded-full focus-visible:ring-2 focus-visible:outline-none"
+          class:!bg-primary={dragging}
+          class:!text-primary-foreground={dragging}
+        >
+          <span class="flex h-3 items-center gap-0.5">
+            <span class="bg-current h-full w-px"></span>
+            <span class="bg-current h-full w-px"></span>
+          </span>
+        </button>
+      </div>
+    {/if}
     <div
-      class="absolute inset-y-0 right-0 w-[var(--result-pane-width)] max-w-[calc(100%-3rem)] flex-none overflow-hidden border-l shadow-lg lg:static lg:border-l-0 lg:shadow-none"
+      class="shadow-surface-lg absolute inset-y-3 right-3 w-[var(--result-pane-width)] max-w-[calc(100%-3rem)] flex-none overflow-hidden rounded-xl lg:static lg:my-3 lg:mr-3 lg:ml-2"
+      class:hidden={collapsed}
       class:transition-[width]={!dragging}
       class:duration-200={!dragging}
       class:ease-out={!dragging}
-      style="--result-pane-width: {effectiveRightWidth}px"
+      style="--result-pane-width: {rightWidth}px"
     >
       <ResultPane
         {selection}
         {result}
         loading={resultLoading}
         events={detail.events}
-        {collapsed}
         onToggleCollapse={() => (collapsed = !collapsed)}
       />
     </div>

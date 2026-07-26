@@ -144,7 +144,7 @@
   });
 </script>
 
-<div class="@container/main flex flex-col gap-4 p-4 md:gap-5 md:p-5">
+<div class="@container/main flex flex-col gap-4 p-4 pt-0 md:gap-5 md:p-5 md:pt-0">
   {#if connectionAlert}
     <button
       type="button"
@@ -179,7 +179,7 @@
   {/if}
 
   <div
-    class="*:data-[slot=card]:relative *:data-[slot=card]:cursor-pointer *:data-[slot=card]:transition-colors *:data-[slot=card]:hover:border-foreground/20 *:data-[slot=card]:hover:bg-muted/20 grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4"
+    class="*:data-[slot=card]:relative *:data-[slot=card]:cursor-pointer *:data-[slot=card]:transition-shadow *:data-[slot=card]:hover:shadow-surface-lg grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4"
   >
     <Card.Root>
       <a
@@ -198,13 +198,13 @@
         </Card.Title>
         <Card.Action class="flex flex-col items-end gap-1">
           <a href={inFlightHref} class="relative z-10 hover:opacity-80">
-            <Badge variant="outline" class="gap-1">
+            <Badge variant="secondary" class="bg-status-running/15 text-status-running gap-1">
               <ActivityIcon class="size-3" />
               {stats?.in_flight ?? "—"} in flight
             </Badge>
           </a>
           <a href={enqueuedHref} class="relative z-10 hover:opacity-80">
-            <Badge variant="outline" class="gap-1">
+            <Badge variant="secondary" class="bg-status-queued/15 text-status-queued gap-1">
               <ListTodoIcon class="size-3" />
               {stats?.enqueued ?? "—"} queued
             </Badge>
@@ -241,7 +241,7 @@
           </span>
         </Card.Title>
         <Card.Action>
-          <Badge variant="outline" class="gap-1">
+          <Badge variant="secondary" class="gap-1">
             <BellIcon class="size-3" />
             Inbox
           </Badge>
@@ -269,7 +269,7 @@
           </span>
         </Card.Title>
         <Card.Action>
-          <Badge variant="outline" class="gap-1">
+          <Badge variant="secondary" class="gap-1">
             <CalendarClockIcon class="size-3" />
             Cron
           </Badge>
@@ -295,22 +295,22 @@
           </span>
         </Card.Title>
         <Card.Action>
-          <Badge variant="outline" class="gap-1 tabular-nums">
+          <Badge variant="secondary" class="gap-1 tabular-nums">
             <LayersIcon class="size-3" />
             {stats?.total_queues ?? "—"}
           </Badge>
         </Card.Action>
       </Card.Header>
-      <Card.Footer class="mt-auto flex-col items-stretch gap-1.5 text-sm">
+      <Card.Footer class="mt-auto flex-col items-stretch gap-1.5 pr-3 text-sm">
         {#if queues === null}
           <div class="text-muted-foreground text-xs">Loading…</div>
         {:else if topQueues.length === 0}
           <div class="text-muted-foreground text-xs">No queues registered.</div>
         {:else}
-          <div class="text-muted-foreground flex items-center gap-3 text-xs font-medium tracking-wide uppercase">
+          <div class="text-muted-foreground flex items-center gap-3 text-[10px] font-medium tracking-wide uppercase">
             <span class="min-w-0 flex-1"></span>
-            <span class="text-status-queued/80 w-10 flex-none text-right">Queued</span>
-            <span class="text-status-running/80 w-10 flex-none text-right">Running</span>
+            <span class="text-status-queued/80 w-11 flex-none text-right">Queued</span>
+            <span class="text-status-running/80 w-12 flex-none text-right">Running</span>
           </div>
           {#each topQueues as q (q.queue_id)}
             <a
@@ -325,12 +325,12 @@
                 {q.name}
               </span>
               <span
-                class="text-status-queued w-10 flex-none text-right font-mono font-semibold tabular-nums"
+                class="text-status-queued w-11 flex-none text-right font-mono font-semibold tabular-nums"
               >
                 {q.enqueued}
               </span>
               <span
-                class="text-status-running w-10 flex-none text-right font-mono font-semibold tabular-nums"
+                class="text-status-running w-12 flex-none text-right font-mono font-semibold tabular-nums"
               >
                 {q.running}
               </span>

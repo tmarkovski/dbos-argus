@@ -27,7 +27,6 @@
   import * as Sidebar from "$lib/components/ui/sidebar/index.js";
   import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
   import * as Sheet from "$lib/components/ui/sheet/index.js";
-  import { Separator } from "$lib/components/ui/separator/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Table from "$lib/components/ui/table/index.js";
   import GithubLink from "$lib/components/GithubLink.svelte";
@@ -274,7 +273,7 @@
                 <Sidebar.MenuButton
                   size="lg"
                   tooltipContent="Connection details"
-                  class="h-auto min-h-12 items-start py-2"
+                  class="h-auto min-h-12 items-start py-2 group-data-[collapsible=icon]:min-h-0 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:p-2!"
                   {...props}
                 >
                   <Database
@@ -418,7 +417,7 @@
                           No missing tables, missing columns, or type mismatches were detected.
                         </p>
                       {:else}
-                        <div class="overflow-x-auto rounded-lg border">
+                        <div class="shadow-surface overflow-x-auto rounded-lg">
                           <Table.Root>
                             <Table.Header class="bg-muted/40">
                               <Table.Row class="hover:bg-muted/40">
@@ -481,10 +480,9 @@
 
   <Sidebar.Inset>
     <header
-      class="bg-background sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b px-4"
+      class="bg-background sticky top-0 z-10 flex h-11 shrink-0 items-center gap-3 px-4"
     >
       <Sidebar.Trigger class="-ml-1" />
-      <Separator orientation="vertical" class="mr-2 !h-4" />
       <Breadcrumb.Root class="min-w-0 flex-1 overflow-hidden">
         <Breadcrumb.List class="flex-nowrap overflow-hidden">
           {#each breadcrumb.items as item, i (i)}
@@ -554,7 +552,6 @@
       </Breadcrumb.Root>
       <div class="ml-auto flex flex-none items-center gap-1">
         <GithubLink />
-        <Separator orientation="vertical" class="mx-1 !h-4" />
         <Button
           variant="ghost"
           size="icon-sm"

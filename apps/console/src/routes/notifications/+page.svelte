@@ -401,12 +401,12 @@
                     <Copy class="h-3.5 w-3.5" />
                   {/if}
                 </button>
-                <div class="bg-muted flex items-center rounded-md p-0.5">
+                <div class="bg-muted flex items-center gap-0.5 rounded-md p-0.5">
                   <button
                     type="button"
                     class="rounded px-2 py-0.5 text-xs font-medium transition
                       {effectiveMode === 'raw'
-                        ? 'bg-background text-foreground shadow-xs'
+                        ? 'bg-card text-foreground shadow-surface'
                         : 'text-muted-foreground hover:text-foreground'}"
                     onclick={() => (preferredMode = "raw")}
                   >
@@ -417,7 +417,7 @@
                     disabled={messagePayload.decoded === null}
                     class="rounded px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40
                       {effectiveMode === 'decoded'
-                        ? 'bg-background text-foreground shadow-xs'
+                        ? 'bg-card text-foreground shadow-surface'
                         : 'text-muted-foreground enabled:hover:text-foreground'}"
                     onclick={() => (preferredMode = "decoded")}
                     title={messagePayload.decoded === null
@@ -434,7 +434,7 @@
             <p class="text-muted-foreground text-sm">No message payload.</p>
           {:else}
             <pre
-              class="border-border bg-muted/40 max-h-[60vh] overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap break-words">{displayedMessage}</pre>
+              class="bg-muted/40 max-h-[60vh] overflow-auto rounded-lg p-3 font-mono text-xs whitespace-pre-wrap break-words">{displayedMessage}</pre>
             {#if messagePayload.decoded === null && selected.serialization && selected.serialization.toLowerCase().includes("pickle")}
               <p class="text-muted-foreground text-xs">
                 Pickled Python value couldn't be decoded safely (likely a custom class).
