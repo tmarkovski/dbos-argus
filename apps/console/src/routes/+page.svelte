@@ -144,7 +144,7 @@
   });
 </script>
 
-<div class="@container/main flex flex-col gap-4 p-4 md:gap-5 md:p-5">
+<div class="@container/main flex flex-col gap-4 p-4 pt-0 md:gap-5 md:p-5 md:pt-0">
   {#if connectionAlert}
     <button
       type="button"
@@ -301,16 +301,16 @@
           </Badge>
         </Card.Action>
       </Card.Header>
-      <Card.Footer class="mt-auto flex-col items-stretch gap-1.5 text-sm">
+      <Card.Footer class="mt-auto flex-col items-stretch gap-1.5 pr-3 text-sm">
         {#if queues === null}
           <div class="text-muted-foreground text-xs">Loading…</div>
         {:else if topQueues.length === 0}
           <div class="text-muted-foreground text-xs">No queues registered.</div>
         {:else}
-          <div class="text-muted-foreground flex items-center gap-3 text-xs font-medium tracking-wide uppercase">
+          <div class="text-muted-foreground flex items-center gap-3 text-[10px] font-medium tracking-wide uppercase">
             <span class="min-w-0 flex-1"></span>
-            <span class="text-status-queued/80 w-10 flex-none text-right">Queued</span>
-            <span class="text-status-running/80 w-10 flex-none text-right">Running</span>
+            <span class="text-status-queued/80 w-11 flex-none text-right">Queued</span>
+            <span class="text-status-running/80 w-12 flex-none text-right">Running</span>
           </div>
           {#each topQueues as q (q.queue_id)}
             <a
@@ -325,12 +325,12 @@
                 {q.name}
               </span>
               <span
-                class="text-status-queued w-10 flex-none text-right font-mono font-semibold tabular-nums"
+                class="text-status-queued w-11 flex-none text-right font-mono font-semibold tabular-nums"
               >
                 {q.enqueued}
               </span>
               <span
-                class="text-status-running w-10 flex-none text-right font-mono font-semibold tabular-nums"
+                class="text-status-running w-12 flex-none text-right font-mono font-semibold tabular-nums"
               >
                 {q.running}
               </span>

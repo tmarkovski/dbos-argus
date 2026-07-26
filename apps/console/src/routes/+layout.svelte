@@ -273,7 +273,7 @@
                 <Sidebar.MenuButton
                   size="lg"
                   tooltipContent="Connection details"
-                  class="h-auto min-h-12 items-start py-2"
+                  class="h-auto min-h-12 items-start py-2 group-data-[collapsible=icon]:min-h-0 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:p-2!"
                   {...props}
                 >
                   <Database

@@ -600,6 +600,9 @@
         draggable: false,
         connectable: false,
         selectable: true,
+        // Above the edge layer (z auto) so the container's protruding
+        // expand/collapse buttons aren't crossed by dashed spawn/return edges.
+        zIndex: 1,
         style: `width: ${c.width}px; height: ${c.height}px;`,
       });
       const items = itemsByWf.get(c.id!) ?? [];

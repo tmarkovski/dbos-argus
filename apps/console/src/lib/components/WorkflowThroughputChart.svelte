@@ -14,6 +14,45 @@
     running: number;
   };
 
+  type Bucket = { ts: Date; succeeded: number; errored: number; running: number };
+
+  const BAR_RADIUS = 5;
+
+  // Full-bar geometry for the custom marks: each bucket's stack is drawn as
+  // plain rects clipped by a rounded-top path spanning the whole bar, so the
+  // cap radius stays constant no matter how short the topmost segment is
+  // (layerchart's own rounding is per segment and vanishes on thin caps).
+  function barGeometry(
+    d: Bucket,
+    ctx: { xScale: any; yScale: any },
+    visible: { key: string; color?: string }[],
+  ) {
+    const w: number = ctx.xScale.bandwidth?.() ?? 0;
+    const x: number = ctx.xScale(d.ts);
+    let acc = 0;
+    const segs: { key: string; color?: string; y: number; h: number }[] = [];
+    for (const s of visible) {
+      const v = d[s.key as keyof Omit<Bucket, "ts">];
+      if (v <= 0) continue;
+      const y0 = acc;
+      acc += v;
+      segs.push({
+        key: s.key,
+        color: s.color,
+        y: ctx.yScale(acc),
+        h: ctx.yScale(y0) - ctx.yScale(acc),
+      });
+    }
+    if (segs.length === 0 || w <= 0) return null;
+    const yTop = ctx.yScale(acc);
+    const h = ctx.yScale(0) - yTop;
+    const r = Math.min(BAR_RADIUS, w / 2, h);
+    const clip =
+      `M${x},${yTop + r} a${r},${r} 0 0 1 ${r},${-r} h${w - 2 * r} ` +
+      `a${r},${r} 0 0 1 ${r},${r} v${h - r} h${-w} z`;
+    return { x, w, clip, segs };
+  }
+
   type Range = "24h" | "7d" | "30d";
 
   const RANGE_STORAGE_KEY = "argus.dashboard.throughput.range";
@@ -156,9 +195,32 @@
             format: xFormat,
           },
           yAxis: { format: () => "" },
-          bars: { strokeWidth: 0 },
         }}
       >
+        <!-- Custom marks: each bucket's stack renders as plain rects inside a
+             rounded-top clip spanning the whole bar, so the cap is visible no
+             matter which series is on top or how thin the top segment is. -->
+        {#snippet marks({ context })}
+          {@const visible = context.series.visibleSeries}
+          {#each data as d, i (d.ts.getTime())}
+            {@const geom = barGeometry(d, context, visible)}
+            {#if geom}
+              <clipPath id="wf-throughput-bar-{i}"><path d={geom.clip} /></clipPath>
+              <g clip-path="url(#wf-throughput-bar-{i})">
+                {#each geom.segs as seg (seg.key)}
+                  <rect
+                    x={geom.x}
+                    y={seg.y}
+                    width={geom.w}
+                    height={seg.h}
+                    fill={seg.color}
+                    opacity={context.series.isHighlighted(seg.key, true) ? 1 : 0.1}
+                  />
+                {/each}
+              </g>
+            {/if}
+          {/each}
+        {/snippet}
         {#snippet tooltip()}
           <Chart.Tooltip labelFormatter={tooltipLabelFormat} indicator="dashed" />
         {/snippet}

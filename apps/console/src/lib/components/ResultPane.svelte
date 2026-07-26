@@ -558,7 +558,7 @@
                 <Copy class="h-3.5 w-3.5" />
               {/if}
             </button>
-            <div class="flex items-center gap-0.5">
+            <div class="bg-muted flex items-center gap-0.5 rounded-md p-0.5">
               <button
                 type="button"
                 class="rounded px-2 py-0.5 text-xs font-medium transition
@@ -679,7 +679,7 @@
               <Copy class="h-3.5 w-3.5" />
             {/if}
           </button>
-          <div class="flex items-center gap-0.5">
+          <div class="bg-muted flex items-center gap-0.5 rounded-md p-0.5">
             <button
               type="button"
               class="rounded px-2 py-0.5 text-xs font-medium transition
@@ -771,7 +771,7 @@
                 <Copy class="h-3.5 w-3.5" />
               {/if}
             </button>
-            <div class="flex items-center gap-0.5">
+            <div class="bg-muted flex items-center gap-0.5 rounded-md p-0.5">
               <button
                 type="button"
                 class="rounded px-2 py-0.5 text-xs font-medium transition
