@@ -23,6 +23,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rounded card that collapses to a single expand button, giving its space back
   to the graph. Dark mode keeps the same structure with hairline rings in
   place of shadows.
+- **Console theme: warm canvas, iris accent.** The shell background warms from
+  cool zinc to a stone-family gray, and the primary accent moves from
+  violet-700 to a muted iris that reads calm rather than royal against it.
+  Both hold in dark mode, and the queued-status purple gains hue separation
+  from the accent as a side effect.
+- Console polish: dashboard throughput bars get a rounded top cap that
+  belongs to the bar rather than its topmost stacked segment, so it shows for
+  every bar regardless of composition or height; the Top queues card fits its
+  column headers and aligns the value columns under them; the sidebar
+  collapse animates at 150ms with easing (was 200ms linear); the collapsed
+  rail renders the database status button like the other nav items; workflow
+  graph collapse buttons paint above the dashed spawn/return edges; the
+  details pane header drops its separator; and the Raw/Decoded toggles get
+  their track background back.
 
 ## [0.0.32] - 2026-07-25
 
