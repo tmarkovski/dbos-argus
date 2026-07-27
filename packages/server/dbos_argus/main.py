@@ -411,10 +411,24 @@ class StepResult(BaseModel):
 
 
 # DBOS.sleep rows store their wakeup time as a numeric string in `output`
-# (unix seconds, JSON-encoded even under py_pickle serialization). Subtracting
-# the row's `started_at` gives the originally requested duration in ms,
-# independent of how long the sleep actually elapsed in wall time. Returns
-# None for non-sleep rows or when the value isn't parseable as a float.
+# (JSON-encoded even under py_pickle serialization). Subtracting the row's
+# `started_at` gives the originally requested duration in ms, independent of
+# how long the sleep actually elapsed in wall time.
+#
+# The unit is SDK-dependent, so we can't assume one:
+#   - dbos (Python) records `time.time() + seconds`   -> unix SECONDS
+#   - @dbos-inc/dbos-sdk (TS) records `endTimeMs`     -> unix MILLISECONDS
+# Reading a TS row as seconds inflates the duration ~1000x (a 14-day sleep
+# renders as ~56550 years).
+#
+# `started_at_epoch_ms` is always ms, which disambiguates: a seconds-valued
+# wakeup is ~1000x smaller than the ms epoch, so reading it as ms lands far
+# before the step started and yields a negative duration. Keep whichever
+# interpretations put the wakeup at-or-after the start, then take the smaller
+# — the wrong one is always the wildly inflated one.
+#
+# Returns None for non-sleep rows, unparseable values, or when neither
+# interpretation yields a non-negative duration.
 def _sleep_requested_ms(step: StepRow) -> int | None:
     if (
         step.function_name != "DBOS.sleep"
@@ -423,11 +437,14 @@ def _sleep_requested_ms(step: StepRow) -> int | None:
     ):
         return None
     try:
-        wake_ms = float(step.sleep_output_raw) * 1000
+        raw = float(step.sleep_output_raw)
     except (TypeError, ValueError):
         return None
-    requested = round(wake_ms - step.started_at_epoch_ms)
-    return int(requested) if requested >= 0 else None
+    as_ms = raw  # TS SDK: already milliseconds
+    as_seconds_ms = raw * 1000  # Python SDK: seconds -> milliseconds
+    candidates = [round(wake_ms - step.started_at_epoch_ms) for wake_ms in (as_ms, as_seconds_ms)]
+    plausible = [c for c in candidates if c >= 0]
+    return int(min(plausible)) if plausible else None
 
 
 # Walks up parent_workflow_id to find the topmost ancestor (or the workflow
