@@ -46,6 +46,9 @@
   };
   let result = $state<ResultData | null>(null);
   let resultLoading = $state(false);
+  // Kept separate from `error` so a failed result fetch degrades to a message
+  // inside the result pane instead of replacing the whole detail page.
+  let resultError = $state<string | null>(null);
   // Token guards against stale fetches landing after a faster, newer click.
   let resultFetchToken = 0;
 
@@ -169,6 +172,7 @@
     resultCache.clear();
     result = null;
     resultLoading = false;
+    resultError = null;
     if (!id) return;
 
     const apply = (data: unknown) => {
@@ -230,6 +234,7 @@
     if (!sel) {
       result = null;
       resultLoading = false;
+      resultError = null;
       return;
     }
     let key: string;
@@ -251,6 +256,7 @@
     if (cached) {
       result = cached;
       resultLoading = false;
+      resultError = null;
       return;
     }
 
@@ -260,12 +266,14 @@
       resultCache.set(key, EMPTY_RESULT);
       result = EMPTY_RESULT;
       resultLoading = false;
+      resultError = null;
       return;
     }
 
     const myToken = ++resultFetchToken;
     result = null;
     resultLoading = true;
+    resultError = null;
     fetch(url)
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -274,11 +282,12 @@
         resultCache.set(key, body);
         result = body;
         resultLoading = false;
+        resultError = null;
       })
       .catch((e) => {
         if (myToken !== resultFetchToken) return;
         resultLoading = false;
-        error = e instanceof Error ? e.message : String(e);
+        resultError = e instanceof Error ? e.message : String(e);
       });
   });
 
@@ -371,6 +380,7 @@
         {selection}
         {result}
         loading={resultLoading}
+        loadError={resultError}
         events={detail.events}
         {collapsed}
         onToggleCollapse={() => (collapsed = !collapsed)}

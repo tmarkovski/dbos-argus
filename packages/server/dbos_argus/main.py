@@ -509,18 +509,42 @@ async def fetch_workflow_detail(workflow_id: str) -> WorkflowDetail | None:
     return _build_workflow_detail(detail, workflow_id)
 
 
-@app.get("/api/workflows/{workflow_id}")
-async def get_workflow(workflow_id: str) -> WorkflowDetail:
-    result = await fetch_workflow_detail(workflow_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="workflow not found")
-    return result
+# The three routes below take the workflow id as a `:path` param, not the
+# default segment param, and are declared most-specific-first because Starlette
+# matches in declaration order.
+#
+# Workflow ids are app-chosen and routinely contain slashes (e.g.
+# `pr-review:owner/repo#20:v1`). A client percent-encodes them, but the ASGI
+# server decodes `%2F` back to `/` before routing, so a segment param never
+# matches and the request falls through to the SPA catch-all at the bottom of
+# this module — returning index.html with a 200, which the console then fails
+# to parse as JSON. `:path` accepts the embedded slashes; the literal `/result`
+# and `/steps/{id}/result` suffixes keep the greedy match anchored.
+#
+# Lazily fetches a single step row's output/error. Declared before the workflow
+# `/result` route below, whose greedy `:path` would otherwise consume the
+# `/steps/{function_id}` part and treat it as the tail of the workflow id.
+# Same lazy-load pattern as that route — indexed by (workflow_uuid, function_id).
+@app.get("/api/workflows/{workflow_id:path}/steps/{function_id}/result")
+async def get_step_result(workflow_id: str, function_id: int) -> StepResult:
+    row = await db.get_step_result(workflow_id, function_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="step not found")
+    return StepResult(
+        workflow_id=workflow_id,
+        function_id=function_id,
+        output=row.output,
+        error=row.error,
+        serialization=row.serialization,
+        output_decoded=decode_dbos_value(row.output, row.serialization),
+        error_decoded=decode_dbos_value(row.error, row.serialization),
+    )
 
 
 # Lazily fetches the output/error payload for a single workflow row. Split out
 # from the detail endpoint so workflow detail page loads stay small even when
 # a family contains many workflows with multi-MB pickled outputs.
-@app.get("/api/workflows/{workflow_id}/result")
+@app.get("/api/workflows/{workflow_id:path}/result")
 async def get_workflow_result(workflow_id: str) -> WorkflowResult:
     row = await db.get_workflow_result(workflow_id)
     if row is None:
@@ -535,22 +559,14 @@ async def get_workflow_result(workflow_id: str) -> WorkflowResult:
     )
 
 
-# Lazily fetches a single step row's output/error. Companion to the workflow
-# result endpoint — same lazy-load pattern, indexed by (workflow_uuid, function_id).
-@app.get("/api/workflows/{workflow_id}/steps/{function_id}/result")
-async def get_step_result(workflow_id: str, function_id: int) -> StepResult:
-    row = await db.get_step_result(workflow_id, function_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="step not found")
-    return StepResult(
-        workflow_id=workflow_id,
-        function_id=function_id,
-        output=row.output,
-        error=row.error,
-        serialization=row.serialization,
-        output_decoded=decode_dbos_value(row.output, row.serialization),
-        error_decoded=decode_dbos_value(row.error, row.serialization),
-    )
+# Declared last of the three: its `:path` param would otherwise swallow the
+# `/result` and `/steps/{id}/result` suffixes above.
+@app.get("/api/workflows/{workflow_id:path}")
+async def get_workflow(workflow_id: str) -> WorkflowDetail:
+    result = await fetch_workflow_detail(workflow_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="workflow not found")
+    return result
 
 
 class DashboardStats(BaseModel):
