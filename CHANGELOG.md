@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   index.html with a 200 that the console then failed to parse as JSON.
 - A failed lazy result fetch now renders inside the result pane instead of
   replacing the whole workflow detail page with an error banner.
+- Clicking a step in the workflow graph now selects it when the workflow id
+  contains a slash. `handleNodeClick` split the composite node id
+  (`<workflow_id>/<function_id>`) on `/`, which mis-parsed such ids and
+  silently selected nothing; it now reads `node.parentId` and
+  `node.data.functionId`, both exact.
 
 ## [0.0.31] - 2026-07-17
 
