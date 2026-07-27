@@ -309,7 +309,7 @@
       { label: "Workflows", href: "/workflows/", icon: "workflow", tooltip: "Workflows" },
       ...chain.map((w) => ({
         label: w.name ?? w.workflow_id,
-        href: `/workflows/${w.workflow_id}`,
+        href: `/workflows/${encodeURIComponent(w.workflow_id)}/`,
         status: w.status,
         tooltip: w.workflow_id,
       })),
