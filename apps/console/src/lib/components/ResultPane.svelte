@@ -45,12 +45,16 @@
     selection,
     result,
     loading = false,
+    loadError = null,
     events = [],
     onToggleCollapse,
   }: {
     selection: FlowSelection;
     result: ResultData | null;
     loading?: boolean;
+    // A failed lazy result fetch is scoped to this pane — the surrounding
+    // detail page stays rendered.
+    loadError?: string | null;
     events?: WorkflowEventEntry[];
     onToggleCollapse?: () => void;
   } = $props();
@@ -524,6 +528,14 @@
       {#if loading}
         <div class="text-muted-foreground flex flex-1 items-center justify-center p-6 text-sm">
           Loading…
+        </div>
+      {:else if loadError}
+        <div class="flex flex-1 items-start justify-center p-4">
+          <div
+            class="border-destructive/30 bg-destructive/5 text-destructive rounded-md border p-3 text-sm"
+          >
+            Couldn't load result: {loadError}
+          </div>
         </div>
       {:else if payload.kind === "none"}
         <div class="text-muted-foreground flex flex-1 items-center justify-center p-6 text-sm">

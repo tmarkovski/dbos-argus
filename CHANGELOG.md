@@ -83,6 +83,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Running the suite without a Postgres server emits an explicit warning that
   the Postgres floor went unverified, rather than a silent skip.
 
+### Fixed
+- Workflow ids containing slashes (e.g. `pr-review:owner/repo#20:v1`) no longer
+  break the detail page. `GET /api/workflows/{id}`, `.../result` and
+  `.../steps/{fn}/result` now take the id as a `:path` param — a
+  percent-encoded `%2F` is decoded before routing, so the segment param never
+  matched and the request fell through to the SPA catch-all, returning
+  index.html with a 200 that the console then failed to parse as JSON.
+- A failed lazy result fetch now renders inside the result pane instead of
+  replacing the whole workflow detail page with an error banner.
+- Clicking a step in the workflow graph now selects it when the workflow id
+  contains a slash. `handleNodeClick` split the composite node id
+  (`<workflow_id>/<function_id>`) on `/`, which mis-parsed such ids and
+  silently selected nothing; it now reads `node.parentId` and
+  `node.data.functionId`, both exact.
+
 ## [0.0.31] - 2026-07-17
 
 > **Tested against DBOS 2.27.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture floor is now `dbos>=2.27.0`.

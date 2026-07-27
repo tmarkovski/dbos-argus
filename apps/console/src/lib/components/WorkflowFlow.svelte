@@ -169,6 +169,10 @@
     return null;
   }
 
+  // Composite node id, safe to *build* but never to parse back apart: workflow
+  // ids are app-chosen and routinely contain `/` (e.g. `pr-review:owner/repo#20:v1`),
+  // so splitting on the separator can't recover the two halves. Read
+  // `node.parentId` / `node.data.functionId` instead — see `handleNodeClick`.
   function stepNodeId(workflowId: string, functionId: number): string {
     return `${workflowId}/${functionId}`;
   }
@@ -752,8 +756,11 @@
       return;
     }
     if (node.type === "step") {
-      const [wfId, fnStr] = node.id.split("/");
-      const fnId = Number(fnStr);
+      // `parentId` is the owning workflow id verbatim and `data.functionId` the
+      // step's id — both exact. Splitting `node.id` on "/" would mis-parse any
+      // workflow id containing a slash and silently select nothing.
+      const wfId = node.parentId;
+      const fnId = (node.data as { functionId: number }).functionId;
       const step = steps.find((s) => s.workflow_id === wfId && s.function_id === fnId);
       if (step) onSelect({ kind: "step", step });
     }
