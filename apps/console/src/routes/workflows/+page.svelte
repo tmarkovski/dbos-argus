@@ -7,7 +7,8 @@
   import FilterXIcon from "@lucide/svelte/icons/filter-x";
   import SearchIcon from "@lucide/svelte/icons/search";
   import ColumnsIcon from "@lucide/svelte/icons/columns-3";
-  import XIcon from "@lucide/svelte/icons/x";
+  import CheckIcon from "@lucide/svelte/icons/check";
+  import LayersIcon from "@lucide/svelte/icons/layers";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import CalendarClockIcon from "@lucide/svelte/icons/calendar-clock";
   import { slide } from "svelte/transition";
@@ -71,6 +72,11 @@
   // anything in dbos.workflow_status / operation_outputs changes.
   let mainHandle: SubscriptionHandle | null = null;
   let enqueuedHandle: SubscriptionHandle | null = null;
+  // Queue names for the Queue filter popover, kept live via the same realtime
+  // channel the queues page subscribes to.
+  let queueList = $state<string[]>([]);
+  let queuesHandle: SubscriptionHandle | null = null;
+  let queuePopoverOpen = $state(false);
 
   // Filter options derived from the canonical status list — adding a new DBOS
   // workflow status only requires editing `$lib/workflow-status.ts`. ENQUEUED
@@ -292,6 +298,11 @@
       enqueued = data as Workflow[];
     }
   }
+  function applyQueuesSnapshot(data: unknown): void {
+    if (Array.isArray(data)) {
+      queueList = (data as { name: string }[]).map((q) => q.name);
+    }
+  }
 
   // Filter changes flow through update_params, not new subscriptions —
   // keeps the same poller alive on the server when only one knob moved.
@@ -352,6 +363,10 @@
       onSnapshot: applyEnqueuedSnapshot,
       onUpdate: applyEnqueuedSnapshot,
     });
+    queuesHandle = realtimeClient.subscribe("queues", undefined, {
+      onSnapshot: applyQueuesSnapshot,
+      onUpdate: applyQueuesSnapshot,
+    });
   });
 
   function toggleEnqueuedCollapsed() {
@@ -366,6 +381,7 @@
   onDestroy(() => {
     mainHandle?.dispose();
     enqueuedHandle?.dispose();
+    queuesHandle?.dispose();
     if (updateDebounce) clearTimeout(updateDebounce);
     if (qDebounce) clearTimeout(qDebounce);
   });
@@ -376,10 +392,18 @@
     dateRange = { start: undefined, end: undefined };
     selectedStatuses = allStatuses();
     setHideScheduled(false);
+    if (queueName) setQueueFilter("");
   }
 
-  function clearQueueFilter() {
-    goto("/workflows/");
+  // The queue scope lives in the URL — the queues page deep-links here with
+  // the same param — so selecting a queue routes through navigation rather
+  // than local state.
+  function setQueueFilter(name: string) {
+    queuePopoverOpen = false;
+    goto(name ? `/workflows/?queue_name=${encodeURIComponent(name)}` : "/workflows/", {
+      noScroll: true,
+      keepFocus: true,
+    });
   }
 
   const statusNarrowed = $derived(
@@ -392,7 +416,8 @@
       dateRange.start ||
       dateRange.end ||
       statusNarrowed ||
-      hideScheduled
+      hideScheduled ||
+      queueName
     ),
   );
 
@@ -566,19 +591,26 @@
   <div
     class="flex flex-wrap items-center gap-2 [&_button]:text-xs [&_input]:text-xs [&>button]:h-8 [&>button]:px-2.5"
   >
-    {#if queueName}
-      <Badge variant="secondary">
-        Queue: <span class="font-mono">{queueName}</span>
-        <button
-          type="button"
-          onclick={clearQueueFilter}
-          class="hover:text-foreground"
-          aria-label="Clear queue filter"
-        >
-          <XIcon />
-        </button>
-      </Badge>
-    {/if}
+    <InputGroup.Root class="h-8 w-full sm:w-96">
+      <InputGroup.Addon>
+        <SearchIcon />
+      </InputGroup.Addon>
+      <InputGroup.Input
+        class="h-8"
+        type="search"
+        name="workflow-search"
+        placeholder="Workflow name or ID"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        data-form-type="other"
+        data-1p-ignore
+        data-lpignore="true"
+        bind:value={qInput}
+      />
+    </InputGroup.Root>
+
     <Popover.Root>
       <Popover.Trigger>
         {#snippet child({ props })}
@@ -622,27 +654,49 @@
       </Popover.Content>
     </Popover.Root>
 
-    <InputGroup.Root class="h-8 w-full sm:w-96">
-      <InputGroup.Addon>
-        <SearchIcon />
-      </InputGroup.Addon>
-      <InputGroup.Input
-        class="h-8"
-        type="search"
-        name="workflow-search"
-        placeholder="Workflow name or ID"
-        autocomplete="off"
-        autocorrect="off"
-        autocapitalize="off"
-        spellcheck="false"
-        data-form-type="other"
-        data-1p-ignore
-        data-lpignore="true"
-        bind:value={qInput}
-      />
-    </InputGroup.Root>
-
     <DateRangePicker bind:value={dateRange} placeholder="Started" />
+
+    <Popover.Root bind:open={queuePopoverOpen}>
+      <Popover.Trigger>
+        {#snippet child({ props })}
+          <Button variant="outline" {...props}>
+            <LayersIcon />
+            Queue
+            <span class="text-muted-foreground max-w-32 truncate font-normal">
+              {queueName || "All"}
+            </span>
+          </Button>
+        {/snippet}
+      </Popover.Trigger>
+      <Popover.Content align="start" class="w-52 gap-0.5 p-1">
+        <div class="border-border mb-1 border-b pb-1">
+          <button
+            type="button"
+            onclick={() => setQueueFilter("")}
+            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs select-none"
+          >
+            All queues
+            {#if !queueName}
+              <CheckIcon class="text-primary ml-auto size-4" />
+            {/if}
+          </button>
+        </div>
+        {#each queueList as name (name)}
+          <button
+            type="button"
+            onclick={() => setQueueFilter(name)}
+            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs select-none"
+          >
+            <span class="truncate font-mono">{name}</span>
+            {#if queueName === name}
+              <CheckIcon class="text-primary ml-auto size-4" />
+            {/if}
+          </button>
+        {:else}
+          <div class="text-muted-foreground px-2 py-1.5 text-xs">No queues found</div>
+        {/each}
+      </Popover.Content>
+    </Popover.Root>
 
     <label
       class="bg-card shadow-surface hover:bg-muted hover:text-foreground text-foreground flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-xs font-medium select-none dark:hover:bg-input/30"
@@ -744,7 +798,7 @@
     <p class="text-muted-foreground text-sm">Loading…</p>
   {:else if workflows.length === 0}
     <p class="text-muted-foreground text-sm">
-      {hasActiveFilters || queueName
+      {hasActiveFilters
         ? "No workflows match the current filters."
         : enqueued.length > 0
           ? "No completed runs yet — only the enqueued workflows above."
@@ -753,7 +807,7 @@
   {:else}
     <Card.Root class="gap-0 py-0">
       <Table.Root>
-        <Table.Header class="bg-muted/40">
+        <Table.Header class="bg-muted/40 [&_th]:h-9">
           <Table.Row class="hover:bg-muted/40">
             {#if columns.name}<Table.Head class="px-4">Name</Table.Head>{/if}
             {#if columns.status}<Table.Head class="px-4">Status</Table.Head>{/if}
@@ -820,8 +874,8 @@
                     <a
                       href="/workflows/{encodeURIComponent(w.workflow_id)}/"
                       class="hover:text-foreground hover:underline {!grouped || w.depth === 0
-                        ? 'py-2'
-                        : 'py-1'} {grouped && w.depth > 0 ? 'pl-1' : ''}"
+                        ? 'py-1.5'
+                        : 'py-0.5'} {grouped && w.depth > 0 ? 'pl-1' : ''}"
                     >
                       {#if w.name}{@render highlighted(w.name, searchTerm)}{:else}—{/if}
                     </a>
@@ -829,7 +883,7 @@
                 </Table.Cell>
               {/if}
               {#if columns.status}
-                <Table.Cell class="px-4 {!grouped || w.depth === 0 ? 'py-2' : 'py-1'}">
+                <Table.Cell class="px-4 {!grouped || w.depth === 0 ? 'py-1.5' : 'py-0.5'}">
                   <Badge class={statusBadgeClass(w.status)}>{formatStatus(w.status)}</Badge>
                 </Table.Cell>
               {/if}
@@ -837,8 +891,8 @@
                 <Table.Cell
                   class="text-muted-foreground px-4 font-mono text-xs {!grouped ||
                   w.depth === 0
-                    ? 'py-2'
-                    : 'py-1'}"
+                    ? 'py-1.5'
+                    : 'py-0.5'}"
                 >
                   <a
                     href="/workflows/{encodeURIComponent(w.workflow_id)}/"
@@ -852,8 +906,8 @@
               {#if columns.started}
                 <Table.Cell
                   class="text-muted-foreground px-4 {!grouped || w.depth === 0
-                    ? 'py-2'
-                    : 'py-1'}"
+                    ? 'py-1.5'
+                    : 'py-0.5'}"
                   title={w.started_at}
                 >
                   {formatRelative(w.started_at)}
@@ -863,8 +917,8 @@
                 <Table.Cell
                   class="text-muted-foreground px-4 font-mono text-xs {!grouped ||
                   w.depth === 0
-                    ? 'py-2'
-                    : 'py-1'}"
+                    ? 'py-1.5'
+                    : 'py-0.5'}"
                   title={w.executor_id ?? ""}
                 >
                   {w.executor_id ?? "—"}
@@ -874,8 +928,8 @@
                 <Table.Cell
                   class="text-muted-foreground px-4 font-mono text-xs {!grouped ||
                   w.depth === 0
-                    ? 'py-2'
-                    : 'py-1'}"
+                    ? 'py-1.5'
+                    : 'py-0.5'}"
                   title={w.queue_name ?? ""}
                 >
                   {#if w.queue_name}
