@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.35] - 2026-07-28
+
+> **Tested against DBOS 2.27.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility.
+
+### Added
+- Queue filter on the workflows page. A permanent "Queue" popover lists every
+  queue live from the realtime `queues` channel and scopes the list through
+  the same `queue_name` URL param the queues page deep-links with. It replaces
+  the dismissable chip that only appeared when arriving from a queue link, and
+  an active queue scope now surfaces the "Clear filters" button and resets
+  with it.
+
+### Changed
+- Compact workflows filter toolbar. The search box moves to the front to
+  mirror the table's column order (name, status, started, queue); all controls
+  drop one text step, shrink to a 32px height with tighter padding, and show
+  their selection count as muted text instead of a badge pill; the status,
+  columns, and date popovers match the smaller size.
+- Filter popovers follow selection cardinality: multi-select lists (status,
+  columns) use checkboxes with an indeterminate select-all header row, and
+  single-select lists (queue) mark the selected row with a right-aligned
+  check.
+- Outline toggle groups render as segmented controls: a recessed track using
+  the input surface color (so it reads against the canvas background) holding
+  card-surface chips, with radio behavior in single mode so the active item
+  can no longer be deselected into an empty state.
+- Tighter workflows table: header and row vertical padding drop one step, with
+  nested child rows tightened further.
+- Page containers lose their top padding so content sits consistently under
+  the header, matching the dashboard.
+
 ## [0.0.34] - 2026-07-27
 
 > **Tested against DBOS 2.27.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility.
