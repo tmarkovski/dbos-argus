@@ -453,7 +453,7 @@
 
 {#snippet highlighted(text: string | null, query: string)}{#each highlightSegments(text, query) as part, i (i)}{#if part.match}<mark class="bg-highlight/40 text-highlight-foreground dark:bg-highlight/30 rounded-sm">{part.text}</mark>{:else}{part.text}{/if}{/each}{/snippet}
 
-<div class="flex flex-col gap-4 p-4 md:p-5">
+<div class="flex flex-col gap-4 p-4 pt-0 md:p-5 md:pt-0">
   {#if enqueued.length > 0}
     <div
       class="border-status-queued/30 bg-status-queued/5 overflow-hidden rounded-lg border"
@@ -559,7 +559,13 @@
     </div>
   {/if}
 
-  <div class="flex flex-wrap items-center gap-2">
+  <!-- One text step smaller and slightly tighter padding than the controls ship
+       with; the selectors out-rank the components' own classes. Padding targets
+       direct children only so nested buttons (checkboxes, the queue chip's X)
+       keep their geometry. -->
+  <div
+    class="flex flex-wrap items-center gap-2 [&_button]:text-xs [&_input]:text-xs [&>button]:h-8 [&>button]:px-2.5"
+  >
     {#if queueName}
       <Badge variant="secondary">
         Queue: <span class="font-mono">{queueName}</span>
@@ -579,13 +585,13 @@
           <Button variant="outline" {...props}>
             <FilterIcon />
             Status
-            <Badge variant="secondary">
+            <span class="text-muted-foreground font-normal">
               {selectedStatuses.size === 0
                 ? "None"
                 : selectedStatuses.size === STATUS_OPTIONS.length
                   ? "All"
                   : selectedStatuses.size}
-            </Badge>
+            </span>
           </Button>
         {/snippet}
       </Popover.Trigger>
@@ -593,7 +599,7 @@
         {@const allSelected = selectedStatuses.size === STATUS_OPTIONS.length}
         <div class="border-border mb-1 border-b pb-1">
           <label
-            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm select-none"
+            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs select-none"
           >
             <Checkbox
               checked={allSelected}
@@ -607,7 +613,7 @@
         {#each STATUS_OPTIONS as opt (opt.value)}
           {@const checked = selectedStatuses.has(opt.value)}
           <label
-            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm select-none"
+            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs select-none"
           >
             <Checkbox {checked} onCheckedChange={() => toggleStatus(opt.value)} />
             {opt.label}
@@ -616,11 +622,12 @@
       </Popover.Content>
     </Popover.Root>
 
-    <InputGroup.Root class="w-full sm:w-96">
+    <InputGroup.Root class="h-8 w-full sm:w-96">
       <InputGroup.Addon>
         <SearchIcon />
       </InputGroup.Addon>
       <InputGroup.Input
+        class="h-8"
         type="search"
         name="workflow-search"
         placeholder="Workflow name or ID"
@@ -638,7 +645,7 @@
     <DateRangePicker bind:value={dateRange} placeholder="Started" />
 
     <label
-      class="bg-card shadow-surface hover:bg-muted hover:text-foreground text-foreground flex h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 text-sm font-medium select-none dark:hover:bg-input/30"
+      class="bg-card shadow-surface hover:bg-muted hover:text-foreground text-foreground flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-xs font-medium select-none dark:hover:bg-input/30"
       title="Hide scheduled-workflow runs (workflow IDs starting with 'sched-')"
     >
       <Checkbox checked={hideScheduled} onCheckedChange={(v) => setHideScheduled(!!v)} />
@@ -662,8 +669,8 @@
         if (v) grouped = v === "grouped";
       }}
     >
-      <ToggleGroup.Item value="grouped">Grouped</ToggleGroup.Item>
-      <ToggleGroup.Item value="flat">Flat</ToggleGroup.Item>
+      <ToggleGroup.Item value="grouped" class="h-7 px-2.5">Grouped</ToggleGroup.Item>
+      <ToggleGroup.Item value="flat" class="h-7 px-2.5">Flat</ToggleGroup.Item>
     </ToggleGroup.Root>
 
     <Popover.Root>
@@ -676,13 +683,13 @@
           <Button variant="outline" {...props}>
             <ColumnsIcon />
             Columns
-            <Badge variant="secondary">
+            <span class="text-muted-foreground font-normal">
               {selectedCount === 0
                 ? "None"
                 : selectedCount === optionalKeys.length
                   ? "All"
                   : selectedCount}
-            </Badge>
+            </span>
           </Button>
         {/snippet}
       </Popover.Trigger>
@@ -693,7 +700,7 @@
         {@const allSelected = optionalKeys.every((k) => columns[k])}
         <div class="border-border mb-1 border-b pb-1">
           <label
-            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm select-none"
+            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs select-none"
           >
             <Checkbox
               checked={allSelected}
@@ -711,7 +718,7 @@
           {@const checked = columns[k]}
           {@const required = REQUIRED_COLUMNS.has(k)}
           <label
-            class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm select-none {required
+            class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs select-none {required
               ? 'text-muted-foreground cursor-not-allowed'
               : 'hover:bg-muted cursor-pointer'}"
           >

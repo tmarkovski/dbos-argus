@@ -68,9 +68,11 @@ get along, so we shut typescript up by casting `value` to `never`.
 	data-spacing={spacing}
 	style={`--gap: ${spacing}`}
 	class={cn(
-		// Outline groups render as segmented controls: a muted track holding
-		// card-surface chips (see the outline variant in ui/toggle).
-		"data-[variant=outline]:bg-muted data-[variant=outline]:rounded-md data-[variant=outline]:gap-0.5 data-[variant=outline]:p-0.5 group/toggle-group flex w-fit flex-row items-center gap-[--spacing(var(--gap))] data-vertical:flex-col data-vertical:items-stretch",
+		// Outline groups render as segmented controls: a recessed track holding
+		// card-surface chips (see the outline variant in ui/toggle). The track
+		// uses the input surface color so it stands off the canvas background,
+		// which bg-muted blends into.
+		"data-[variant=outline]:bg-input/50 data-[variant=outline]:rounded-md data-[variant=outline]:gap-0.5 data-[variant=outline]:p-0.5 group/toggle-group flex w-fit flex-row items-center gap-[--spacing(var(--gap))] data-vertical:flex-col data-vertical:items-stretch",
 		className
 	)}
 	{...restProps}

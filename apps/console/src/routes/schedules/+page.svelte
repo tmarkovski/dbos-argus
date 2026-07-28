@@ -60,7 +60,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-4 p-4 md:p-5">
+<div class="flex flex-col gap-4 p-4 pt-0 md:p-5 md:pt-0">
   <header class="flex min-h-9 items-center justify-between">
     <p class="text-muted-foreground text-xs">
       Cron-style scheduled workflows registered with DBOS.

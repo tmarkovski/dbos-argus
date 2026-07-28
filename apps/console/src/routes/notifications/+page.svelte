@@ -123,7 +123,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-4 p-4 md:p-5">
+<div class="flex flex-col gap-4 p-4 pt-0 md:p-5 md:pt-0">
   <header class="flex min-h-9 flex-wrap items-center justify-between gap-3">
     <p class="text-muted-foreground text-xs">
       Messages from <code class="font-mono">DBOS.send</code>; pending ones are waiting on a

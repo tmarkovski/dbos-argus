@@ -47,7 +47,12 @@
       </Button>
     {/snippet}
   </Popover.Trigger>
-  <Popover.Content class="w-auto p-0" align="start">
+  <!-- The :is() override drops every text-sm the calendar hardcodes internally
+       to text-xs, matching the toolbar trigger this popover belongs to. -->
+  <Popover.Content
+    class="w-auto p-0 [&_:is(button,select,td,th,div,span)]:text-xs"
+    align="start"
+  >
     <RangeCalendar bind:value />
     <div class="flex items-center justify-between border-t p-2">
       <Button variant="ghost" size="sm" onclick={clear}>Clear</Button>
