@@ -26,7 +26,7 @@
 	{#snippet children({ selected, highlighted })}
 		<span class="absolute end-2 flex size-3.5 items-center justify-center">
 			{#if selected}
-				<IconCheck class="cn-select-item-indicator-icon" />
+				<IconCheck class="cn-select-item-indicator-icon text-primary" />
 			{/if}
 		</span>
 		{#if childrenProp}

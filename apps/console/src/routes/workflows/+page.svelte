@@ -8,8 +8,6 @@
   import SearchIcon from "@lucide/svelte/icons/search";
   import ColumnsIcon from "@lucide/svelte/icons/columns-3";
   import XIcon from "@lucide/svelte/icons/x";
-  import CheckIcon from "@lucide/svelte/icons/check";
-  import ListChecksIcon from "@lucide/svelte/icons/list-checks";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import CalendarClockIcon from "@lucide/svelte/icons/calendar-clock";
   import { slide } from "svelte/transition";
@@ -592,29 +590,29 @@
         {/snippet}
       </Popover.Trigger>
       <Popover.Content align="start" class="w-52 gap-0.5 p-1">
+        {@const allSelected = selectedStatuses.size === STATUS_OPTIONS.length}
+        <div class="border-border mb-1 border-b pb-1">
+          <label
+            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm select-none"
+          >
+            <Checkbox
+              checked={allSelected}
+              indeterminate={!allSelected && selectedStatuses.size > 0}
+              onCheckedChange={() =>
+                (selectedStatuses = allSelected ? new Set() : allStatuses())}
+            />
+            All statuses
+          </label>
+        </div>
         {#each STATUS_OPTIONS as opt (opt.value)}
           {@const checked = selectedStatuses.has(opt.value)}
-          <button
-            type="button"
-            onclick={() => toggleStatus(opt.value)}
-            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm"
+          <label
+            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm select-none"
           >
-            <CheckIcon class="size-4 {checked ? 'opacity-100' : 'opacity-0'}" />
+            <Checkbox {checked} onCheckedChange={() => toggleStatus(opt.value)} />
             {opt.label}
-          </button>
+          </label>
         {/each}
-        {@const allSelected = selectedStatuses.size === STATUS_OPTIONS.length}
-        <div class="border-border mt-1 border-t pt-1">
-          <button
-            type="button"
-            onclick={() =>
-              (selectedStatuses = allSelected ? new Set() : allStatuses())}
-            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm"
-          >
-            <ListChecksIcon class="size-4" />
-            {allSelected ? "Deselect all" : "Select all"}
-          </button>
-        </div>
       </Popover.Content>
     </Popover.Root>
 
@@ -689,39 +687,42 @@
         {/snippet}
       </Popover.Trigger>
       <Popover.Content align="end" class="w-48 gap-0.5 p-1">
-        {#each Object.keys(COLUMN_LABELS) as key (key)}
-          {@const k = key as ColumnKey}
-          {@const checked = columns[k]}
-          {@const required = REQUIRED_COLUMNS.has(k)}
-          <button
-            type="button"
-            disabled={required}
-            onclick={() => (columns[k] = !columns[k])}
-            class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm {required
-              ? 'text-muted-foreground cursor-not-allowed'
-              : 'hover:bg-muted cursor-pointer'}"
-          >
-            <CheckIcon class="size-4 {checked ? 'opacity-100' : 'opacity-0'}" />
-            {COLUMN_LABELS[k]}
-          </button>
-        {/each}
         {@const optionalKeys = (Object.keys(COLUMN_LABELS) as ColumnKey[]).filter(
           (k) => !REQUIRED_COLUMNS.has(k),
         )}
         {@const allSelected = optionalKeys.every((k) => columns[k])}
-        <div class="border-border mt-1 border-t pt-1">
-          <button
-            type="button"
-            onclick={() => {
-              const next = !allSelected;
-              for (const k of optionalKeys) columns[k] = next;
-            }}
-            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm"
+        <div class="border-border mb-1 border-b pb-1">
+          <label
+            class="hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm select-none"
           >
-            <ListChecksIcon class="size-4" />
-            {allSelected ? "Deselect all" : "Select all"}
-          </button>
+            <Checkbox
+              checked={allSelected}
+              indeterminate={!allSelected && optionalKeys.some((k) => columns[k])}
+              onCheckedChange={() => {
+                const next = !allSelected;
+                for (const k of optionalKeys) columns[k] = next;
+              }}
+            />
+            All columns
+          </label>
         </div>
+        {#each Object.keys(COLUMN_LABELS) as key (key)}
+          {@const k = key as ColumnKey}
+          {@const checked = columns[k]}
+          {@const required = REQUIRED_COLUMNS.has(k)}
+          <label
+            class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm select-none {required
+              ? 'text-muted-foreground cursor-not-allowed'
+              : 'hover:bg-muted cursor-pointer'}"
+          >
+            <Checkbox
+              {checked}
+              disabled={required}
+              onCheckedChange={() => (columns[k] = !columns[k])}
+            />
+            {COLUMN_LABELS[k]}
+          </label>
+        {/each}
       </Popover.Content>
     </Popover.Root>
   </div>

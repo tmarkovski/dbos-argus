@@ -6,7 +6,11 @@
 		variants: {
 			variant: {
 				default: "bg-transparent",
-				outline: "border-input hover:bg-muted border bg-transparent",
+				// Segmented-control chip: lives inside the muted track that
+				// toggle-group.svelte renders for outline groups. Active chip is a
+				// raised card surface; inactive chips are quiet text.
+				outline:
+					"rounded-sm bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground aria-pressed:bg-card aria-pressed:text-foreground aria-pressed:shadow-surface data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-surface",
 			},
 			size: {
 				default: "h-9 min-w-9 px-3 has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5",
@@ -14,6 +18,13 @@
 				lg: "h-10 min-w-10 px-4 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
 			},
 		},
+		compoundVariants: [
+			// Chips sit inside a p-0.5 track, so shave their height to keep the
+			// overall control the same height as neighboring buttons.
+			{ variant: "outline", size: "default", class: "h-8 min-w-8" },
+			{ variant: "outline", size: "sm", class: "h-7 min-w-7" },
+			{ variant: "outline", size: "lg", class: "h-9 min-w-9" },
+		],
 		defaultVariants: {
 			variant: "default",
 			size: "default",
