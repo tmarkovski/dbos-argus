@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Console dev server moved from port 5000 to 4517 (Vite, Playwright, the
   Replit workflow, and docs). Port 5000 is grabbed by macOS AirPlay Receiver
   and commonly by other dev tools; 4517 is unassigned and unclaimed.
+- The workflow detail pane now slides open and closed (200ms ease-in-out)
+  instead of snapping, and its collapse/expand button keeps the exact same
+  screen position in both states. The pane header is tighter: content hugs
+  the card's top edge with the toggle inset 4px from the corner.
 
 ## [0.0.35] - 2026-07-28
 

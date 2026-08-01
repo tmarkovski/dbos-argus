@@ -372,13 +372,16 @@
     </div>
     {#if collapsed}
       <!-- Collapsed: the pane gives its space back to the graph and leaves
-           only this floating expand button behind. -->
+           only this floating expand button behind. top-3/right-4 mirrors the
+           collapse button's spot inside the expanded pane (12px pane margin,
+           plus 4px of pr-1 header inset on the right) so the icon doesn't
+           move when toggling. -->
       <button
         type="button"
         onclick={() => (collapsed = false)}
         title="Expand details pane"
         aria-label="Expand details pane"
-        class="bg-card shadow-surface-lg text-muted-foreground hover:text-foreground hover:bg-muted absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg"
+        class="bg-card shadow-surface-lg text-muted-foreground hover:text-foreground hover:bg-muted absolute top-3 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg"
       >
         <PanelRightOpen class="size-4" />
       </button>
@@ -407,22 +410,31 @@
         </button>
       </div>
     {/if}
+    <!-- Collapse animates the wrapper's width to 0 (not `hidden`, which can't
+         transition). The inner holder keeps the pane's real width and anchors
+         right, so content neither reflows nor drifts while the left edge
+         sweeps shut. `visibility` rides the transition so it flips only at
+         the end (hiding the zero-width shadow sliver); `inert` keeps focus
+         out of the closed pane. -->
     <div
-      class="shadow-surface-lg absolute inset-y-3 right-3 w-[var(--result-pane-width)] max-w-[calc(100%-3rem)] flex-none overflow-hidden rounded-xl lg:static lg:my-3 lg:mr-3 lg:ml-2"
-      class:hidden={collapsed}
-      class:transition-[width]={!dragging}
+      class="shadow-surface-lg absolute inset-y-3 right-3 flex w-[var(--result-pane-width)] max-w-[calc(100%-3rem)] flex-none justify-end overflow-hidden rounded-xl lg:static lg:my-3 lg:mr-3 lg:ml-2"
+      class:invisible={collapsed}
+      inert={collapsed}
+      class:transition-[width,visibility]={!dragging}
       class:duration-200={!dragging}
-      class:ease-out={!dragging}
-      style="--result-pane-width: {rightWidth}px"
+      class:ease-in-out={!dragging}
+      style="--result-pane-width: {collapsed ? 0 : rightWidth}px"
     >
-      <ResultPane
-        {selection}
-        {result}
-        loading={resultLoading}
-        loadError={resultError}
-        events={detail.events}
-        onToggleCollapse={() => (collapsed = !collapsed)}
-      />
+      <div class="h-full max-w-[calc(100vw-3rem)]" style="width: {rightWidth}px">
+        <ResultPane
+          {selection}
+          {result}
+          loading={resultLoading}
+          loadError={resultError}
+          events={detail.events}
+          onToggleCollapse={() => (collapsed = !collapsed)}
+        />
+      </div>
     </div>
   </div>
 {/if}
