@@ -341,13 +341,21 @@
           onSelect={(s) => (selection = s)}
         />
       {:else}
-        <WorkflowTimeline
-          family={detail.family}
-          steps={detail.steps}
-          currentId={detail.workflow_id}
-          {selection}
-          onSelect={(s) => (selection = s)}
-        />
+        <!-- Absolutely positioned: the app shell is a min-height layout that
+             grows with in-flow content, so a tall trace would push the whole
+             document instead of scrolling inside the timeline. Out-of-flow,
+             the container settles at the viewport-bounded stretch size (same
+             reason the xyflow canvas works) and the timeline's internal
+             scroller actually engages. -->
+        <div class="absolute inset-0">
+          <WorkflowTimeline
+            family={detail.family}
+            steps={detail.steps}
+            currentId={detail.workflow_id}
+            {selection}
+            onSelect={(s) => (selection = s)}
+          />
+        </div>
       {/if}
       <ToggleGroup.Root
         class="bg-card shadow-surface absolute top-3 left-3 z-10 rounded-lg"

@@ -23,6 +23,7 @@ export type TimelineStep = {
   function_id: number;
   function_name: string;
   has_error: boolean;
+  has_output: boolean;
   child_workflow_id: string | null;
   started_at: string | null;
   completed_at: string | null;
@@ -75,6 +76,13 @@ export function buildTimelineRows(
           ? byId.get(s.child_workflow_id)
           : undefined;
       if (child && !visited.has(child.workflow_id)) {
+        // A spawn op that carries signal of its own — an error (e.g. a queue
+        // dedup rejection) or a recorded payload — keeps a selectable row
+        // ahead of the child subtree. Ordinary spawns record neither, and
+        // stay collapsed into the child's header row. (Issue #20, option B.)
+        if (s.has_error || s.has_output) {
+          rows.push({ kind: "step", step: s, depth: depth + 1 });
+        }
         emit(child, s, depth + 1);
       } else {
         rows.push({ kind: "step", step: s, depth: depth + 1 });
@@ -102,6 +110,42 @@ const TERMINAL_STATUSES = new Set([
   "MAX_RECOVERY_ATTEMPTS_EXCEEDED",
 ]);
 
+// Span computation runs for every bar on every 1s "now" tick while a
+// workflow is live; cache the Date.parse results per row object. Realtime
+// snapshots replace row objects wholesale, so a cached entry can never go
+// stale, and the WeakMap lets dead snapshots be collected. (Issue #22.)
+const stepTimesCache = new WeakMap<TimelineStep, { start: number; end: number }>();
+
+function stepTimes(s: TimelineStep): { start: number; end: number } {
+  let t = stepTimesCache.get(s);
+  if (!t) {
+    t = {
+      start: s.started_at ? Date.parse(s.started_at) : NaN,
+      end: s.completed_at ? Date.parse(s.completed_at) : NaN,
+    };
+    stepTimesCache.set(s, t);
+  }
+  return t;
+}
+
+const wfTimesCache = new WeakMap<
+  TimelineWorkflow,
+  { start: number; end: number; updated: number }
+>();
+
+function wfTimes(w: TimelineWorkflow): { start: number; end: number; updated: number } {
+  let t = wfTimesCache.get(w);
+  if (!t) {
+    t = {
+      start: Date.parse(w.started_at),
+      end: w.completed_at ? Date.parse(w.completed_at) : NaN,
+      updated: Date.parse(w.updated_at),
+    };
+    wfTimesCache.set(w, t);
+  }
+  return t;
+}
+
 // DBOS writes the operation_outputs row only when a step finishes, with one
 // exception: sleeps are recorded up-front with started ≈ completed and the
 // wake-up encoded in the output (surfaced as sleep_requested_ms). So a
@@ -119,8 +163,7 @@ export function stepSpan(
   now: number,
   workflowEnd: number | null = null,
 ): Span | null {
-  if (!s.started_at) return null;
-  const start = Date.parse(s.started_at);
+  const { start, end: completed } = stepTimes(s);
   if (Number.isNaN(start)) return null;
   const clamp = (span: Span): Span =>
     workflowEnd !== null && span.end > workflowEnd
@@ -131,25 +174,26 @@ export function stepSpan(
     if (wake > now) return clamp({ start, end: Math.max(now, start), openEnded: true });
     return clamp({ start, end: wake, openEnded: false });
   }
-  if (s.completed_at) {
-    const end = Date.parse(s.completed_at);
-    if (!Number.isNaN(end)) return { start, end: Math.max(end, start), openEnded: false };
+  if (!Number.isNaN(completed)) {
+    return { start, end: Math.max(completed, start), openEnded: false };
   }
   return clamp({ start, end: Math.max(now, start), openEnded: true });
 }
 
 export function workflowSpan(w: TimelineWorkflow, now: number): Span | null {
-  const start = Date.parse(w.started_at);
+  const { start, end: completed, updated } = wfTimes(w);
   if (Number.isNaN(start)) return null;
-  if (w.completed_at) {
-    const end = Date.parse(w.completed_at);
-    if (!Number.isNaN(end)) return { start, end: Math.max(end, start), openEnded: false };
+  if (!Number.isNaN(completed)) {
+    return { start, end: Math.max(completed, start), openEnded: false };
   }
   if (TERMINAL_STATUSES.has(w.status ?? "")) {
     // Terminal but no completed_at (data recorded by an older DBOS): fall
     // back to updated_at rather than extending the bar to `now` forever.
-    const end = Date.parse(w.updated_at);
-    return { start, end: Number.isNaN(end) ? start : Math.max(end, start), openEnded: false };
+    return {
+      start,
+      end: Number.isNaN(updated) ? start : Math.max(updated, start),
+      openEnded: false,
+    };
   }
   return { start, end: Math.max(now, start), openEnded: true };
 }
@@ -247,17 +291,31 @@ export function buildTimeScale(
   const min = uniq[0];
   const max = uniq[uniq.length - 1];
 
+  // Binary search over segments (sorted, contiguous): toX/fromX run for
+  // every bar edge on every render tick, so a linear scan is the difference
+  // between O(bars) and O(bars·segments) per second on large families.
+  function segmentFor(value: number, upper: (s: ScaleSegment) => number): ScaleSegment {
+    let lo = 0;
+    let hi = segments.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (value <= upper(segments[mid])) hi = mid;
+      else lo = mid + 1;
+    }
+    return segments[lo];
+  }
+
   function toX(t: number): number {
     if (t <= min) return 0;
     if (t >= max) return 1;
-    const seg = segments.find((s) => t <= s.t1)!;
+    const seg = segmentFor(t, (s) => s.t1);
     return seg.x0 + ((t - seg.t0) / (seg.t1 - seg.t0)) * (seg.x1 - seg.x0);
   }
 
   function fromX(x: number): number {
     if (x <= 0) return min;
     if (x >= 1) return max;
-    const seg = segments.find((s) => x <= s.x1)!;
+    const seg = segmentFor(x, (s) => s.x1);
     return seg.t0 + ((x - seg.x0) / (seg.x1 - seg.x0)) * (seg.t1 - seg.t0);
   }
 
@@ -283,7 +341,13 @@ export function scaleTicks(scale: TimeScale, count: number): Tick[] {
   const minGap = 0.5 / count;
   const ticks: Tick[] = [];
   for (const s of scale.segments) {
-    if (s.compressed && s.x1 < 0.98) {
+    // Anchors also dedupe against each other: two breaks separated by a
+    // narrow linear stretch would otherwise overlap their labels.
+    if (
+      s.compressed &&
+      s.x1 < 0.98 &&
+      !ticks.some((t) => Math.abs(t.x - s.x1) < minGap)
+    ) {
       ticks.push({ x: s.x1, offsetMs: s.t1 - scale.min });
     }
   }

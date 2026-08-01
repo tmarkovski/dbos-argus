@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any
 
 from dbos_argus.realtime.channel import BroadcastChannel, KeyedChannel
@@ -126,6 +127,9 @@ async def test_subscribe_yields_ack_then_snapshot() -> None:
     assert msgs[1].sub_id == "s1"
     assert msgs[1].channel == "counter"
     assert msgs[1].data == {"tick": 1}
+    # Data messages carry the server clock so clients can correct for skew.
+    assert msgs[1].server_time_ms is not None
+    assert abs(msgs[1].server_time_ms - time.time() * 1000) < 5_000
 
     hub.detach(conn)
 

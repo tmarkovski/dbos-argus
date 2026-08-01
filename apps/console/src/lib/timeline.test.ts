@@ -31,6 +31,7 @@ function step(over: Partial<TimelineStep> & { workflow_id: string; function_id: 
   return {
     function_name: "do_thing",
     has_error: false,
+    has_output: false,
     child_workflow_id: null,
     started_at: iso(0),
     completed_at: iso(100),
@@ -96,6 +97,63 @@ describe("buildTimelineRows", () => {
     expect(rows.map((r) => r.kind)).toEqual(["workflow", "workflow", "step"]);
   });
 
+  it("keeps a selectable row for a spawn step with an error or payload", () => {
+    const family = [
+      wf({ workflow_id: "root" }),
+      wf({ workflow_id: "child", parent_workflow_id: "root" }),
+    ];
+    const steps = [
+      step({
+        workflow_id: "root",
+        function_id: 0,
+        function_name: "child_wf",
+        child_workflow_id: "child",
+        has_error: true,
+      }),
+    ];
+    const rows = buildTimelineRows(family, steps);
+    const labels = rows.map((r) =>
+      r.kind === "workflow" ? `wf:${r.workflow.workflow_id}` : `step:${r.step.function_id}`,
+    );
+    // The errored spawn keeps its own row ahead of the child subtree.
+    expect(labels).toEqual(["wf:root", "step:0", "wf:child"]);
+  });
+
+  it("degrades a second spawn of the same child to a plain step row", () => {
+    const family = [
+      wf({ workflow_id: "root" }),
+      wf({ workflow_id: "child", parent_workflow_id: "root" }),
+    ];
+    const steps = [
+      step({
+        workflow_id: "root",
+        function_id: 0,
+        function_name: "child_wf",
+        child_workflow_id: "child",
+      }),
+      step({
+        workflow_id: "root",
+        function_id: 1,
+        function_name: "child_wf",
+        child_workflow_id: "child",
+      }),
+    ];
+    const rows = buildTimelineRows(family, steps);
+    const labels = rows.map((r) =>
+      r.kind === "workflow" ? `wf:${r.workflow.workflow_id}` : `step:${r.step.function_id}`,
+    );
+    expect(labels).toEqual(["wf:root", "wf:child", "step:1"]);
+  });
+
+  it("terminates on parent-pointer cycles", () => {
+    const family = [
+      wf({ workflow_id: "a", parent_workflow_id: "b" }),
+      wf({ workflow_id: "b", parent_workflow_id: "a" }),
+    ];
+    const rows = buildTimelineRows(family, []);
+    expect(rows.map((r) => r.kind === "workflow" && r.workflow.workflow_id)).toEqual(["a", "b"]);
+  });
+
   it("emits unlinked family members instead of dropping them", () => {
     const family = [
       wf({ workflow_id: "root" }),
@@ -124,6 +182,17 @@ describe("spans", () => {
 
   it("returns null without a start time", () => {
     expect(stepSpan(step({ workflow_id: "w", function_id: 0, started_at: null }), now)).toBeNull();
+  });
+
+  it("treats a sleep without sleep_requested_ms like an ordinary step", () => {
+    const s = step({
+      workflow_id: "w",
+      function_id: 0,
+      function_name: "DBOS.sleep",
+      completed_at: iso(5),
+      sleep_requested_ms: null,
+    });
+    expect(stepSpan(s, now)).toEqual({ start: T0, end: T0 + 5, openEnded: false });
   });
 
   it("spans a sleep to its wake-up, not its recorded completion", () => {
@@ -293,5 +362,31 @@ describe("scaleTicks", () => {
     const scale = buildTimeScale([0, 10_000], false)!;
     const ticks = scaleTicks(scale, 5);
     expect(ticks.map((t) => t.offsetMs)).toEqual([0, 2000, 4000, 6000, 8000]);
+  });
+
+  it("anchors a tick at the end of a mid-scale break", () => {
+    // 4x 1s gaps, a 100s wait, 4x 1s gaps. The wait clamps to the 1s median
+    // weight, so its end sits at x = 5/9 with real time resuming at 104s.
+    const times = [0, 1000, 2000, 3000, 4000, 104_000, 105_000, 106_000, 107_000, 108_000];
+    const scale = buildTimeScale(times, true)!;
+    const ticks = scaleTicks(scale, 9);
+    const anchor = ticks.find((t) => Math.abs(t.x - 5 / 9) < 1e-9);
+    expect(anchor).toBeDefined();
+    expect(anchor!.offsetMs).toBe(104_000);
+  });
+
+  it("dedupes break anchors that crowd each other", () => {
+    // Two 100s waits separated by only 100ms. Both clamp to the 1s weight;
+    // with a coarse tick budget their anchors fall within minGap and only
+    // the first survives.
+    const times = [0, 1000, 2000, 3000, 4000, 104_000, 104_100, 204_100, 205_100, 206_100];
+    const scale = buildTimeScale(times, true)!;
+    const compressed = scale.segments.filter((s) => s.compressed);
+    expect(compressed.length).toBe(2);
+    const ticks = scaleTicks(scale, 3);
+    const anchors = ticks.filter((t) =>
+      compressed.some((s) => Math.abs(s.x1 - t.x) < 1e-9),
+    );
+    expect(anchors.length).toBe(1);
   });
 });

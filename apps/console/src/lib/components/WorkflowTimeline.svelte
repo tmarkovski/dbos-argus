@@ -13,6 +13,7 @@
     type TimelineRow,
   } from "$lib/timeline";
   import { statusDotClass } from "$lib/workflow-tree";
+  import { realtimeClient } from "$lib/realtime";
 
   let {
     family,
@@ -29,7 +30,10 @@
   } = $props();
 
   let compress = $state(true);
-  let now = $state(Date.now());
+  // Skew-corrected "now": server clock per the realtime connection, not the
+  // client's Date.now() — bars extending to the live edge are positioned
+  // against server-recorded timestamps. (Issue #23.)
+  let now = $state(realtimeClient.serverNow());
   let trackWidth = $state(0);
 
   const anyActive = $derived(
@@ -40,7 +44,7 @@
 
   $effect(() => {
     if (!anyActive) return;
-    const id = setInterval(() => (now = Date.now()), 1000);
+    const id = setInterval(() => (now = realtimeClient.serverNow()), 1000);
     return () => clearInterval(id);
   });
 
@@ -242,11 +246,21 @@
     return prettyMs(ms, { unitCount: 2, secondsDecimalDigits: ms < 10_000 ? 1 : 0 });
   }
 
+  const rowIds = $derived(new Set(rowViews.map((v) => v.selectionId)));
+
   const selectedId = $derived.by(() => {
     if (!selection) return null;
-    return selection.kind === "workflow"
-      ? `wf:${selection.workflow.workflow_id}`
-      : `step:${selection.step.workflow_id}:${selection.step.function_id}`;
+    if (selection.kind === "workflow") return `wf:${selection.workflow.workflow_id}`;
+    const id = `step:${selection.step.workflow_id}:${selection.step.function_id}`;
+    if (rowIds.has(id)) return id;
+    // A spawn step selected in Graph view may have no timeline row (ordinary
+    // spawns collapse into the child's header) — highlight the child instead
+    // so the highlight and the details pane never disagree.
+    if (selection.step.child_workflow_id) {
+      const childId = `wf:${selection.step.child_workflow_id}`;
+      if (rowIds.has(childId)) return childId;
+    }
+    return id;
   });
 
   // Clicking the already-selected row deselects (the timeline has no empty
@@ -286,6 +300,12 @@
     }
     if (s.function_name.startsWith("DBOS."))
       return s.function_name.slice("DBOS.".length);
+    if (s.child_workflow_id) {
+      // A spawn op rendered as its own row (errored/payload-carrying spawns,
+      // or spawns of out-of-family children) — mirror StepNode's "→ name".
+      const spawned = nameByWorkflowId.get(s.child_workflow_id);
+      return `→ ${spawned ?? s.function_name}`;
+    }
     return s.function_name;
   }
 
@@ -314,8 +334,9 @@
   {#if scale?.wouldCompress}
     <!-- right-14 clears the details pane's floating expand button (top-3
          right-3, 32px wide) when the pane is collapsed. -->
+    <!-- z-20: must paint above the sticky axis header (z-10, opaque). -->
     <ToggleGroup.Root
-      class="bg-card shadow-surface absolute top-3 right-14 z-10 rounded-lg"
+      class="bg-card shadow-surface absolute top-3 right-14 z-20 rounded-lg"
       type="single"
       variant="outline"
       value={compress ? "compressed" : "linear"}
@@ -328,36 +349,44 @@
     </ToggleGroup.Root>
   {/if}
 
-  <!-- pt-12 keeps the axis clear of the page's floating Graph | Timeline
-       toggle, which overlays the (empty) label-column corner. -->
-  <div class="grid flex-none grid-cols-[280px_minmax(0,1fr)] pt-12 pr-6 pb-1">
-    <div></div>
-    <div class="relative h-5" bind:clientWidth={trackWidth}>
-      {#each ticks as tick (tick.x)}
-        <span
-          class="text-muted-foreground absolute top-0 font-mono text-[10px] whitespace-nowrap {tick.x >
-          0
-            ? '-translate-x-1/2'
-            : ''}"
-          style="left: {pct(tick.x)}"
-        >
-          {formatOffset(tick.offsetMs)}
-        </span>
-      {/each}
-      {#each breaks as brk (brk.x0)}
-        <span
-          class="text-muted-foreground absolute top-0 -translate-x-1/2 font-mono text-[10px]"
-          style="left: {pct((brk.x0 + brk.x1) / 2)}"
-          title="{prettyMs(brk.t1 - brk.t0)} compressed"
-        >
-          ⫽
-        </span>
-      {/each}
-    </div>
-  </div>
-
   <div class="min-h-0 flex-1 overflow-y-auto">
-    <div class="relative min-h-full pb-6">
+    <!-- The axis lives *inside* the scroll container (sticky) so its track
+         and the rows' tracks share one coordinate space — measured outside,
+         a layout scrollbar would make the body ~15px narrower and drift
+         every tick label off its gridline. pt-12 keeps it clear of the
+         page's floating Graph | Timeline toggle, which overlays the (empty)
+         label-column corner. -->
+    <div
+      class="bg-background sticky top-0 z-10 grid grid-cols-[280px_minmax(0,1fr)] pt-12 pr-6 pb-1"
+    >
+      <div></div>
+      <div class="relative h-5" bind:clientWidth={trackWidth}>
+        {#each ticks as tick (tick.x)}
+          <span
+            class="text-muted-foreground absolute top-0 font-mono text-[10px] whitespace-nowrap {tick.x >
+            0
+              ? '-translate-x-1/2'
+              : ''}"
+            style="left: {pct(tick.x)}"
+          >
+            {formatOffset(tick.offsetMs)}
+          </span>
+        {/each}
+        {#each breaks as brk (brk.x0)}
+          {#if brk.x1 - brk.x0 >= 0.025}
+            <span
+              class="text-muted-foreground absolute top-0 -translate-x-1/2 font-mono text-[10px]"
+              style="left: {pct((brk.x0 + brk.x1) / 2)}"
+              title="{prettyMs(brk.t1 - brk.t0)} compressed"
+            >
+              ⫽
+            </span>
+          {/if}
+        {/each}
+      </div>
+    </div>
+
+    <div class="relative pb-6">
       {#if scale}
         <div
           aria-hidden="true"
@@ -380,7 +409,10 @@
             {/each}
           </div>
         </div>
-      {:else}
+      {:else if steps.length > 0 && !steps.some((s) => s.started_at)}
+        <!-- Only claim "old database" when timing is genuinely absent. A
+             degenerate scale (e.g. a stepless workflow with zero duration)
+             just renders rows without an axis, no banner. -->
         <p class="text-muted-foreground px-4 py-2 text-xs">
           No step timing recorded — this database predates DBOS's step timestamps.
         </p>

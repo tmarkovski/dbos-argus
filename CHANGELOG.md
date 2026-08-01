@@ -13,13 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one row per step, grouped under each workflow in the family, with bars on
   a shared time axis built from the step timestamps the detail endpoint
   already ships. Child workflows interleave at their spawn call site with a
-  dashed queued lead-in, waits (sleep / recv / getEvent / getResult) render
-  as dashed outlines, setEvent / send as instant ticks, and running work
-  extends to a live "now" marker. Long waits are compressed by default —
+  dashed queued lead-in (spawn ops that recorded an error or payload keep
+  their own selectable row), waits (sleep / recv / getEvent / getResult)
+  render as dashed outlines, setEvent / send as instant ticks, and running
+  work extends to a live "now" marker. Long waits are compressed by default —
   clamped to about one median step's width under a hatched break band, with
   a "Compress waits / True scale" toggle; spans covered by an executing step
   are never compressed. Clicking a row drives the same selection and details
   pane as the graph, and the chosen view persists per browser.
+- Realtime `snapshot` / `update` / `pong` messages now carry `server_time_ms`
+  (server wall clock at enqueue). The console uses it to correct for client
+  clock skew when positioning the timeline's live edge; older servers that
+  omit the field fall back to the client clock unchanged.
 
 ## [0.0.35] - 2026-07-28
 

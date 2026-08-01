@@ -77,7 +77,10 @@ def test_ping_pong() -> None:
     with TestClient(_make_app()) as client, client.websocket_connect("/ws") as ws:
         ws.send_json({"type": "ping"})
         msg = ws.receive_json()
-        assert msg == {"type": "pong"}
+        assert msg["type"] == "pong"
+        # Pongs carry the server clock so clients can correct for skew even
+        # on connections with no data flowing.
+        assert isinstance(msg["server_time_ms"], int)
 
 
 def test_unknown_channel_returns_error() -> None:

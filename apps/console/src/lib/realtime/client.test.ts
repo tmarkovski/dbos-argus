@@ -110,6 +110,39 @@ describe("RealtimeClient", () => {
     client.close();
   });
 
+  it("tracks clock offset from server_time_ms and exposes serverNow()", () => {
+    const { client, sockets } = makeClient();
+    client.subscribe("stats", undefined, { onSnapshot: vi.fn(), onUpdate: vi.fn() });
+    const ws = sockets[0];
+    ws.triggerOpen();
+    const subId = (ws.sent[0] as { sub_id: string }).sub_id;
+
+    // No stamped message yet — serverNow() is plain client time.
+    expect(client.clockOffsetMs).toBe(0);
+
+    const skewed = Date.now() + 30_000; // server 30s ahead
+    ws.deliver({
+      type: "snapshot",
+      sub_id: subId,
+      channel: "stats",
+      data: {},
+      server_time_ms: skewed,
+    });
+    // Delivery is synchronous in the fake, so the offset is ~30s exactly.
+    expect(client.clockOffsetMs).toBeGreaterThan(29_000);
+    expect(client.serverNow() - Date.now()).toBeGreaterThan(29_000);
+
+    // Pongs refresh the offset too (quiet connections), and an unstamped
+    // message (older server) leaves it untouched.
+    ws.deliver({ type: "pong", server_time_ms: Date.now() - 10_000 });
+    expect(client.clockOffsetMs).toBeLessThan(-9_000);
+    const before = client.clockOffsetMs;
+    ws.deliver({ type: "update", sub_id: subId, channel: "stats", data: { total: 3 } });
+    expect(client.clockOffsetMs).toBe(before);
+
+    client.close();
+  });
+
   it("queues subscribe when called before socket opens, then flushes on open", () => {
     const { client, sockets } = makeClient();
     client.subscribe("stats", undefined, { onSnapshot: vi.fn(), onUpdate: vi.fn() });
