@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (server wall clock at enqueue). The console uses it to correct for client
   clock skew when positioning the timeline's live edge; older servers that
   omit the field fall back to the client clock unchanged.
+- Serve Argus behind a reverse proxy on any subpath. The console now uses
+  hash routing (`/#/workflows/...`) and relative asset/API/WebSocket URLs, so
+  the same build works at `/` or behind a stripped prefix (e.g. `/argus/`)
+  with no configuration — see "Behind a reverse proxy, on a subpath" in the
+  README. Legacy path-style deep links redirect to the hash form via a shim in
+  the shell.
 
 ### Changed
 - Console dev server moved from port 5000 to 4517 (Vite, Playwright, the
@@ -34,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of snapping, and its collapse/expand button keeps the exact same
   screen position in both states. The pane header is tighter: content hugs
   the card's top edge with the toggle inset 4px from the corner.
+- Internal console links and `goto()` calls use the `#/...` form; the adapter
+  fallback is written to `404.html` so the prerendered `index.html` shell (the
+  one the server's SPA catch-all serves) keeps its runtime-computed base, and
+  a post-build step rewrites the shell's entry imports and preloads to
+  relative URLs.
 
 ## [0.0.35] - 2026-07-28
 

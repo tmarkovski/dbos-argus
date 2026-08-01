@@ -192,7 +192,7 @@
         <Sidebar.MenuItem>
           <Sidebar.MenuButton size="lg">
             {#snippet child({ props })}
-              <a href="/" {...props}>
+              <a href="#/" {...props}>
                 <div
                   class="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-full"
                 >
@@ -225,7 +225,9 @@
                   tooltipContent={item.label}
                 >
                   {#snippet child({ props })}
-                    <a href={item.href} {...props}>
+                    <!-- item.href stays a plain route path for isActive(); the
+                         hash router needs the "#" on the anchor itself. -->
+                    <a href={"#" + item.href} {...props}>
                       <item.icon />
                       <span>{item.label}</span>
                     </a>

@@ -49,7 +49,7 @@ type InternalSub = {
 export type ClientOptions = {
   /** Socket factory. Defaults to `new WebSocket(url)`. Tests inject a fake. */
   socketFactory?: (url: string) => WebSocket;
-  /** Override the URL. Defaults to `${ws|wss}://${location.host}/ws`. */
+  /** Override the URL. Defaults to `ws(s)://<document base>/ws` — relative to wherever the console is mounted. */
   url?: string;
   /**
    * Heartbeat interval. A `ping` is sent every `heartbeatMs`; if no `pong`
@@ -106,7 +106,10 @@ export class RealtimeClient {
     const url =
       options.url ??
       (typeof window !== "undefined"
-        ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`
+        ? // Resolved against the document base (hash excluded), so the socket
+          // lands next to the API wherever the console is mounted — root or
+          // behind a reverse-proxy prefix. http(s):// becomes ws(s)://.
+          new URL("ws", document.baseURI).href.replace(/^http/, "ws")
         : "ws://localhost/ws");
     this.opts = {
       url,

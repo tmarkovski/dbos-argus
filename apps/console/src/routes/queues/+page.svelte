@@ -115,7 +115,7 @@
             <Table.Row>
               <Table.Cell class="px-4 py-2 font-mono">
                 <a
-                  href="/workflows/?queue_name={encodeURIComponent(q.name)}"
+                  href="#/workflows/?queue_name={encodeURIComponent(q.name)}"
                   class="hover:text-foreground hover:underline"
                 >
                   {q.name}
@@ -124,7 +124,7 @@
               <Table.Cell class="px-4 py-2 text-right font-mono text-xs tabular-nums">
                 {#if q.enqueued > 0}
                   <a
-                    href="/workflows/?queue_name={encodeURIComponent(q.name)}&status=ENQUEUED"
+                    href="#/workflows/?queue_name={encodeURIComponent(q.name)}&status=ENQUEUED"
                     class="hover:text-foreground hover:underline"
                   >
                     {q.enqueued}
@@ -136,7 +136,7 @@
               <Table.Cell class="px-4 py-2 text-right font-mono text-xs tabular-nums">
                 {#if q.running > 0}
                   <a
-                    href="/workflows/?queue_name={encodeURIComponent(q.name)}&status=PENDING"
+                    href="#/workflows/?queue_name={encodeURIComponent(q.name)}&status=PENDING"
                     class="hover:text-foreground hover:underline"
                   >
                     {q.running}

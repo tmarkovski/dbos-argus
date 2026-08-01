@@ -167,7 +167,7 @@
         label: "Child",
         value: s.child_workflow_id,
         title: s.child_workflow_id,
-        href: `/workflows/${encodeURIComponent(s.child_workflow_id)}/`,
+        href: `#/workflows/${encodeURIComponent(s.child_workflow_id)}/`,
       });
     if (s.event_key) items.push({ label: "Event key", value: s.event_key });
     if (s.sleep_requested_ms !== null)

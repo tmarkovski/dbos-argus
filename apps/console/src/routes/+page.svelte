@@ -89,9 +89,9 @@
     queuesHandle?.dispose();
   });
 
-  const inFlightHref = "/workflows/?status=PENDING&status=ENQUEUED&status=DELAYED";
-  const enqueuedHref = "/workflows/?status=ENQUEUED";
-  const failedHref = "/workflows/?status=ERROR&status=MAX_RECOVERY_ATTEMPTS_EXCEEDED";
+  const inFlightHref = "#/workflows/?status=PENDING&status=ENQUEUED&status=DELAYED";
+  const enqueuedHref = "#/workflows/?status=ENQUEUED";
+  const failedHref = "#/workflows/?status=ERROR&status=MAX_RECOVERY_ATTEMPTS_EXCEEDED";
 
   const connectionIndicatorState = $derived(
     getConnectionIndicatorState({
@@ -183,7 +183,7 @@
   >
     <Card.Root>
       <a
-        href="/workflows/"
+        href="#/workflows/"
         class="absolute inset-0 rounded-lg"
         aria-label="View all workflows"
       ></a>
@@ -227,7 +227,7 @@
 
     <Card.Root>
       <a
-        href="/notifications/"
+        href="#/notifications/"
         class="absolute inset-0 rounded-lg"
         aria-label="View notifications"
       ></a>
@@ -255,7 +255,7 @@
 
     <Card.Root>
       <a
-        href="/schedules/"
+        href="#/schedules/"
         class="absolute inset-0 rounded-lg"
         aria-label="View schedules"
       ></a>
@@ -283,7 +283,7 @@
 
     <Card.Root>
       <a
-        href="/queues/"
+        href="#/queues/"
         class="absolute inset-0 rounded-lg"
         aria-label="View queues"
       ></a>
@@ -314,7 +314,7 @@
           </div>
           {#each topQueues as q (q.queue_id)}
             <a
-              href="/workflows/?queue_name={encodeURIComponent(
+              href="#/workflows/?queue_name={encodeURIComponent(
                 q.name,
               )}&status=ENQUEUED&status=PENDING"
               class="group relative z-10 flex items-center gap-3 text-xs"
@@ -350,7 +350,7 @@
         <Card.Description>The most recent workflow runs from this database.</Card.Description>
         <Card.Action>
           <a
-            href="/workflows/"
+            href="#/workflows/"
             class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
           >
             View all
@@ -383,7 +383,7 @@
                 </Table.Cell>
                 <Table.Cell class="font-mono">
                   <a
-                    href="/workflows/{encodeURIComponent(w.workflow_id)}/"
+                    href="#/workflows/{encodeURIComponent(w.workflow_id)}/"
                     class="hover:text-foreground hover:underline"
                   >
                     {w.name ?? "—"}
@@ -397,7 +397,7 @@
                   title={w.workflow_id}
                 >
                   <a
-                    href="/workflows/{encodeURIComponent(w.workflow_id)}/"
+                    href="#/workflows/{encodeURIComponent(w.workflow_id)}/"
                     class="hover:text-foreground block truncate hover:underline"
                   >
                     {w.workflow_id}

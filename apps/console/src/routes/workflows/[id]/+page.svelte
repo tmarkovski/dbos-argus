@@ -98,9 +98,16 @@
     } catch {
       // Drop the write rather than crashing the handler.
     }
-    const url = new URL(page.url.href);
-    if (v === "graph") url.searchParams.delete("view");
-    else url.searchParams.set("view", v);
+    // Under hash routing the route and its query live in the URL fragment.
+    // page.url is the *decoded* form (route as pathname) — handing it to
+    // replaceState would rewrite the address bar to the path form, dropping
+    // the hash and any reverse-proxy mount prefix. Rewrite the query inside
+    // the fragment of the real browser URL instead.
+    const route = new URL(page.url.href);
+    if (v === "graph") route.searchParams.delete("view");
+    else route.searchParams.set("view", v);
+    const url = new URL(window.location.href);
+    url.hash = `#${route.pathname}${route.search}`;
     replaceState(url, {});
   }
   $effect(() => {
@@ -237,12 +244,14 @@
     let hasAny: boolean;
     if (sel.kind === "workflow") {
       key = `wf:${sel.workflow.workflow_id}`;
-      url = `/api/workflows/${encodeURIComponent(sel.workflow.workflow_id)}/result`;
+      // Relative (no leading slash) so it resolves against wherever the
+      // console is mounted — root or behind a reverse-proxy prefix.
+      url = `api/workflows/${encodeURIComponent(sel.workflow.workflow_id)}/result`;
       hasAny = sel.workflow.has_output || sel.workflow.has_error;
     } else {
       key = `step:${sel.step.workflow_id}:${sel.step.function_id}`;
       url =
-        `/api/workflows/${encodeURIComponent(sel.step.workflow_id)}` +
+        `api/workflows/${encodeURIComponent(sel.step.workflow_id)}` +
         `/steps/${sel.step.function_id}/result`;
       hasAny = sel.step.has_output || sel.step.has_error;
     }
@@ -301,10 +310,10 @@
       cur = cur.parent_workflow_id ? byId.get(cur.parent_workflow_id) : undefined;
     }
     breadcrumb.items = [
-      { label: "Workflows", href: "/workflows/", icon: "workflow", tooltip: "Workflows" },
+      { label: "Workflows", href: "#/workflows/", icon: "workflow", tooltip: "Workflows" },
       ...chain.map((w) => ({
         label: w.name ?? w.workflow_id,
-        href: `/workflows/${encodeURIComponent(w.workflow_id)}/`,
+        href: `#/workflows/${encodeURIComponent(w.workflow_id)}/`,
         status: w.status,
         tooltip: w.workflow_id,
       })),
