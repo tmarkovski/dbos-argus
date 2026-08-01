@@ -107,20 +107,35 @@ const TERMINAL_STATUSES = new Set([
 // wake-up encoded in the output (surfaced as sleep_requested_ms). So a
 // sleep's true extent is start → start+requested, clamped to `now` while the
 // workflow is still parked.
-export function stepSpan(s: TimelineStep, now: number): Span | null {
+//
+// `workflowEnd` is the owning workflow's terminal completion time (null while
+// it's still running). Inferred extents — a sleep's projected wake, an
+// open-ended stretch to `now` — are clamped to it so a workflow cancelled
+// mid-sleep doesn't render the sleep running to term (or still pulsing) after
+// the workflow is dead. Recorded completed_at timestamps are facts and are
+// never clamped.
+export function stepSpan(
+  s: TimelineStep,
+  now: number,
+  workflowEnd: number | null = null,
+): Span | null {
   if (!s.started_at) return null;
   const start = Date.parse(s.started_at);
   if (Number.isNaN(start)) return null;
+  const clamp = (span: Span): Span =>
+    workflowEnd !== null && span.end > workflowEnd
+      ? { start: span.start, end: Math.max(workflowEnd, span.start), openEnded: false }
+      : span;
   if (s.function_name === "DBOS.sleep" && s.sleep_requested_ms != null) {
     const wake = start + s.sleep_requested_ms;
-    if (wake > now) return { start, end: Math.max(now, start), openEnded: true };
-    return { start, end: wake, openEnded: false };
+    if (wake > now) return clamp({ start, end: Math.max(now, start), openEnded: true });
+    return clamp({ start, end: wake, openEnded: false });
   }
   if (s.completed_at) {
     const end = Date.parse(s.completed_at);
     if (!Number.isNaN(end)) return { start, end: Math.max(end, start), openEnded: false };
   }
-  return { start, end: Math.max(now, start), openEnded: true };
+  return clamp({ start, end: Math.max(now, start), openEnded: true });
 }
 
 export function workflowSpan(w: TimelineWorkflow, now: number): Span | null {

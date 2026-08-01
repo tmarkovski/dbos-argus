@@ -148,6 +148,51 @@ describe("spans", () => {
     expect(stepSpan(s, now)).toEqual({ start: T0, end: now, openEnded: true });
   });
 
+  it("clamps a sleep's projected wake to the workflow's terminal end", () => {
+    // 1h sleep, workflow cancelled 5s in: the bar must stop at the death,
+    // not run to term.
+    const s = step({
+      workflow_id: "w",
+      function_id: 0,
+      function_name: "DBOS.sleep",
+      completed_at: iso(5),
+      sleep_requested_ms: 3_600_000,
+    });
+    const viewedAt = T0 + 7_200_000;
+    expect(stepSpan(s, viewedAt, T0 + 5000)).toEqual({
+      start: T0,
+      end: T0 + 5000,
+      openEnded: false,
+    });
+    // Viewed while the wake is still in the future: same clamp, and the bar
+    // must not read as "still sleeping" on a dead workflow.
+    expect(stepSpan(s, T0 + 60_000, T0 + 5000)).toEqual({
+      start: T0,
+      end: T0 + 5000,
+      openEnded: false,
+    });
+  });
+
+  it("clamps an open-ended step to the workflow's terminal end", () => {
+    const s = step({ workflow_id: "w", function_id: 0, completed_at: null });
+    expect(stepSpan(s, now, T0 + 2000)).toEqual({
+      start: T0,
+      end: T0 + 2000,
+      openEnded: false,
+    });
+  });
+
+  it("never clamps a recorded completion", () => {
+    // completed_at is a fact; a workflow updated_at that sorts earlier
+    // (clock write order) must not truncate it.
+    const s = step({ workflow_id: "w", function_id: 0, completed_at: iso(3000) });
+    expect(stepSpan(s, now, T0 + 1000)).toEqual({
+      start: T0,
+      end: T0 + 3000,
+      openEnded: false,
+    });
+  });
+
   it("ends a terminal workflow without completed_at at updated_at", () => {
     const w = wf({ workflow_id: "w", completed_at: null, updated_at: iso(2000) });
     expect(workflowSpan(w, now)).toEqual({ start: T0, end: T0 + 2000, openEnded: false });

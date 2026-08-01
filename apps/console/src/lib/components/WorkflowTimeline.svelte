@@ -110,13 +110,21 @@
 
   const rowViews: RowView[] = $derived.by(() => {
     const nowMs = now;
+    // Terminal completion per workflow: clamps inferred step extents (sleep
+    // wake projections, open-ended bars) so nothing renders as running past
+    // the owning workflow's death. Null while the workflow is still live.
+    const terminalEnds = new Map<string, number | null>();
+    for (const w of family) {
+      const ws = workflowSpan(w, nowMs);
+      terminalEnds.set(w.workflow_id, ws && !ws.openEnded ? ws.end : null);
+    }
     // Per-workflow envelope over its steps. A recovered workflow's
     // started_at_epoch_ms is reset to the latest dequeue, which can land
     // *after* steps recorded by earlier attempts — the container bar must
     // still cover them.
     const envelopes = new Map<string, { min: number; max: number }>();
     for (const s of steps) {
-      const span = stepSpan(s, nowMs);
+      const span = stepSpan(s, nowMs, terminalEnds.get(s.workflow_id) ?? null);
       if (!span) continue;
       const env = envelopes.get(s.workflow_id);
       if (!env) {
@@ -167,7 +175,7 @@
         };
       }
       const s = r.step as Step;
-      const span = stepSpan(r.step, nowMs);
+      const span = stepSpan(r.step, nowMs, terminalEnds.get(s.workflow_id) ?? null);
       const displayMs =
         s.sleep_requested_ms != null
           ? s.sleep_requested_ms
