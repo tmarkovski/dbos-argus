@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { page } from "$app/state";
+  import { replaceState } from "$app/navigation";
   import PanelRightOpen from "@lucide/svelte/icons/panel-right-open";
   import ResultPane, {
     type ResultData,
@@ -11,6 +12,8 @@
     type FlowSelection,
     type Step,
   } from "$lib/components/WorkflowFlow.svelte";
+  import WorkflowTimeline from "$lib/components/WorkflowTimeline.svelte";
+  import * as ToggleGroup from "$lib/components/ui/toggle-group";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
   import { realtimeClient, type SubscriptionHandle } from "$lib/realtime";
 
@@ -70,6 +73,36 @@
     }
   }
   let collapsed = $state(loadCollapsed());
+
+  // Graph vs timeline. The URL query wins (so links carry the view), then
+  // the last locally chosen view, then the graph default. Changes rewrite
+  // the query via replaceState — no history entry per toggle.
+  type DetailView = "graph" | "timeline";
+  const VIEW_KEY = "argus.workflowDetail.view";
+  function loadView(): DetailView {
+    const q = page.url.searchParams.get("view");
+    if (q === "graph" || q === "timeline") return q;
+    try {
+      if (typeof localStorage !== "undefined" && localStorage.getItem(VIEW_KEY) === "timeline")
+        return "timeline";
+    } catch {
+      // localStorage may be unavailable — fall through to the default.
+    }
+    return "graph";
+  }
+  let view = $state<DetailView>(loadView());
+  function setView(v: DetailView) {
+    view = v;
+    try {
+      if (typeof localStorage !== "undefined") localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      // Drop the write rather than crashing the handler.
+    }
+    const url = new URL(page.url.href);
+    if (v === "graph") url.searchParams.delete("view");
+    else url.searchParams.set("view", v);
+    replaceState(url, {});
+  }
   $effect(() => {
     if (typeof localStorage === "undefined") return;
     try {
@@ -298,14 +331,36 @@
     class="relative flex min-h-0 flex-1 overflow-hidden"
     class:select-none={dragging}
   >
-    <div class="min-h-0 min-w-0 flex-1">
-      <WorkflowFlow
-        family={detail.family}
-        steps={detail.steps}
-        currentId={detail.workflow_id}
-        {selection}
-        onSelect={(s) => (selection = s)}
-      />
+    <div class="relative min-h-0 min-w-0 flex-1">
+      {#if view === "graph"}
+        <WorkflowFlow
+          family={detail.family}
+          steps={detail.steps}
+          currentId={detail.workflow_id}
+          {selection}
+          onSelect={(s) => (selection = s)}
+        />
+      {:else}
+        <WorkflowTimeline
+          family={detail.family}
+          steps={detail.steps}
+          currentId={detail.workflow_id}
+          {selection}
+          onSelect={(s) => (selection = s)}
+        />
+      {/if}
+      <ToggleGroup.Root
+        class="bg-card shadow-surface absolute top-3 left-3 z-10 rounded-lg"
+        type="single"
+        variant="outline"
+        value={view}
+        onValueChange={(v) => {
+          if (v === "graph" || v === "timeline") setView(v);
+        }}
+      >
+        <ToggleGroup.Item value="graph" class="h-7 px-2.5">Graph</ToggleGroup.Item>
+        <ToggleGroup.Item value="timeline" class="h-7 px-2.5">Timeline</ToggleGroup.Item>
+      </ToggleGroup.Root>
     </div>
     {#if collapsed}
       <!-- Collapsed: the pane gives its space back to the graph and leaves

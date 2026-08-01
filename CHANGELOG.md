@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Timeline view on the workflow detail page. A Graph / Timeline toggle (also
+  a `?view=timeline` URL param) switches the canvas to a waterfall trace:
+  one row per step, grouped under each workflow in the family, with bars on
+  a shared time axis built from the step timestamps the detail endpoint
+  already ships. Child workflows interleave at their spawn call site with a
+  dashed queued lead-in, waits (sleep / recv / getEvent / getResult) render
+  as dashed outlines, setEvent / send as instant ticks, and running work
+  extends to a live "now" marker. Long waits are compressed by default —
+  clamped to about one median step's width under a hatched break band, with
+  a "Compress waits / True scale" toggle; spans covered by an executing step
+  are never compressed. Clicking a row drives the same selection and details
+  pane as the graph, and the chosen view persists per browser.
+
 ## [0.0.35] - 2026-07-28
 
 > **Tested against DBOS 2.27.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility.
