@@ -33,4 +33,4 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-exec uv run dbos-argus --host 0.0.0.0 --port "${PORT:-5000}"
+exec uv run dbos-argus --host 0.0.0.0 --port "${PORT:-4517}"

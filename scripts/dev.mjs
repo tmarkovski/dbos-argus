@@ -8,7 +8,7 @@
 //   --demo           also run the sample-app workload (scripts/demo-app.mjs)
 //
 // Always starts the FastAPI backend (uvicorn on :8090) and the SvelteKit dev
-// server (:5000) through a single `concurrently` child. DB URLs are set via
+// server (:4517) through a single `concurrently` child. DB URLs are set via
 // process.env so they propagate to every subprocess without POSIX inline
 // `VAR=val cmd` syntax, which is shell-specific.
 //

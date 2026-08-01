@@ -41,7 +41,7 @@ The root scripts run the same commands CI runs: `pnpm -r run <task>` for the JS 
 Targeted tasks:
 
 ```bash
-pnpm --filter console dev              # SvelteKit dev on :5000
+pnpm --filter console dev              # SvelteKit dev on :4517
 pnpm dev:server                        # FastAPI backend on :8090 (uvicorn --reload)
 uv run pytest packages/server/tests    # all server tests
 uv run ruff check packages/server      # python lint
@@ -61,7 +61,7 @@ Endpoints when up (single port):
 - API healthz: http://localhost:8090/healthz
 - Postgres: localhost:5432 (user/pass/db = `argus/argus/argus`)
 
-Pure frontend dev (HMR): `pnpm --filter console dev` starts Vite on :5000 and proxies `/healthz`, `/version` to a locally running server on :8090 (set `ARGUS_BACKEND_URL` to override).
+Pure frontend dev (HMR): `pnpm --filter console dev` starts Vite on :4517 (an uncommon port on purpose — 5000 collides with macOS AirPlay) and proxies `/healthz`, `/version` to a locally running server on :8090 (set `ARGUS_BACKEND_URL` to override).
 
 Argus does not own a schema. It reads DBOS Transact's system tables (`dbos.workflow_status`, etc.) from the Postgres DB that the DBOS app also uses. No migrations to run.
 

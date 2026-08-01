@@ -13,7 +13,8 @@ export default defineConfig({
   },
   server: {
     host: "0.0.0.0",
-    port: 5000,
+    // 4517 deliberately avoids common defaults (5000 is macOS AirPlay).
+    port: 4517,
     allowedHosts: true,
     proxy: {
       "/healthz": BACKEND_HTTP,

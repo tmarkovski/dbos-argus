@@ -16,10 +16,10 @@ outputType = "webview"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm install && uv sync && pnpm demo"
-waitForPort = 5000
+waitForPort = 4517
 
 [[ports]]
-localPort = 5000
+localPort = 4517
 externalPort = 80
 
 [[ports]]

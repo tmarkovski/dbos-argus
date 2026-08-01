@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clock skew when positioning the timeline's live edge; older servers that
   omit the field fall back to the client clock unchanged.
 
+### Changed
+- Console dev server moved from port 5000 to 4517 (Vite, Playwright, the
+  Replit workflow, and docs). Port 5000 is grabbed by macOS AirPlay Receiver
+  and commonly by other dev tools; 4517 is unassigned and unclaimed.
+
 ## [0.0.35] - 2026-07-28
 
 > **Tested against DBOS 2.27.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility.
