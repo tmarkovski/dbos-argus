@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.37] - 2026-08-02
+
+> **Tested against DBOS 2.27.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility.
+
+### Changed
+- The graph view remembers its viewport and expanded step groups per workflow
+  for the session, so switching to the timeline or navigating away and back no
+  longer re-fits the canvas and snaps every container shut. The details pane
+  width joins the collapsed flag and view choice in local storage. A page
+  reload starts fresh, since a viewport that suited one session is often wrong
+  once the workflow has grown.
+- "Compress waits / True scale" is now a single "Compress waits" checkbox in
+  the workflow list's filter-row treatment, on by default and persisted; what
+  the unchecked state means moved into the tooltip. Timeline bars ease between
+  the compressed and true-scale geometry, with the transition armed only for
+  the length of a toggle so running bars don't smear as they grow.
+- The graph and timeline crossfade when you switch between them (130ms,
+  collapsing to 0 under `prefers-reduced-motion`).
+- Timeline rows run full-bleed: the selected-row accent starts at the content
+  edge and the time track runs out to the pane divider.
+- The enqueued strip on the workflows page no longer drops the page as it
+  arrives. Its reveal is held a beat past the list's first paint and then
+  slides in, and the last snapshot is cached for the session (30s expiry,
+  keyed by queue scope) so returning to the page paints the strip already in
+  place instead of replaying the animation.
+- Nothing scrolls sideways any more. The workflows, schedules and
+  notifications tables use fixed layout with set widths on the metadata
+  columns and the flexible ones sharing what is left, so long names, ids and
+  topics ellipsis in place, each with the full value in a tooltip. Schedules
+  hides Timezone and Queue on narrow viewports and shows "Last fired" as a
+  relative time.
+- The sidebar rail sits a shade off the canvas (lighter in dark) with a right
+  border so the nav reads as its own space, a divider separates the sidebar
+  trigger from the breadcrumb, and the nav counts drop their tinted pill to
+  read as plain colored numerals.
+- The dashboard's range toggle and the notifications Pending/All toggle match
+  the workflow list's filter row and the workflow detail switcher.
+- The workflow detail pane's top edge lines up with the graph/timeline
+  switcher bar, the expand button drops to the lighter shadow its neighbours
+  use, the graph loses its left edge fade (keeping the top one), and the four
+  list pages lose a step of right padding.
+
+### Fixed
+- The sticky header could slide out over the sidebar. A wide table pushed the
+  main column past its share (a flex child defaults to `min-width: auto`), the
+  document scrolled sideways, and the header went with it.
+- Timeline row hover was invisible in light mode: the hover tint resolved to
+  a 0.003 lightness step over the canvas. Dark mode is unchanged.
+
 ## [0.0.36] - 2026-08-02
 
 > **Tested against DBOS 2.27.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility.
