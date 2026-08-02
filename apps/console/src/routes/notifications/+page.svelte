@@ -196,7 +196,7 @@
                           class="inline-block size-1.5 flex-none rounded-full {statusDotClass(a.status)}"
                         ></span>
                         <a
-                          href="/workflows/{encodeURIComponent(a.workflow_id)}/"
+                          href="#/workflows/{encodeURIComponent(a.workflow_id)}/"
                           onclick={(e) => e.stopPropagation()}
                           title={a.workflow_id}
                           class="hover:underline {isLast
@@ -215,7 +215,7 @@
                   </ol>
                 {:else}
                   <a
-                    href="/workflows/{encodeURIComponent(n.destination_uuid)}/"
+                    href="#/workflows/{encodeURIComponent(n.destination_uuid)}/"
                     onclick={(e) => e.stopPropagation()}
                     title={n.destination_uuid}
                     class="text-muted-foreground hover:text-foreground hover:underline"
@@ -339,7 +339,7 @@
                         class="inline-block size-1.5 flex-none rounded-full {statusDotClass(a.status)}"
                       ></span>
                       <a
-                        href="/workflows/{encodeURIComponent(a.workflow_id)}/"
+                        href="#/workflows/{encodeURIComponent(a.workflow_id)}/"
                         title={a.workflow_id}
                         class="hover:underline {isLast
                           ? 'text-foreground font-medium'
@@ -363,7 +363,7 @@
                 </p>
               {:else}
                 <a
-                  href="/workflows/{encodeURIComponent(selected.destination_uuid)}/"
+                  href="#/workflows/{encodeURIComponent(selected.destination_uuid)}/"
                   class="hover:text-foreground hover:underline font-mono text-sm break-all"
                 >
                   {selected.destination_uuid}

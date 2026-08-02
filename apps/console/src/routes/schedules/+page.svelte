@@ -115,7 +115,7 @@
               <Table.Cell class="text-muted-foreground px-4 py-2 font-mono text-xs">
                 {#if s.queue_name}
                   <a
-                    href="/workflows/?queue_name={encodeURIComponent(s.queue_name)}"
+                    href="#/workflows/?queue_name={encodeURIComponent(s.queue_name)}"
                     class="hover:text-foreground hover:underline"
                   >
                     {s.queue_name}

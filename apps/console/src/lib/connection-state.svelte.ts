@@ -96,7 +96,9 @@ class ConnectionState {
     this.diagnosticsError = null;
     this.diagnosticsLoading = true;
     try {
-      const res = await fetch("/api/sql-diagnostics");
+      // Relative (no leading slash) so it resolves against wherever the
+      // console is mounted — root or behind a reverse-proxy prefix.
+      const res = await fetch("api/sql-diagnostics");
       if (!res.ok) {
         let detail = `HTTP ${res.status}`;
         try {

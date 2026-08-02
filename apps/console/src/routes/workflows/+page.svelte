@@ -33,13 +33,14 @@
   import { breadcrumb } from "$lib/breadcrumb.svelte";
   import { statsState } from "$lib/stats.svelte";
   import { realtimeClient, type SubscriptionHandle } from "$lib/realtime";
+  import { routeUrl } from "$lib/route-url";
 
-  const queueName = $derived(page.url.searchParams.get("queue_name") ?? "");
+  const queueName = $derived(routeUrl(page.url).searchParams.get("queue_name") ?? "");
 
   $effect(() => {
     breadcrumb.items = queueName
       ? [
-          { label: "Workflows", href: "/workflows/", icon: "workflow" },
+          { label: "Workflows", href: "#/workflows/", icon: "workflow" },
           { label: `Queue: ${queueName}` },
         ]
       : [{ label: "Workflows", icon: "workflow" }];
@@ -400,7 +401,7 @@
   // than local state.
   function setQueueFilter(name: string) {
     queuePopoverOpen = false;
-    goto(name ? `/workflows/?queue_name=${encodeURIComponent(name)}` : "/workflows/", {
+    goto(name ? `#/workflows/?queue_name=${encodeURIComponent(name)}` : "#/workflows/", {
       noScroll: true,
       keepFocus: true,
     });
@@ -530,7 +531,7 @@
                   <td class="w-1 px-4 py-1.5 whitespace-nowrap">
                     {#if w.queue_name}
                       <a
-                        href="/workflows/?queue_name={encodeURIComponent(w.queue_name)}"
+                        href="#/workflows/?queue_name={encodeURIComponent(w.queue_name)}"
                         class="text-status-queued font-mono text-xs hover:underline"
                         title="Filter by queue {w.queue_name}"
                       >
@@ -552,7 +553,7 @@
                         />
                       {/if}
                       <a
-                        href="/workflows/{encodeURIComponent(w.workflow_id)}/"
+                        href="#/workflows/{encodeURIComponent(w.workflow_id)}/"
                         class="hover:underline"
                         title={isScheduled ? "Scheduled (cron) firing" : undefined}
                       >
@@ -562,7 +563,7 @@
                   </td>
                   <td class="text-muted-foreground px-4 py-1.5 font-mono text-xs">
                     <a
-                      href="/workflows/{encodeURIComponent(w.workflow_id)}/"
+                      href="#/workflows/{encodeURIComponent(w.workflow_id)}/"
                       class="hover:text-foreground hover:underline"
                       title={w.workflow_id}
                     >
@@ -828,12 +829,12 @@
                 // browser navigate them natively (preserves middle-click,
                 // ctrl/cmd-click, "open in new tab").
                 if ((e.target as HTMLElement).closest("a")) return;
-                goto(`/workflows/${encodeURIComponent(w.workflow_id)}/`);
+                goto(`#/workflows/${encodeURIComponent(w.workflow_id)}/`);
               }}
               onkeydown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  goto(`/workflows/${encodeURIComponent(w.workflow_id)}/`);
+                  goto(`#/workflows/${encodeURIComponent(w.workflow_id)}/`);
                 }
               }}
               tabindex={0}
@@ -872,7 +873,7 @@
                       </div>
                     {/each}
                     <a
-                      href="/workflows/{encodeURIComponent(w.workflow_id)}/"
+                      href="#/workflows/{encodeURIComponent(w.workflow_id)}/"
                       class="hover:text-foreground hover:underline {!grouped || w.depth === 0
                         ? 'py-1.5'
                         : 'py-0.5'} {grouped && w.depth > 0 ? 'pl-1' : ''}"
@@ -895,7 +896,7 @@
                     : 'py-0.5'}"
                 >
                   <a
-                    href="/workflows/{encodeURIComponent(w.workflow_id)}/"
+                    href="#/workflows/{encodeURIComponent(w.workflow_id)}/"
                     title={w.workflow_id}
                     class="hover:text-foreground hover:underline"
                   >
@@ -934,7 +935,7 @@
                 >
                   {#if w.queue_name}
                     <a
-                      href="/workflows/?queue_name={encodeURIComponent(w.queue_name)}"
+                      href="#/workflows/?queue_name={encodeURIComponent(w.queue_name)}"
                       class="hover:text-foreground hover:underline"
                     >
                       {w.queue_name}

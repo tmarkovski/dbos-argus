@@ -126,6 +126,25 @@ Multi-arch: `linux/amd64` + `linux/arm64`. Pulled from [`tmarkovski/dbos-argus`]
 | `ARGUS_DATABASE_URL` | SQLAlchemy async URL to the database your DBOS app writes to. Postgres (`postgresql+asyncpg://...`, or bare `postgresql://` / `postgres://` which Argus rewrites) and SQLite (`sqlite+aiosqlite:///...`, or bare `sqlite:///...`) are both supported. |
 | `ARGUS_CORS_ORIGINS` | Comma-separated allowed origins for the console / WebSocket. Defaults to `*` since Argus is an unauthenticated dev tool typically bound to localhost; narrow this if you expose Argus beyond localhost. |
 
+### Behind a reverse proxy, on a subpath
+
+Argus is mount-point agnostic: the console uses hash routing (`/#/workflows/...`)
+with relative asset, API, and WebSocket URLs, so the same image works served at
+`/` or behind any path prefix. No Argus configuration is involved — route the
+prefix to the container and strip it, e.g. nginx:
+
+```nginx
+location /argus/ {
+  proxy_pass http://argus:8090/;   # trailing slash strips the /argus prefix
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade $http_upgrade;   # WebSocket for the live console
+  proxy_set_header Connection "upgrade";
+}
+```
+
+Link to `/argus/` (with the trailing slash). Pre-0.0.36 path-style deep links
+(`/workflows/<id>`) redirect to the hash form automatically.
+
 ## Why Argus exists
 
 We built this because we like [DBOS](https://www.dbos.dev/). A lot.

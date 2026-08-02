@@ -9,6 +9,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Argus</title>
     <script>
+      // Legacy path-based deep links (pre-hash-routing bookmarks like
+      // /workflows/<id>) land on this shell via the SPA fallback; rewrite them
+      // to the hash form, preserving any reverse-proxy mount prefix.
+      (function () {
+        var m = window.location.pathname.match(
+          /^(.*?)\/((?:workflows|queues|schedules|notifications)\/.*)$/
+        );
+        if (m && !window.location.hash) {
+          window.location.replace(m[1] + "/#/" + m[2] + window.location.search);
+        }
+      })();
+    </script>
+    <script>
       (function () {
         try {
           var stored = localStorage.getItem("theme");
