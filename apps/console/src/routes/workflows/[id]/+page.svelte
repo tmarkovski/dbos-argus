@@ -16,6 +16,7 @@
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
   import { realtimeClient, type SubscriptionHandle } from "$lib/realtime";
+  import { routeUrl } from "$lib/route-url";
 
   type WorkflowDetail = {
     workflow_id: string;
@@ -80,7 +81,7 @@
   type DetailView = "graph" | "timeline";
   const VIEW_KEY = "argus.workflowDetail.view";
   function loadView(): DetailView {
-    const q = page.url.searchParams.get("view");
+    const q = routeUrl(page.url).searchParams.get("view");
     if (q === "graph" || q === "timeline") return q;
     try {
       if (typeof localStorage !== "undefined" && localStorage.getItem(VIEW_KEY) === "timeline")
@@ -98,15 +99,13 @@
     } catch {
       // Drop the write rather than crashing the handler.
     }
-    // Under hash routing the route and its query live in the URL fragment.
-    // page.url is the *decoded* form (route as pathname) — handing it to
-    // replaceState would rewrite the address bar to the path form, dropping
-    // the hash and any reverse-proxy mount prefix. Rewrite the query inside
-    // the fragment of the real browser URL instead.
-    const route = new URL(page.url.href);
+    // Under hash routing the route and its query live in the URL fragment —
+    // rewrite the query inside the fragment, keeping the browser URL's
+    // pathname (the mount point, e.g. a reverse-proxy prefix) untouched.
+    const route = routeUrl(page.url);
     if (v === "graph") route.searchParams.delete("view");
     else route.searchParams.set("view", v);
-    const url = new URL(window.location.href);
+    const url = new URL(page.url.href);
     url.hash = `#${route.pathname}${route.search}`;
     replaceState(url, {});
   }

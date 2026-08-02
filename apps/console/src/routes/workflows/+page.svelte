@@ -33,8 +33,9 @@
   import { breadcrumb } from "$lib/breadcrumb.svelte";
   import { statsState } from "$lib/stats.svelte";
   import { realtimeClient, type SubscriptionHandle } from "$lib/realtime";
+  import { routeUrl } from "$lib/route-url";
 
-  const queueName = $derived(page.url.searchParams.get("queue_name") ?? "");
+  const queueName = $derived(routeUrl(page.url).searchParams.get("queue_name") ?? "");
 
   $effect(() => {
     breadcrumb.items = queueName

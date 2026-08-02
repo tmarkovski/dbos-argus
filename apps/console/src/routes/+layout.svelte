@@ -12,6 +12,7 @@
   import Bell from "@lucide/svelte/icons/bell";
   import { page } from "$app/state";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
+  import { routeUrl } from "$lib/route-url";
   import {
     argusPinCommand,
     connectionIndicatorClass,
@@ -82,7 +83,7 @@
     return n > 99 ? "99+" : String(n);
   }
 
-  const pathname = $derived(page.url.pathname);
+  const pathname = $derived(routeUrl(page.url).pathname);
   function isActive(href: string): boolean {
     // The Home link points at "/" — every other path starts with "/", so it
     // would otherwise match everywhere. Treat root as exact-match-only.
