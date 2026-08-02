@@ -5,6 +5,7 @@
   import * as Table from "$lib/components/ui/table/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { formatStatus } from "$lib/workflow-tree";
+  import { formatRelative } from "$lib/format";
   import { realtimeClient, type SubscriptionHandle } from "$lib/realtime";
 
   type WorkflowSchedule = {
@@ -60,7 +61,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-4 p-4 pt-0 md:p-5 md:pt-0">
+<div class="flex flex-col gap-4 p-4 pt-0 pr-3 md:p-5 md:pt-0 md:pr-3">
   <header class="flex min-h-9 items-center justify-between">
     <p class="text-muted-foreground text-xs">
       Cron-style scheduled workflows registered with DBOS.
@@ -81,16 +82,19 @@
     </p>
   {:else}
     <Card.Root class="gap-0 py-0">
-      <Table.Root>
+      <!-- Fixed layout: columns hold their share and long values ellipsis
+           rather than widening the table into a horizontal scroll. Every
+           truncating cell carries a title with the full value. -->
+      <Table.Root class="table-fixed">
         <Table.Header class="bg-muted/40">
           <Table.Row class="hover:bg-muted/40">
-            <Table.Head class="px-4">Status</Table.Head>
+            <Table.Head class="w-[96px] px-4">Status</Table.Head>
             <Table.Head class="px-4">Name</Table.Head>
             <Table.Head class="px-4">Workflow</Table.Head>
-            <Table.Head class="px-4">Schedule</Table.Head>
-            <Table.Head class="px-4">Timezone</Table.Head>
-            <Table.Head class="px-4">Queue</Table.Head>
-            <Table.Head class="px-4">Last fired</Table.Head>
+            <Table.Head class="w-[116px] px-4">Schedule</Table.Head>
+            <Table.Head class="hidden w-[80px] px-4 lg:table-cell">Timezone</Table.Head>
+            <Table.Head class="hidden w-[104px] px-4 lg:table-cell">Queue</Table.Head>
+            <Table.Head class="w-[100px] px-4">Last fired</Table.Head>
           </Table.Row>
         </Table.Header>
         <Table.Body>
@@ -99,20 +103,31 @@
               <Table.Cell class="px-4 py-2">
                 <Badge class={statusClass(s.status)}>{formatStatus(s.status)}</Badge>
               </Table.Cell>
-              <Table.Cell class="px-4 py-2 font-mono">{s.schedule_name}</Table.Cell>
+              <Table.Cell class="truncate px-4 py-2 font-mono" title={s.schedule_name}>
+                {s.schedule_name}
+              </Table.Cell>
               <Table.Cell
-                class="px-4 py-2 font-mono text-xs"
-                title={s.workflow_class_name ?? ""}
+                class="truncate px-4 py-2 font-mono text-xs"
+                title={s.workflow_class_name
+                  ? `${s.workflow_class_name}.${s.workflow_name}`
+                  : s.workflow_name}
               >
                 {#if s.workflow_class_name}
                   <span class="text-muted-foreground">{s.workflow_class_name}.</span>
                 {/if}{s.workflow_name}
               </Table.Cell>
-              <Table.Cell class="px-4 py-2 font-mono text-xs">{s.schedule}</Table.Cell>
-              <Table.Cell class="text-muted-foreground px-4 py-2 text-xs">
+              <Table.Cell class="truncate px-4 py-2 font-mono text-xs" title={s.schedule}>
+                {s.schedule}
+              </Table.Cell>
+              <Table.Cell
+                class="text-muted-foreground hidden truncate px-4 py-2 text-xs lg:table-cell"
+              >
                 {s.cron_timezone ?? "UTC"}
               </Table.Cell>
-              <Table.Cell class="text-muted-foreground px-4 py-2 font-mono text-xs">
+              <Table.Cell
+                class="text-muted-foreground hidden truncate px-4 py-2 font-mono text-xs lg:table-cell"
+                title={s.queue_name ?? ""}
+              >
                 {#if s.queue_name}
                   <a
                     href="#/workflows/?queue_name={encodeURIComponent(s.queue_name)}"
@@ -125,10 +140,10 @@
                 {/if}
               </Table.Cell>
               <Table.Cell
-                class="text-muted-foreground px-4 py-2 text-xs"
+                class="text-muted-foreground truncate px-4 py-2 text-xs"
                 title={s.last_fired_at ?? ""}
               >
-                {s.last_fired_at ?? "—"}
+                {formatRelative(s.last_fired_at)}
               </Table.Cell>
             </Table.Row>
           {/each}

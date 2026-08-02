@@ -78,7 +78,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-4 p-4 pt-0 md:p-5 md:pt-0">
+<div class="flex flex-col gap-4 p-4 pt-0 pr-3 md:p-5 md:pt-0 md:pr-3">
   <header class="flex min-h-9 items-center justify-between">
     <p class="text-muted-foreground text-xs">
       Queues registered with DBOS, with their persisted concurrency and rate-limit configuration.

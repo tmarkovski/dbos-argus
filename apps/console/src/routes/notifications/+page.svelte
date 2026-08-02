@@ -123,22 +123,25 @@
   }
 </script>
 
-<div class="flex flex-col gap-4 p-4 pt-0 md:p-5 md:pt-0">
+<div class="flex flex-col gap-4 p-4 pt-0 pr-3 md:p-5 md:pt-0 md:pr-3">
   <header class="flex min-h-9 flex-wrap items-center justify-between gap-3">
     <p class="text-muted-foreground text-xs">
       Messages from <code class="font-mono">DBOS.send</code>; pending ones are waiting on a
       <code class="font-mono">DBOS.recv</code>.
     </p>
+    <!-- Sized to match the workflow list's filter row and the workflow
+         detail switcher: h-7 px-2.5 items at 12px. -->
     <ToggleGroup.Root
       type="single"
       variant="outline"
       value={view}
+      class="[&_button]:text-xs"
       onValueChange={(v) => {
         if (v) view = v as View;
       }}
     >
-      <ToggleGroup.Item value="pending">Pending</ToggleGroup.Item>
-      <ToggleGroup.Item value="all">All</ToggleGroup.Item>
+      <ToggleGroup.Item value="pending" class="h-7 px-2.5">Pending</ToggleGroup.Item>
+      <ToggleGroup.Item value="all" class="h-7 px-2.5">All</ToggleGroup.Item>
     </ToggleGroup.Root>
   </header>
 
@@ -158,15 +161,17 @@
     </p>
   {:else}
     <Card.Root class="gap-0 py-0">
-      <Table.Root>
+      <!-- Fixed layout so long ids and topics ellipsis instead of widening
+           the table into a horizontal scroll. -->
+      <Table.Root class="table-fixed">
         <Table.Header class="bg-muted/40">
           <Table.Row class="hover:bg-muted/40">
             <Table.Head class="w-32 px-4">Message ID</Table.Head>
             <Table.Head class="px-4">Destination workflow</Table.Head>
-            <Table.Head class="px-4">Topic</Table.Head>
-            <Table.Head class="px-4">State</Table.Head>
-            <Table.Head class="px-4">Sent</Table.Head>
-            <Table.Head class="w-1 px-4"><span class="sr-only">Details</span></Table.Head>
+            <Table.Head class="w-[132px] px-4">Topic</Table.Head>
+            <Table.Head class="w-[116px] px-4">State</Table.Head>
+            <Table.Head class="w-[100px] px-4">Sent</Table.Head>
+            <Table.Head class="w-14 px-4"><span class="sr-only">Details</span></Table.Head>
           </Table.Row>
         </Table.Header>
         <Table.Body>
@@ -181,7 +186,7 @@
               >
                 {n.message_uuid}
               </Table.Cell>
-              <Table.Cell class="px-4 py-2 font-mono text-xs">
+              <Table.Cell class="min-w-0 px-4 py-2 font-mono text-xs">
                 {#if n.destination_ancestors.length > 0}
                   <ol
                     class="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5"
@@ -218,13 +223,13 @@
                     href="#/workflows/{encodeURIComponent(n.destination_uuid)}/"
                     onclick={(e) => e.stopPropagation()}
                     title={n.destination_uuid}
-                    class="text-muted-foreground hover:text-foreground hover:underline"
+                    class="text-muted-foreground hover:text-foreground block truncate hover:underline"
                   >
                     {n.destination_uuid}
                   </a>
                 {/if}
               </Table.Cell>
-              <Table.Cell class="px-4 py-2 font-mono text-xs">
+              <Table.Cell class="truncate px-4 py-2 font-mono text-xs" title={n.topic ?? ""}>
                 {n.topic ?? "—"}
               </Table.Cell>
               <Table.Cell class="px-4 py-2">

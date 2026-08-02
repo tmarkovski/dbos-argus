@@ -148,15 +148,17 @@
       <span class="@[540px]/card:hidden">{rangeLabel}</span>
     </Card.Description>
     <Card.Action>
+      <!-- Sized to match the workflow list's filter row and the workflow
+           detail switcher: h-7 px-2.5 items at 12px. -->
       <ToggleGroup.Root
         type="single"
         bind:value={range as string}
         variant="outline"
-        class="hidden *:data-[slot=toggle-group-item]:!px-4 @[640px]/card:flex"
+        class="hidden @[640px]/card:flex [&_button]:text-xs"
       >
-        <ToggleGroup.Item value="24h">24h</ToggleGroup.Item>
-        <ToggleGroup.Item value="7d">7 days</ToggleGroup.Item>
-        <ToggleGroup.Item value="30d">30 days</ToggleGroup.Item>
+        <ToggleGroup.Item value="24h" class="h-7 px-2.5">24h</ToggleGroup.Item>
+        <ToggleGroup.Item value="7d" class="h-7 px-2.5">7 days</ToggleGroup.Item>
+        <ToggleGroup.Item value="30d" class="h-7 px-2.5">30 days</ToggleGroup.Item>
       </ToggleGroup.Root>
       <Select.Root type="single" bind:value={range as string}>
         <Select.Trigger

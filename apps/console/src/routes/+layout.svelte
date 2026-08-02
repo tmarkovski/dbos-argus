@@ -11,6 +11,7 @@
   import Layers from "@lucide/svelte/icons/layers";
   import Bell from "@lucide/svelte/icons/bell";
   import { page } from "$app/state";
+  import { Separator } from "$lib/components/ui/separator";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
   import { routeUrl } from "$lib/route-url";
   import {
@@ -42,8 +43,10 @@
     badges?: () => Pill[];
   };
 
-  const PILL_RUNNING = "bg-status-running/15 text-status-running";
-  const PILL_QUEUED = "bg-status-queued/15 text-status-queued";
+  // Counts read as plain colored numerals; the status hue alone carries the
+  // meaning, without a tinted pill competing with the active-item highlight.
+  const PILL_RUNNING = "text-status-running";
+  const PILL_QUEUED = "text-status-queued";
 
   const NAV: NavItem[] = [
     { href: "/", label: "Dashboard", icon: House },
@@ -252,7 +255,7 @@
                       >
                         <span>{pill.label}</span>
                         <span
-                          class="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-medium tabular-nums select-none {pill.class}"
+                          class="text-xs font-medium tabular-nums select-none {pill.class}"
                         >
                           {formatBadge(pill.count)}
                         </span>
@@ -486,6 +489,13 @@
       class="bg-background sticky top-0 z-10 flex h-11 shrink-0 items-center gap-3 pr-4 pl-3"
     >
       <Sidebar.Trigger class="-ml-1" />
+      <!-- Divider between the shell control and the page's own breadcrumb.
+           Pulled left so it reads as belonging to the trigger, and a step
+           darker than --border so it registers at 1px. -->
+      <Separator
+        orientation="vertical"
+        class="bg-muted-foreground/30 dark:bg-muted-foreground/60 -ml-1.5 !h-5"
+      />
       <Breadcrumb.Root class="min-w-0 flex-1 overflow-hidden">
         <Breadcrumb.List class="flex-nowrap overflow-hidden">
           {#each breadcrumb.items as item, i (i)}

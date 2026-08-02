@@ -479,7 +479,7 @@
 
 {#snippet highlighted(text: string | null, query: string)}{#each highlightSegments(text, query) as part, i (i)}{#if part.match}<mark class="bg-highlight/40 text-highlight-foreground dark:bg-highlight/30 rounded-sm">{part.text}</mark>{:else}{part.text}{/if}{/each}{/snippet}
 
-<div class="flex flex-col gap-4 p-4 pt-0 md:p-5 md:pt-0">
+<div class="flex flex-col gap-4 p-4 pt-0 pr-3 md:p-5 md:pt-0 md:pr-3">
   {#if enqueued.length > 0}
     <div
       class="border-status-queued/30 bg-status-queued/5 overflow-hidden rounded-lg border"
@@ -807,15 +807,18 @@
     </p>
   {:else}
     <Card.Root class="gap-0 py-0">
-      <Table.Root>
+      <!-- Fixed layout: the metadata columns hold a set width and name/ID
+           share what is left, so long values ellipsis instead of widening
+           the table into a horizontal scroll. -->
+      <Table.Root class="table-fixed">
         <Table.Header class="bg-muted/40 [&_th]:h-9">
           <Table.Row class="hover:bg-muted/40">
             {#if columns.name}<Table.Head class="px-4">Name</Table.Head>{/if}
-            {#if columns.status}<Table.Head class="px-4">Status</Table.Head>{/if}
+            {#if columns.status}<Table.Head class="w-[104px] px-4">Status</Table.Head>{/if}
             {#if columns.workflow_id}<Table.Head class="px-4">Workflow ID</Table.Head>{/if}
-            {#if columns.started}<Table.Head class="px-4">Started</Table.Head>{/if}
-            {#if columns.executor_id}<Table.Head class="px-4">Executor</Table.Head>{/if}
-            {#if columns.queue_name}<Table.Head class="px-4">Queue</Table.Head>{/if}
+            {#if columns.started}<Table.Head class="w-[92px] px-4">Started</Table.Head>{/if}
+            {#if columns.executor_id}<Table.Head class="w-[132px] px-4">Executor</Table.Head>{/if}
+            {#if columns.queue_name}<Table.Head class="w-[104px] px-4">Queue</Table.Head>{/if}
           </Table.Row>
         </Table.Header>
         <Table.Body>
@@ -845,7 +848,7 @@
             >
               {#if columns.name}
                 <Table.Cell class="px-4 py-0 font-mono">
-                  <div class="flex items-stretch">
+                  <div class="flex min-w-0 items-stretch">
                     {#each w.lineage as hasNext, i}
                       {@const isConnector = i === w.lineage.length - 1}
                       <div class="relative w-5 flex-none self-stretch">
@@ -874,7 +877,9 @@
                     {/each}
                     <a
                       href="#/workflows/{encodeURIComponent(w.workflow_id)}/"
-                      class="hover:text-foreground hover:underline {!grouped || w.depth === 0
+                      title={w.name ?? ""}
+                      class="truncate hover:text-foreground hover:underline {!grouped ||
+                      w.depth === 0
                         ? 'py-1.5'
                         : 'py-0.5'} {grouped && w.depth > 0 ? 'pl-1' : ''}"
                     >
@@ -890,7 +895,7 @@
               {/if}
               {#if columns.workflow_id}
                 <Table.Cell
-                  class="text-muted-foreground px-4 font-mono text-xs {!grouped ||
+                  class="text-muted-foreground truncate px-4 font-mono text-xs {!grouped ||
                   w.depth === 0
                     ? 'py-1.5'
                     : 'py-0.5'}"
@@ -906,7 +911,7 @@
               {/if}
               {#if columns.started}
                 <Table.Cell
-                  class="text-muted-foreground px-4 {!grouped || w.depth === 0
+                  class="text-muted-foreground truncate px-4 {!grouped || w.depth === 0
                     ? 'py-1.5'
                     : 'py-0.5'}"
                   title={w.started_at}
@@ -916,7 +921,7 @@
               {/if}
               {#if columns.executor_id}
                 <Table.Cell
-                  class="text-muted-foreground px-4 font-mono text-xs {!grouped ||
+                  class="text-muted-foreground truncate px-4 font-mono text-xs {!grouped ||
                   w.depth === 0
                     ? 'py-1.5'
                     : 'py-0.5'}"
@@ -927,7 +932,7 @@
               {/if}
               {#if columns.queue_name}
                 <Table.Cell
-                  class="text-muted-foreground px-4 font-mono text-xs {!grouped ||
+                  class="text-muted-foreground truncate px-4 font-mono text-xs {!grouped ||
                   w.depth === 0
                     ? 'py-1.5'
                     : 'py-0.5'}"
