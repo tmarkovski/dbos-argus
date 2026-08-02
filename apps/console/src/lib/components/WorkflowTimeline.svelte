@@ -1,7 +1,7 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
   import { Workflow as WorkflowIcon, Zap } from "@lucide/svelte";
   import prettyMs from "pretty-ms";
-  import * as ToggleGroup from "$lib/components/ui/toggle-group";
   import type { FamilyWorkflow, FlowSelection, Step } from "./WorkflowFlow.svelte";
   import {
     buildTimeScale,
@@ -21,15 +21,21 @@
     currentId,
     selection = null,
     onSelect,
+    // Owned here, rendered by the parent: the page hosts the
+    // "Compress waits" checkbox in its switcher bar, so the compression flag
+    // is bindable and wouldCompress reports whether the checkbox is worth
+    // showing at all.
+    compress = $bindable(true),
+    wouldCompress = $bindable(false),
   }: {
     family: FamilyWorkflow[];
     steps: Step[];
     currentId: string;
     selection?: FlowSelection;
     onSelect?: (sel: FlowSelection) => void;
+    compress?: boolean;
+    wouldCompress?: boolean;
   } = $props();
-
-  let compress = $state(true);
   // Skew-corrected "now": server clock per the realtime connection, not the
   // client's Date.now() — bars extending to the live edge are positioned
   // against server-recorded timestamps. (Issue #23.)
@@ -228,6 +234,10 @@
   );
   const ticks = $derived(scale ? scaleTicks(scale, tickCount) : []);
   const breaks = $derived(scale ? scale.segments.filter((s) => s.compressed) : []);
+
+  $effect(() => {
+    wouldCompress = scale?.wouldCompress ?? false;
+  });
   const nowX = $derived(anyActive && scale ? scale.toX(now) : null);
 
   function pct(x: number): string {
@@ -326,38 +336,43 @@
     return "bg-muted-foreground/40";
   }
 
+  // Bars ease between the compressed and true-scale geometry. The transition
+  // is armed only for the length of a toggle: as a standing rule it would
+  // also smear the per-second growth of running bars and every realtime
+  // reflow into a slow drift.
+  let animating = $state(false);
+  let animateTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastCompress = compress;
+  $effect(() => {
+    const next = compress;
+    if (next === lastCompress) return;
+    lastCompress = next;
+    animating = true;
+    if (animateTimer) clearTimeout(animateTimer);
+    animateTimer = setTimeout(() => (animating = false), 320);
+  });
+  onDestroy(() => {
+    if (animateTimer) clearTimeout(animateTimer);
+  });
+
   const BREAK_STRIPES =
     "repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in oklab, var(--color-muted-foreground) 20%, transparent) 5px 7px)";
 </script>
 
-<div class="bg-background relative flex h-full min-h-0 flex-col">
-  {#if scale?.wouldCompress}
-    <!-- right-14 clears the details pane's floating expand button (top-3
-         right-3, 32px wide) when the pane is collapsed. -->
-    <!-- z-20: must paint above the sticky axis header (z-10, opaque). -->
-    <ToggleGroup.Root
-      class="bg-card shadow-surface absolute top-3 right-14 z-20 rounded-lg"
-      type="single"
-      variant="outline"
-      value={compress ? "compressed" : "linear"}
-      onValueChange={(v) => {
-        if (v) compress = v === "compressed";
-      }}
-    >
-      <ToggleGroup.Item value="compressed" class="h-7 px-2.5">Compress waits</ToggleGroup.Item>
-      <ToggleGroup.Item value="linear" class="h-7 px-2.5">True scale</ToggleGroup.Item>
-    </ToggleGroup.Root>
-  {/if}
-
+<div class="bg-background relative flex h-full min-h-0 flex-col" class:tl-animating={animating}>
+  <!-- Rows run full-bleed: no padding on either side, so the selected-row
+       accent starts at the content edge and the time track uses every pixel
+       out to the pane divider. The row labels keep their own 12px inset via
+       the depth padding below. The axis header, the gridline overlay, the
+       row buttons and the now-line overlay are four parallel grids sharing
+       one track, so their horizontal padding must always match. -->
   <div class="min-h-0 flex-1 overflow-y-auto">
     <!-- The axis lives *inside* the scroll container (sticky) so its track
          and the rows' tracks share one coordinate space — measured outside,
          a layout scrollbar would make the body ~15px narrower and drift
-         every tick label off its gridline. pt-12 keeps it clear of the
-         page's floating Graph | Timeline toggle, which overlays the (empty)
-         label-column corner. -->
+         every tick label off its gridline. -->
     <div
-      class="bg-background sticky top-0 z-10 grid grid-cols-[280px_minmax(0,1fr)] pt-12 pr-6 pb-1"
+      class="bg-background sticky top-0 z-10 grid grid-cols-[280px_minmax(0,1fr)] pt-1 pb-1"
     >
       <div></div>
       <div class="relative h-5" bind:clientWidth={trackWidth}>
@@ -390,7 +405,7 @@
       {#if scale}
         <div
           aria-hidden="true"
-          class="pointer-events-none absolute inset-0 grid grid-cols-[280px_minmax(0,1fr)] pr-6"
+          class="pointer-events-none absolute inset-0 grid grid-cols-[280px_minmax(0,1fr)]"
         >
           <div></div>
           <div class="relative">
@@ -423,11 +438,11 @@
         {@const selected = v.selectionId === selectedId}
         <button
           type="button"
-          class="grid w-full cursor-pointer grid-cols-[280px_minmax(0,1fr)] pr-6 text-left
+          class="grid w-full cursor-pointer grid-cols-[280px_minmax(0,1fr)] text-left
             {isWorkflow ? 'h-8' : 'h-7'}
             {selected
             ? 'bg-primary/8 shadow-[inset_2px_0_0_var(--color-primary)]'
-            : 'hover:bg-muted/60'}"
+            : 'hover:bg-foreground/6 dark:hover:bg-muted/60'}"
           title={v.tooltip}
           aria-pressed={selected}
           onclick={() => select(v)}
@@ -477,14 +492,14 @@
           <span class="relative block h-full">
             {#if scale && v.queued}
               <span
-                class="border-muted-foreground/60 absolute top-1/2 h-3 min-w-[3px] -translate-y-1/2 rounded-[3px] border border-dashed"
+                class="tl-bar border-muted-foreground/60 absolute top-1/2 h-3 min-w-[3px] -translate-y-1/2 rounded-[3px] border border-dashed"
                 style={barGeom(v.queued)}
                 aria-hidden="true"
               ></span>
             {/if}
             {#if scale && v.bar}
               <span
-                class="absolute top-1/2 min-w-[3px] -translate-y-1/2 rounded-[3px]
+                class="tl-bar absolute top-1/2 min-w-[3px] -translate-y-1/2 rounded-[3px]
                   {isWorkflow ? 'h-4' : 'h-3'}
                   {v.bar.openEnded ? 'rounded-r-none' : ''}
                   {v.barCls}"
@@ -499,7 +514,7 @@
       {#if nowX !== null}
         <div
           aria-hidden="true"
-          class="pointer-events-none absolute inset-0 grid grid-cols-[280px_minmax(0,1fr)] pr-6"
+          class="pointer-events-none absolute inset-0 grid grid-cols-[280px_minmax(0,1fr)]"
         >
           <div></div>
           <div class="relative">
@@ -510,3 +525,19 @@
     </div>
   </div>
 </div>
+
+<style>
+  /* Armed only while `animating` is set (see the toggle effect above), so the
+     ease applies to a compress switch and nothing else. */
+  .tl-animating :global(.tl-bar) {
+    transition:
+      left 300ms cubic-bezier(0.4, 0, 0.2, 1),
+      width 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tl-animating :global(.tl-bar) {
+      transition: none;
+    }
+  }
+</style>

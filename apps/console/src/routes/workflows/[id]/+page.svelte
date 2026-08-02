@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
+  import { fade } from "svelte/transition";
+  import { prefersReducedMotion } from "svelte/motion";
   import { page } from "$app/state";
   import { replaceState } from "$app/navigation";
   import PanelRightOpen from "@lucide/svelte/icons/panel-right-open";
@@ -14,6 +16,7 @@
   } from "$lib/components/WorkflowFlow.svelte";
   import WorkflowTimeline from "$lib/components/WorkflowTimeline.svelte";
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
+  import { Checkbox } from "$lib/components/ui/checkbox";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
   import { realtimeClient, type SubscriptionHandle } from "$lib/realtime";
   import { routeUrl } from "$lib/route-url";
@@ -59,7 +62,6 @@
 
   const workflowId = $derived(page.params.id ?? "");
 
-  let rightWidth = $state(384); // matches the previous w-96
 
   // Side pane collapsed state survives reloads — same convention as the
   // sidebar / workflow filters (`argus.*` key, hydrated at script init
@@ -92,6 +94,33 @@
     return "graph";
   }
   let view = $state<DetailView>(loadView());
+  // Crossfade between the two views. Read at transition start, so flipping the
+  // OS reduced-motion setting takes effect without a reload; 0ms makes the
+  // transition a no-op rather than needing a separate code path.
+  const fadeMs = () => (prefersReducedMotion.current ? 0 : 130);
+  // Timeline wait-compression, bound into WorkflowTimeline; the checkbox
+  // itself lives in the switcher bar. wouldCompress is reported back by the
+  // timeline so the checkbox only shows when compression would change
+  // anything. On by default and persisted like the other pane settings.
+  const COMPRESS_KEY = "argus.workflowDetail.timelineCompress";
+  function loadCompress(): boolean {
+    if (typeof localStorage === "undefined") return true;
+    try {
+      return localStorage.getItem(COMPRESS_KEY) !== "0";
+    } catch {
+      return true;
+    }
+  }
+  let timelineCompress = $state(loadCompress());
+  let timelineWouldCompress = $state(false);
+  $effect(() => {
+    if (typeof localStorage === "undefined") return;
+    try {
+      localStorage.setItem(COMPRESS_KEY, timelineCompress ? "1" : "0");
+    } catch {
+      // Drop the write rather than crashing the effect.
+    }
+  });
   function setView(v: DetailView) {
     view = v;
     try {
@@ -125,6 +154,31 @@
   const MIN_RIGHT = 280;
   const MAX_RIGHT = 900;
   const RESIZE_STEP = 24;
+  // Pane width survives reloads like `collapsed` above; clamped on load so a
+  // stale or hand-edited value can't produce an unusable pane. Declared here
+  // (not with the other pane state) because the loader needs the bounds.
+  const WIDTH_KEY = "argus.workflowDetail.paneWidth";
+  function loadWidth(): number {
+    const fallback = 384; // matches the previous w-96
+    if (typeof localStorage === "undefined") return fallback;
+    try {
+      const raw = localStorage.getItem(WIDTH_KEY);
+      const n = raw === null ? NaN : Number(raw);
+      if (!Number.isFinite(n)) return fallback;
+      return Math.max(MIN_RIGHT, Math.min(MAX_RIGHT, n));
+    } catch {
+      return fallback;
+    }
+  }
+  let rightWidth = $state(loadWidth());
+  $effect(() => {
+    if (typeof localStorage === "undefined") return;
+    try {
+      localStorage.setItem(WIDTH_KEY, String(rightWidth));
+    } catch {
+      // Drop the write rather than crashing the effect.
+    }
+  });
 
   function onHandlePointerDown(e: PointerEvent) {
     dragging = true;
@@ -339,61 +393,93 @@
     class="relative flex min-h-0 flex-1 overflow-hidden"
     class:select-none={dragging}
   >
-    <div class="relative min-h-0 min-w-0 flex-1">
-      {#if view === "graph"}
-        <WorkflowFlow
-          family={detail.family}
-          steps={detail.steps}
-          currentId={detail.workflow_id}
-          {selection}
-          onSelect={(s) => (selection = s)}
-        />
-      {:else}
-        <!-- Absolutely positioned: the app shell is a min-height layout that
-             grows with in-flow content, so a tall trace would push the whole
-             document instead of scrolling inside the timeline. Out-of-flow,
-             the container settles at the viewport-bounded stretch size (same
-             reason the xyflow canvas works) and the timeline's internal
-             scroller actually engages. -->
-        <div class="absolute inset-0">
-          <WorkflowTimeline
-            family={detail.family}
-            steps={detail.steps}
-            currentId={detail.workflow_id}
-            {selection}
-            onSelect={(s) => (selection = s)}
-          />
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+      <!-- In-flow switcher bar: sits above the graph/timeline instead of
+           floating over them. pl-4 lines the toggle up with the sidebar
+           trigger's glyph in the header (header pl-3, and the trigger's
+           ghost-button box starts 8px further left than its glyph).
+           [&_button]:text-xs mirrors the workflow list's filter row so
+           toggle labels match that toolbar's type size. -->
+      <div
+        class="flex flex-none items-center justify-between pt-1 pb-1 pl-4 [&_button]:text-xs"
+      >
+        <ToggleGroup.Root
+          class="bg-card shadow-surface rounded-lg"
+          type="single"
+          variant="outline"
+          value={view}
+          onValueChange={(v) => {
+            if (v === "graph" || v === "timeline") setView(v);
+          }}
+        >
+          <ToggleGroup.Item value="graph" class="h-7 px-2.5">Graph</ToggleGroup.Item>
+          <ToggleGroup.Item value="timeline" class="h-7 px-2.5">Timeline</ToggleGroup.Item>
+        </ToggleGroup.Root>
+        <div class="flex items-center gap-2">
+          {#if view === "timeline" && timelineWouldCompress}
+            <!-- A boolean with a clear default, so it reads as a checkbox
+                 rather than a two-way switch; same treatment as the workflow
+                 list's "Hide scheduled". The tooltip carries what the
+                 unchecked state means. -->
+            <label
+              class="bg-card shadow-surface hover:bg-muted hover:text-foreground text-foreground flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-xs font-medium select-none dark:hover:bg-input/30"
+              title="Collapse long waits between steps; uncheck for a true linear time scale"
+            >
+              <Checkbox
+                checked={timelineCompress}
+                onCheckedChange={(v) => (timelineCompress = !!v)}
+              />
+              Compress waits
+            </label>
+          {/if}
+          {#if collapsed}
+            <!-- Collapsed: the pane gives its space back to the graph and
+                 leaves only this expand button behind. -->
+            <button
+              type="button"
+              onclick={() => (collapsed = false)}
+              title="Expand details pane"
+              aria-label="Expand details pane"
+              class="bg-card shadow-surface text-muted-foreground hover:text-foreground hover:bg-muted flex h-8 w-8 items-center justify-center rounded-lg"
+            >
+              <PanelRightOpen class="size-4" />
+            </button>
+          {/if}
         </div>
-      {/if}
-      <ToggleGroup.Root
-        class="bg-card shadow-surface absolute top-3 left-3 z-10 rounded-lg"
-        type="single"
-        variant="outline"
-        value={view}
-        onValueChange={(v) => {
-          if (v === "graph" || v === "timeline") setView(v);
-        }}
-      >
-        <ToggleGroup.Item value="graph" class="h-7 px-2.5">Graph</ToggleGroup.Item>
-        <ToggleGroup.Item value="timeline" class="h-7 px-2.5">Timeline</ToggleGroup.Item>
-      </ToggleGroup.Root>
+      </div>
+      <!-- Both views are absolutely positioned so they can overlap for the
+           length of the crossfade, and because the app shell is a min-height
+           layout: a tall trace left in flow would push the whole document
+           instead of scrolling inside the timeline. Out-of-flow, each settles
+           at the viewport-bounded stretch size (the same reason the xyflow
+           canvas works) and the timeline's own scroller engages. -->
+      <div class="relative min-h-0 flex-1">
+        {#if view === "graph"}
+          <div class="absolute inset-0" transition:fade={{ duration: fadeMs() }}>
+            <WorkflowFlow
+              family={detail.family}
+              steps={detail.steps}
+              currentId={detail.workflow_id}
+              {selection}
+              onSelect={(s) => (selection = s)}
+            />
+          </div>
+        {:else}
+          <div class="absolute inset-0" transition:fade={{ duration: fadeMs() }}>
+            <WorkflowTimeline
+              family={detail.family}
+              steps={detail.steps}
+              currentId={detail.workflow_id}
+              {selection}
+              onSelect={(s) => (selection = s)}
+              bind:compress={timelineCompress}
+              bind:wouldCompress={timelineWouldCompress}
+            />
+          </div>
+        {/if}
+      </div>
     </div>
-    {#if collapsed}
-      <!-- Collapsed: the pane gives its space back to the graph and leaves
-           only this floating expand button behind. top-3/right-4 mirrors the
-           collapse button's spot inside the expanded pane (12px pane margin,
-           plus 4px of pr-1 header inset on the right) so the icon doesn't
-           move when toggling. -->
-      <button
-        type="button"
-        onclick={() => (collapsed = false)}
-        title="Expand details pane"
-        aria-label="Expand details pane"
-        class="bg-card shadow-surface-lg text-muted-foreground hover:text-foreground hover:bg-muted absolute top-3 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg"
-      >
-        <PanelRightOpen class="size-4" />
-      </button>
-    {:else}
+    {#if !collapsed}
       <div
         class="relative hidden w-px flex-none lg:block"
         class:!bg-primary={dragging}
@@ -425,7 +511,7 @@
          the end (hiding the zero-width shadow sliver); `inert` keeps focus
          out of the closed pane. -->
     <div
-      class="shadow-surface-lg absolute inset-y-3 right-3 flex w-[var(--result-pane-width)] max-w-[calc(100%-3rem)] flex-none justify-end overflow-hidden rounded-xl lg:static lg:my-3 lg:mr-3 lg:ml-2"
+      class="shadow-surface-lg absolute top-1 right-3 bottom-3 flex w-[var(--result-pane-width)] max-w-[calc(100%-3rem)] flex-none justify-end overflow-hidden rounded-xl lg:static lg:mt-1 lg:mr-3 lg:mb-3 lg:ml-2"
       class:invisible={collapsed}
       inert={collapsed}
       class:transition-[width,visibility]={!dragging}

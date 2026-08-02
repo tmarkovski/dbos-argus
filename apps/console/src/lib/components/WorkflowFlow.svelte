@@ -1,6 +1,25 @@
+<script lang="ts" module>
+  import { SvelteSet } from "svelte/reactivity";
+  import type { Viewport } from "@xyflow/svelte";
+
+  // Per-workflow view state, remembered at module scope for the SPA session.
+  // Switching to the timeline or navigating away destroys this component, and
+  // without this the viewport re-fits and expanded containers snap shut on
+  // every return. A full page reload intentionally starts fresh.
+  type FlowMemory = { expanded: SvelteSet<string>; viewport?: Viewport };
+  const flowMemory = new Map<string, FlowMemory>();
+  function getFlowMemory(id: string): FlowMemory {
+    let mem = flowMemory.get(id);
+    if (!mem) {
+      mem = { expanded: new SvelteSet() };
+      flowMemory.set(id, mem);
+    }
+    return mem;
+  }
+</script>
+
 <script lang="ts">
   import { onDestroy, onMount, untrack } from "svelte";
-  import { SvelteSet } from "svelte/reactivity";
   import {
     Background,
     Controls,
@@ -84,7 +103,12 @@
 
   let nodes = $state.raw<Node[]>([]);
   let edges = $state.raw<Edge[]>([]);
-  let expanded = new SvelteSet<string>();
+  // Derived off currentId so in-place navigation to another workflow (child
+  // links reuse this instance) switches to that workflow's remembered state.
+  const flowMem = $derived(getFlowMemory(currentId));
+  const expanded = $derived(flowMem.expanded);
+  // Captured once at init: initialViewport/fitView only matter at mount.
+  const savedViewport = untrack(() => getFlowMemory(currentId).viewport);
   let colorMode = $state<ColorMode>("light");
   let layoutRun = 0;
   let layoutAnimationRun = 0;
@@ -803,7 +827,8 @@
     bind:edges
     {nodeTypes}
     {colorMode}
-    fitView
+    fitView={!savedViewport}
+    initialViewport={savedViewport}
     fitViewOptions={{ maxZoom: 1, padding: 0.15 }}
     nodesDraggable={false}
     nodesConnectable={false}
@@ -815,23 +840,22 @@
     proOptions={{ hideAttribution: true }}
     onnodeclick={handleNodeClick}
     onpaneclick={handlePaneClick}
+    onmoveend={(_, viewport) => (flowMem.viewport = viewport)}
   >
     <Background gap={18} patternColor="var(--color-border)" />
     <Controls showLock={false} />
+    <!-- The canvas shares the page background, so panned content would
+         otherwise hard-stop where the graph meets the switcher bar. Fade the
+         top edge to signal "the graph continues past here". This lives
+         *inside* the flow container: .svelte-flow is a stacking context
+         (relative, z-0), so as an outside sibling no internal z-index —
+         including the controls' — could ever paint above it. Inside,
+         z-[1001] clears xyflow's elevated selected nodes (1000). -->
+    <div
+      aria-hidden="true"
+      class="from-background pointer-events-none absolute inset-x-0 top-0 z-[1001] h-10 bg-linear-to-b to-transparent"
+    ></div>
   </SvelteFlow>
-  <!-- The canvas shares the page background, so panned content would
-       otherwise hard-stop at the container edge. Fade the top and left
-       edges to signal "the graph continues past here". z-index sits above
-       xyflow's elevated selected nodes (1000); controls are raised higher
-       in the style block below so they stay crisp. -->
-  <div
-    aria-hidden="true"
-    class="from-background pointer-events-none absolute inset-x-0 top-0 z-[1001] h-10 bg-linear-to-b to-transparent"
-  ></div>
-  <div
-    aria-hidden="true"
-    class="from-background pointer-events-none absolute inset-y-0 left-0 z-[1001] w-10 bg-linear-to-r to-transparent"
-  ></div>
 </div>
 
 <style>
@@ -854,9 +878,11 @@
     background: var(--color-background) !important;
   }
 
-  /* Zoom controls sit inside the left edge-fade strip; raise them above the
-     fade overlays so they don't get veiled. */
-  :global(.svelte-flow__controls) {
+  /* Keep the zoom controls above the edge-fade overlay so they stay crisp
+     wherever the two meet. The two-class selector outranks xyflow's own
+     `.svelte-flow__panel { z-index: 5 }`, which otherwise wins on stylesheet
+     order and would leave the controls under the fade's z-[1001]. */
+  :global(.svelte-flow .svelte-flow__controls) {
     z-index: 1010;
   }
 </style>

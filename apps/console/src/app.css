@@ -38,8 +38,10 @@
      is visually indistinguishable from zinc at this lightness. */
   --background: oklch(0.967 0.003 75);
   --muted-foreground: oklch(0.44 0.01 285.9);
-  /* Sidebar sits directly on the canvas; the active item is a raised card. */
-  --sidebar: var(--background);
+  /* The sidebar rail is a shade darker than the canvas (its right border is
+     added in the layout) so the nav reads as its own space; the active item
+     is still a raised card. */
+  --sidebar: oklch(0.945 0.003 75);
   --sidebar-accent: var(--card);
   /* Accent: muted iris instead of the preset's violet-700 — same family
      with chroma pulled down so it reads calm rather than royal. */
@@ -64,6 +66,11 @@
      leak the light canvas into dark mode. */
   --background: oklch(0.145 0 0);
   --muted-foreground: oklch(0.708 0 0);
+  /* Dark flips the rail's relationship to the canvas: a step lighter than
+     the near-black background, but below the card (0.205) so the active
+     pill keeps reading raised. Restated here because the :root --sidebar
+     above outranks theme.css's .dark block by source order. */
+  --sidebar: oklch(0.18 0 0);
   /* Iris accent restated for dark: same value as light — it clears white
      text either way — stated explicitly rather than relying on the leak. */
   --primary: oklch(0.55 0.17 285);

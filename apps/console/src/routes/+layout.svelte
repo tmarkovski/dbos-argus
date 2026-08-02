@@ -187,7 +187,7 @@
 </script>
 
 <Sidebar.Provider bind:open={sidebarOpen} onOpenChange={persistSidebarOpen}>
-  <Sidebar.Root collapsible="icon" variant="sidebar">
+  <Sidebar.Root collapsible="icon" variant="sidebar" class="border-sidebar-border border-r">
     <Sidebar.Header>
       <Sidebar.Menu>
         <Sidebar.MenuItem>
@@ -483,7 +483,7 @@
 
   <Sidebar.Inset>
     <header
-      class="bg-background sticky top-0 z-10 flex h-11 shrink-0 items-center gap-3 px-4"
+      class="bg-background sticky top-0 z-10 flex h-11 shrink-0 items-center gap-3 pr-4 pl-3"
     >
       <Sidebar.Trigger class="-ml-1" />
       <Breadcrumb.Root class="min-w-0 flex-1 overflow-hidden">
