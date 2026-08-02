@@ -1,5 +1,31 @@
+<script lang="ts" module>
+  // Last enqueued snapshot, kept at module scope for the SPA session so
+  // returning to this page (back/forward, or just navigating around) paints
+  // the strip already in place instead of replaying the reveal every time.
+  // Keyed by queue scope: the strip narrows to `?queue_name=`, and the two
+  // scopes must not seed each other. A full page reload starts cold, matching
+  // the graph's view memory in WorkflowFlow.svelte.
+  //
+  // Short-lived on purpose. These rows are live state, and the cached copy is
+  // only meant to cover the ~100ms until the socket's first snapshot lands —
+  // past that it would be showing a count that stopped being true a while ago.
+  const ENQUEUED_CACHE_TTL_MS = 30_000;
+  type EnqueuedCache = { rows: import("$lib/workflow-tree").Workflow[]; at: number };
+  const enqueuedCache = new Map<string, EnqueuedCache>();
+
+  function readEnqueuedCache(queue: string): EnqueuedCache["rows"] | null {
+    const hit = enqueuedCache.get(queue);
+    if (!hit) return null;
+    if (Date.now() - hit.at > ENQUEUED_CACHE_TTL_MS) {
+      enqueuedCache.delete(queue);
+      return null;
+    }
+    return hit.rows;
+  }
+</script>
+
 <script lang="ts">
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, untrack } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { getLocalTimeZone, parseDate, type DateValue } from "@internationalized/date";
@@ -12,6 +38,8 @@
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import CalendarClockIcon from "@lucide/svelte/icons/calendar-clock";
   import { slide } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
+  import { prefersReducedMotion } from "svelte/motion";
   import DateRangePicker from "$lib/components/DateRangePicker.svelte";
   import { Button } from "$lib/components/ui/button";
   import { Badge } from "$lib/components/ui/badge";
@@ -61,7 +89,28 @@
   // ENQUEUED rows live in a pinned strip above the main list; the server
   // hides them from /api/workflows by default, and the strip subscribes
   // separately with `status: ["ENQUEUED"]`.
-  let enqueued = $state<Workflow[]>([]);
+  // Seeded from the session cache when there is a fresh entry for this scope,
+  // so a return visit renders the strip in its final position on the first
+  // frame; the socket's snapshot corrects it a moment later.
+  const cachedEnqueued = readEnqueuedCache(untrack(() => queueName));
+  let enqueued = $state<Workflow[]>(cachedEnqueued ?? []);
+  // The strip's snapshot lands ~30ms after the main list's, and the strip sits
+  // above everything — arriving that close to the list's own first paint, it
+  // reads as the page glitching rather than as something appearing. Holding it
+  // a beat past the list separates the two, and the slide below then carries
+  // the movement instead of dropping it in one frame. A cache hit skips the
+  // staging entirely: there is nothing to announce, the strip was already
+  // there last time we looked.
+  const STRIP_REVEAL_DELAY_MS = 180;
+  let stripVisible = $state((cachedEnqueued?.length ?? 0) > 0);
+  $effect(() => {
+    if (enqueued.length === 0) {
+      stripVisible = false;
+      return;
+    }
+    const t = setTimeout(() => (stripVisible = true), STRIP_REVEAL_DELAY_MS);
+    return () => clearTimeout(t);
+  });
   // Collapse state survives reloads/navigation; SSR has no window so the
   // initial value defaults to collapsed and gets corrected on hydrate if the
   // user has previously toggled it open.
@@ -297,6 +346,9 @@
   function applyEnqueuedSnapshot(data: unknown): void {
     if (Array.isArray(data)) {
       enqueued = data as Workflow[];
+      // Cache empties too: a drained queue has to seed the next visit as
+      // "no strip", not leave the last non-empty snapshot standing.
+      enqueuedCache.set(queueName, { rows: enqueued, at: Date.now() });
     }
   }
   function applyQueuesSnapshot(data: unknown): void {
@@ -369,6 +421,26 @@
       onUpdate: applyQueuesSnapshot,
     });
   });
+
+  // Reveal for the enqueued strip. `slide` alone would animate the strip's own
+  // box but not the 16px flex gap the parent adds for it, so a third of the
+  // movement would still land in one frame; growing a negative bottom margin
+  // alongside the height absorbs that gap and the page below moves as one
+  // block. Reduced motion returns a 0ms transition rather than needing a
+  // separate code path.
+  function stripReveal(node: HTMLElement) {
+    if (prefersReducedMotion.current) return { duration: 0 };
+    const height = parseFloat(getComputedStyle(node).height);
+    const gap = node.parentElement
+      ? parseFloat(getComputedStyle(node.parentElement).rowGap) || 0
+      : 0;
+    return {
+      duration: 220,
+      easing: cubicOut,
+      css: (t: number) =>
+        `height: ${t * height}px; margin-bottom: ${(t - 1) * gap}px; overflow: hidden;`,
+    };
+  }
 
   function toggleEnqueuedCollapsed() {
     enqueuedCollapsed = !enqueuedCollapsed;
@@ -480,9 +552,10 @@
 {#snippet highlighted(text: string | null, query: string)}{#each highlightSegments(text, query) as part, i (i)}{#if part.match}<mark class="bg-highlight/40 text-highlight-foreground dark:bg-highlight/30 rounded-sm">{part.text}</mark>{:else}{part.text}{/if}{/each}{/snippet}
 
 <div class="flex flex-col gap-4 p-4 pt-0 pr-3 md:p-5 md:pt-0 md:pr-3">
-  {#if enqueued.length > 0}
+  {#if stripVisible}
     <div
       class="border-status-queued/30 bg-status-queued/5 overflow-hidden rounded-lg border"
+      transition:stripReveal
     >
       <button
         type="button"

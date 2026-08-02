@@ -20,9 +20,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # sample app's own floor is >=, which would otherwise float to newest.
 COPY tests/sample-app /opt/sample-app
 RUN if [ -n "$ARGUS_VERSION" ]; then \
-      pip install "dbos-argus==${ARGUS_VERSION}" "dbos==2.25.0" /opt/sample-app; \
+      pip install "dbos-argus==${ARGUS_VERSION}" "dbos==2.27.0" /opt/sample-app; \
     else \
-      pip install dbos-argus "dbos==2.25.0" /opt/sample-app; \
+      pip install dbos-argus "dbos==2.27.0" /opt/sample-app; \
     fi
 
 COPY scripts/demo-entrypoint.sh /usr/local/bin/demo-entrypoint.sh
