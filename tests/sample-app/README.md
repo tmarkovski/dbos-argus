@@ -34,7 +34,7 @@ pnpm demo
 
 That sets `ARGUS_DATABASE_URL` and `DBOS_SYSTEM_DATABASE_URL` to the same `argus-demo.sqlite` file at the repo root, then `scripts/dev.mjs` brings up:
 
-- the FastAPI backend (uvicorn on :8090) and the SvelteKit dev server (:5000)
+- the FastAPI backend (uvicorn on :8090) and the SvelteKit dev server (:4517)
 - the sample-app workload via `scripts/demo-app.mjs` (one-shot `argus-runner prepare`, then simulator + scheduler + metrics-runner)
 
 Ctrl+C tears everything down together.

@@ -4,11 +4,11 @@ export default defineConfig({
   testDir: "./e2e",
   webServer: {
     command: "pnpm run build && pnpm run start",
-    port: 5000,
+    port: 4517,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
   use: {
-    baseURL: "http://localhost:5000",
+    baseURL: "http://localhost:4517",
   },
 });

@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Timeline view on the workflow detail page. A Graph / Timeline toggle (also
+  a `?view=timeline` URL param) switches the canvas to a waterfall trace:
+  one row per step, grouped under each workflow in the family, with bars on
+  a shared time axis built from the step timestamps the detail endpoint
+  already ships. Child workflows interleave at their spawn call site with a
+  dashed queued lead-in (spawn ops that recorded an error or payload keep
+  their own selectable row), waits (sleep / recv / getEvent / getResult)
+  render as dashed outlines, setEvent / send as instant ticks, and running
+  work extends to a live "now" marker. Long waits are compressed by default —
+  clamped to about one median step's width under a hatched break band, with
+  a "Compress waits / True scale" toggle; spans covered by an executing step
+  are never compressed. Clicking a row drives the same selection and details
+  pane as the graph, and the chosen view persists per browser.
+- Realtime `snapshot` / `update` / `pong` messages now carry `server_time_ms`
+  (server wall clock at enqueue). The console uses it to correct for client
+  clock skew when positioning the timeline's live edge; older servers that
+  omit the field fall back to the client clock unchanged.
+
+### Changed
+- Console dev server moved from port 5000 to 4517 (Vite, Playwright, the
+  Replit workflow, and docs). Port 5000 is grabbed by macOS AirPlay Receiver
+  and commonly by other dev tools; 4517 is unassigned and unclaimed.
+- The workflow detail pane now slides open and closed (200ms ease-in-out)
+  instead of snapping, and its collapse/expand button keeps the exact same
+  screen position in both states. The pane header is tighter: content hugs
+  the card's top edge with the toggle inset 4px from the corner.
+
 ## [0.0.35] - 2026-07-28
 
 > **Tested against DBOS 2.27.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility.

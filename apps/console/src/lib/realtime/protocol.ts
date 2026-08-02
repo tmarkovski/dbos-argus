@@ -37,6 +37,8 @@ export type SnapshotMessage = {
   sub_id: string;
   channel: string;
   data: unknown;
+  /** Server wall clock (epoch ms) at enqueue time — used for skew correction. */
+  server_time_ms?: number | null;
 };
 
 export type UpdateMessage = {
@@ -44,6 +46,7 @@ export type UpdateMessage = {
   sub_id: string;
   channel: string;
   data: unknown;
+  server_time_ms?: number | null;
 };
 
 export type ErrorMessage = {
@@ -53,7 +56,7 @@ export type ErrorMessage = {
   message: string;
 };
 
-export type PongMessage = { type: "pong" };
+export type PongMessage = { type: "pong"; server_time_ms?: number | null };
 
 export type AckMessage = {
   type: "ack";

@@ -28,7 +28,7 @@ Bring up the full dev stack (Postgres + server + console):
 docker compose up
 ```
 
-- Console: http://localhost:5000
+- Console: http://localhost:4517
 - Server healthz: http://localhost:8090/healthz
 - Postgres: localhost:5432 (user `argus`, password `argus`, db `argus`)
 

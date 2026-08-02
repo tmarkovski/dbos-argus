@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -99,7 +100,7 @@ async def _handle_client_message(hub: RealtimeHub, conn: Connection, msg: Any) -
     msg_type = msg.get("type")
 
     if msg_type == "ping":
-        conn.enqueue(PongMessage())
+        conn.enqueue(PongMessage(server_time_ms=int(time.time() * 1000)))
         return
 
     if msg_type == "subscribe":

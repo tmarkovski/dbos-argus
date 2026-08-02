@@ -54,6 +54,10 @@ class SnapshotMessage(BaseModel):
     sub_id: str
     channel: str
     data: Any
+    # Server wall clock (epoch ms) at enqueue time. Lets clients compute a
+    # clock-skew offset so UI geometry anchored on "now" (e.g. the timeline's
+    # live edge) lines up with server-recorded timestamps.
+    server_time_ms: int | None = None
 
 
 class UpdateMessage(BaseModel):
@@ -63,6 +67,7 @@ class UpdateMessage(BaseModel):
     sub_id: str
     channel: str
     data: Any
+    server_time_ms: int | None = None
 
 
 class ErrorMessage(BaseModel):
@@ -73,7 +78,10 @@ class ErrorMessage(BaseModel):
 
 
 class PongMessage(BaseModel):
+    # Heartbeat pongs also carry the server clock so the skew offset stays
+    # fresh on quiet connections with no data flowing.
     type: Literal["pong"] = "pong"
+    server_time_ms: int | None = None
 
 
 class AckMessage(BaseModel):

@@ -73,6 +73,20 @@ export class RealtimeClient {
   // Reactive state — read these from components / .svelte.ts wrappers.
   connectionStatus = $state<ConnectionStatus>("closed");
   lastError = $state<string | null>(null);
+  /**
+   * server clock − client clock, from the latest `server_time_ms` seen on
+   * any snapshot/update/pong. The latest sample is used as-is: one-way
+   * delivery latency (ms) is noise next to the wall-clock skew (seconds+)
+   * this corrects for, and smoothing would just delay convergence after a
+   * clock step. 0 until the first stamped message arrives.
+   */
+  clockOffsetMs = $state(0);
+
+  /** Best-known server wall clock — use instead of Date.now() whenever the
+   * value is compared against server-recorded timestamps. */
+  serverNow(): number {
+    return Date.now() + this.clockOffsetMs;
+  }
 
   private readonly subs = new Map<string, InternalSub>();
   private socket: WebSocket | null = null;
@@ -211,15 +225,18 @@ export class RealtimeClient {
       return;
     }
     if (msg.type === "pong") {
+      this.recordServerTime(msg.server_time_ms);
       this.clearPongTimer();
       return;
     }
     if (msg.type === "snapshot") {
+      this.recordServerTime(msg.server_time_ms);
       const sub = this.subs.get(msg.sub_id);
       sub?.handlers.onSnapshot(msg.data, msg);
       return;
     }
     if (msg.type === "update") {
+      this.recordServerTime(msg.server_time_ms);
       const sub = this.subs.get(msg.sub_id);
       sub?.handlers.onUpdate(msg.data, msg);
       return;
@@ -234,6 +251,11 @@ export class RealtimeClient {
       return;
     }
     // ack — ignore by default; useful only for tests.
+  }
+
+  private recordServerTime(serverTimeMs: number | null | undefined): void {
+    if (typeof serverTimeMs !== "number" || !Number.isFinite(serverTimeMs)) return;
+    this.clockOffsetMs = serverTimeMs - Date.now();
   }
 
   private replaySubscriptions(): void {

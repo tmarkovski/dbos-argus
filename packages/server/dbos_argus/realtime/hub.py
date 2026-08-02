@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -48,6 +49,12 @@ class Subscription:
     params: dict[str, Any] | None
     connection: Connection
     poller: Poller | None = None
+
+
+def _server_time_ms() -> int:
+    """Wall clock stamped onto outbound data messages (protocol
+    `server_time_ms`) so clients can correct for clock skew."""
+    return int(time.time() * 1000)
 
 
 def _make_out_queue() -> asyncio.Queue[ServerMessage]:
@@ -143,6 +150,7 @@ class Poller:
                     sub_id=sub.sub_id,
                     channel=self.channel.name,
                     data=self._last_snapshot,
+                    server_time_ms=_server_time_ms(),
                 )
             )
 
@@ -163,6 +171,7 @@ class Poller:
                     sub_id=sub.sub_id,
                     channel=self.channel.name,
                     data=self._last_snapshot,
+                    server_time_ms=_server_time_ms(),
                 )
             )
 
@@ -173,6 +182,7 @@ class Poller:
                     sub_id=sub.sub_id,
                     channel=self.channel.name,
                     data=self._last_snapshot,
+                    server_time_ms=_server_time_ms(),
                 )
             )
 

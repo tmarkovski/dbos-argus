@@ -404,7 +404,7 @@
 </script>
 
 <aside class="bg-card flex h-full min-h-0 w-full flex-col overflow-hidden">
-  <div class="flex min-h-10 items-center gap-2 px-4">
+  <div class="flex min-h-8 items-center gap-2 pl-4 pr-1">
     <span class="text-muted-foreground truncate text-xs font-medium tracking-wide uppercase">
       {heading?.resultLabel ?? "Result"}
     </span>
