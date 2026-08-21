@@ -1,7 +1,7 @@
 {
   "schema": "dbos",
   "meta": {
-    "dbos_version": "2.27.0",
+    "dbos_version": "2.30.0",
     "note": "Full DBOS Postgres schema. `argus: true` columns are the ones the Argus backend actively reads — diff_schemas filters to those at runtime. The CI watchdog (.github/workflows/dbos-schema-watch.yml) regenerates this file against newly released DBOS versions and opens an issue when anything changes."
   },
   "tables": [
@@ -11,7 +11,8 @@
         {"name": "version_id", "data_type": "text", "argus": false},
         {"name": "version_name", "data_type": "text", "argus": false},
         {"name": "version_timestamp", "data_type": "bigint", "argus": false},
-        {"name": "created_at", "data_type": "bigint", "argus": false}
+        {"name": "created_at", "data_type": "bigint", "argus": false},
+        {"name": "application_name", "data_type": "text", "argus": false}
       ]
     },
     {
@@ -44,6 +45,21 @@
       ]
     },
     {
+      "name": "operation_outputs",
+      "columns": [
+        {"name": "workflow_uuid", "data_type": "text", "argus": true},
+        {"name": "function_id", "data_type": "integer", "argus": true},
+        {"name": "function_name", "data_type": "text", "argus": true},
+        {"name": "output", "data_type": "text", "argus": true},
+        {"name": "error", "data_type": "text", "argus": true},
+        {"name": "child_workflow_id", "data_type": "text", "argus": true},
+        {"name": "started_at_epoch_ms", "data_type": "bigint", "argus": true},
+        {"name": "completed_at_epoch_ms", "data_type": "bigint", "argus": true},
+        {"name": "serialization", "data_type": "text", "argus": true},
+        {"name": "application_name", "data_type": "text", "argus": false}
+      ]
+    },
+    {
       "name": "queues",
       "columns": [
         {"name": "queue_id", "data_type": "text", "argus": true},
@@ -56,21 +72,8 @@
         {"name": "partition_queue", "data_type": "boolean", "argus": true},
         {"name": "polling_interval_sec", "data_type": "double precision", "argus": true},
         {"name": "created_at", "data_type": "bigint", "argus": true},
-        {"name": "updated_at", "data_type": "bigint", "argus": true}
-      ]
-    },
-    {
-      "name": "operation_outputs",
-      "columns": [
-        {"name": "workflow_uuid", "data_type": "text", "argus": true},
-        {"name": "function_id", "data_type": "integer", "argus": true},
-        {"name": "function_name", "data_type": "text", "argus": true},
-        {"name": "output", "data_type": "text", "argus": true},
-        {"name": "error", "data_type": "text", "argus": true},
-        {"name": "child_workflow_id", "data_type": "text", "argus": true},
-        {"name": "started_at_epoch_ms", "data_type": "bigint", "argus": true},
-        {"name": "completed_at_epoch_ms", "data_type": "bigint", "argus": true},
-        {"name": "serialization", "data_type": "text", "argus": true}
+        {"name": "updated_at", "data_type": "bigint", "argus": true},
+        {"name": "application_name", "data_type": "text", "argus": false}
       ]
     },
     {
@@ -116,7 +119,8 @@
         {"name": "last_fired_at", "data_type": "text", "argus": true},
         {"name": "automatic_backfill", "data_type": "boolean", "argus": true},
         {"name": "cron_timezone", "data_type": "text", "argus": true},
-        {"name": "queue_name", "data_type": "text", "argus": true}
+        {"name": "queue_name", "data_type": "text", "argus": true},
+        {"name": "application_name", "data_type": "text", "argus": false}
       ]
     },
     {
@@ -158,7 +162,8 @@
         {"name": "attributes", "data_type": "jsonb", "argus": true},
         {"name": "schedule_name", "data_type": "text", "argus": true},
         {"name": "debounce_deadline_epoch_ms", "data_type": "bigint", "argus": false},
-        {"name": "is_debounced", "data_type": "boolean", "argus": false}
+        {"name": "is_debounced", "data_type": "boolean", "argus": false},
+        {"name": "application_name", "data_type": "text", "argus": false}
       ]
     }
   ]

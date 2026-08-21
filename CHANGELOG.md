@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.38] - 2026-08-21
+
+> **Tested against DBOS 2.30.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture floor is now `dbos>=2.30.0`.
+
+### Changed
+- Schema snapshot regenerated against DBOS 2.30.0. The new
+  `application_name` column that DBOS added to `application_versions`,
+  `operation_outputs`, `queues`, `workflow_schedules` and `workflow_status`
+  is recorded as untracked (`argus: false`) on all five tables. Argus does
+  not read it, so there is no change to the REST/realtime payloads or the
+  console. The DBOS dev fixture now requires `dbos>=2.30.0`.
+
 ## [0.0.37] - 2026-08-02
 
 > **Tested against DBOS 2.27.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility.
