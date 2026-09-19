@@ -5,7 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.39] - 2026-09-19
+
+> **Tested against DBOS 2.30.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility.
 
 ### Added
 - Custom DBOS system schema on Postgres. Apps that set DBOS's
@@ -923,7 +925,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.34...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.39...HEAD
+[0.0.39]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.39
+[0.0.38]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.38
+[0.0.37]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.37
+[0.0.36]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.36
+[0.0.35]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.35
 [0.0.34]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.34
 [0.0.33]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.33
 [0.0.32]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.32
