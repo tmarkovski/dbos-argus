@@ -24,6 +24,8 @@ Argus reads DBOS's system tables directly, so a database migrated by an older DB
 psql "$ARGUS_DATABASE_URL" -c 'SELECT version FROM dbos.dbos_migrations'
 ```
 
+(Replace `dbos` with your schema name if your app uses a custom `dbos_system_schema`.)
+
 | Your `dbos_migrations.version` | | Use Argus | Because it reads |
 |---|---|---|---|
 | Postgres | SQLite | | |
@@ -93,6 +95,7 @@ A few gotchas:
 
 - **Argus runs on asyncpg / aiosqlite.** Bare `postgresql://`, `postgres://`, and `sqlite://` URLs all work — Argus rewrites the scheme to `postgresql+asyncpg://` or `sqlite+aiosqlite://` automatically. Pasting a standard libpq connection string is fine.
 - **SQLite paths are absolute by URL convention.** `sqlite:////path/to/file.sqlite` (four slashes) means `/path/to/file.sqlite`. Three slashes makes it relative to the current working directory.
+- **Custom DBOS system schema.** If your app sets DBOS's `dbos_system_schema` config key, or uses a library that sets it for you, pass the same name with `--dbos-system-schema` or `ARGUS_DBOS_SYSTEM_SCHEMA`. Otherwise Argus looks in `dbos`, finds nothing, and shows an empty state. Postgres only; SQLite has no schema namespace.
 - **Azure Database for PostgreSQL uses TLS.** Argus auto-enables `sslmode=require` for hosts under `*.postgres.database.azure.com`; add an explicit `sslmode=` only if you need to override that default.
 - **`host.docker.internal`** (Docker only) is what the container uses to reach Postgres on your host (macOS, Windows, Docker Desktop). On Linux, add `--add-host=host.docker.internal:host-gateway`, or use `--network host` and switch back to `localhost`.
 - **`pg_hba.conf`** may reject connections from the docker bridge (`172.17.0.0/16`) by default. If you see auth errors, add a matching `host` line.
@@ -124,6 +127,7 @@ Multi-arch: `linux/amd64` + `linux/arm64`. Pulled from [`tmarkovski/dbos-argus`]
 | Var | Purpose |
 |---|---|
 | `ARGUS_DATABASE_URL` | SQLAlchemy async URL to the database your DBOS app writes to. Postgres (`postgresql+asyncpg://...`, or bare `postgresql://` / `postgres://` which Argus rewrites) and SQLite (`sqlite+aiosqlite:///...`, or bare `sqlite:///...`) are both supported. |
+| `ARGUS_DBOS_SYSTEM_SCHEMA` | Postgres schema that holds the DBOS system tables. Defaults to `dbos`. Set it to the value of your DBOS app's `dbos_system_schema` config key when that is customized. Must be a plain identifier (letters, digits, underscores) and is matched case-sensitively, because DBOS quotes the name when it creates the schema. Also available as `--dbos-system-schema`. Ignored on SQLite. |
 | `ARGUS_CORS_ORIGINS` | Comma-separated allowed origins for the console / WebSocket. Defaults to `*` since Argus is an unauthenticated dev tool typically bound to localhost; narrow this if you expose Argus beyond localhost. |
 
 ### Behind a reverse proxy, on a subpath

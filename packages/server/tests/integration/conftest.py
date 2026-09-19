@@ -4,6 +4,12 @@ CI runs this suite once per backend by setting `ARGUS_TEST_DATABASE_URL`
 to a Postgres or SQLite URL; locally the suite falls back to a sqlite
 tempfile so it works offline.
 
+On Postgres the DBOS system schema is named by `ARGUS_DBOS_SYSTEM_SCHEMA` —
+the same variable the server reads — and defaults to `dbos`. CI runs an extra
+Postgres leg with a non-default name. That leg's fresh server has no `dbos`
+schema at all, so a query that still hardcodes the `dbos.` prefix comes back
+empty and fails the suite.
+
 The fixture bootstraps the DBOS system schema using DBOS's own migration
 SQL (`dbos._migration`) — same authority that creates the schema in a
 real DBOS app — then inserts a small but representative seed:
@@ -33,6 +39,9 @@ from dbos_argus.db.postgres import PostgresArgusDB
 from dbos_argus.db.sqlite import SqliteArgusDB
 from dbos_argus.settings import Settings
 from sqlalchemy import create_engine, text
+
+# Validated by `Settings`, so it is safe to interpolate below.
+DBOS_SYSTEM_SCHEMA = Settings().dbos_system_schema
 
 # Tables the DBOS schema owns. Listed explicitly (rather than introspected)
 # so a missing-table bug in the adapter can't hide a half-cleaned fixture.
@@ -72,8 +81,8 @@ def _bootstrap_postgres(sync_url: str) -> None:
 
     eng = create_engine(sync_url)
     try:
-        ensure_dbos_schema(eng, "dbos")
-        run_dbos_migrations(eng, "dbos", use_listen_notify=False)
+        ensure_dbos_schema(eng, DBOS_SYSTEM_SCHEMA)
+        run_dbos_migrations(eng, DBOS_SYSTEM_SCHEMA, use_listen_notify=False)
     finally:
         eng.dispose()
 
@@ -120,15 +129,15 @@ def _drop(sync_url: str) -> None:
                 for t in _DBOS_TABLES:
                     conn.execute(text(f'DROP TABLE IF EXISTS "{t}"'))
             else:
-                conn.execute(text('DROP SCHEMA IF EXISTS "dbos" CASCADE'))
+                conn.execute(text(f'DROP SCHEMA IF EXISTS "{DBOS_SYSTEM_SCHEMA}" CASCADE'))
     finally:
         eng.dispose()
 
 
 def _seed(sync_url: str, base_ms: int) -> dict[str, object]:
     """Insert the canonical fixture tree. Same INSERTs work on both backends —
-    `dbos.` prefix is the only difference, and that's parametrized."""
-    p = "" if _is_sqlite(sync_url) else "dbos."
+    the schema prefix is the only difference, and that's parametrized."""
+    p = "" if _is_sqlite(sync_url) else f'"{DBOS_SYSTEM_SCHEMA}".'
     eng = create_engine(sync_url)
     try:
         with eng.begin() as conn:
@@ -344,7 +353,7 @@ def db_url() -> AsyncIterator[str]:
 
 
 def _make_adapter(url: str) -> ArgusDB:
-    settings = Settings(database_url=url)
+    settings = Settings(database_url=url, dbos_system_schema=DBOS_SYSTEM_SCHEMA)
     return SqliteArgusDB(settings) if _is_sqlite(url) else PostgresArgusDB(settings)
 
 

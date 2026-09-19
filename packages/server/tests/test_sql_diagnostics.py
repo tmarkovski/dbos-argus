@@ -9,7 +9,7 @@ from dbos_argus.schema_dump import (
     argus_only,
     load_full_dump,
 )
-from dbos_argus.sql_diagnostics import DbosSchemaReport
+from dbos_argus.sql_diagnostics import DbosSchemaReport, inspect_dbos_schema
 from fastapi.testclient import TestClient
 
 
@@ -50,6 +50,40 @@ def test_diff_reports_missing_table_column_and_type_mismatch() -> None:
         ("missing_column", "notifications", "consumed", "boolean", None),
         ("missing_table", "workflow_events_history", None, None, None),
     ]
+
+
+def test_diff_details_name_the_live_schema_not_the_snapshot_schema() -> None:
+    # With a custom `dbos_system_schema` the snapshot still says "dbos"; the
+    # operator needs to see the schema Argus actually looked in.
+    expected = _dump(("workflow_status", [("workflow_uuid", "text")]), ("queues", []))
+    actual = SchemaDump(
+        schema="custom_schema",
+        tables=(TableInfo(name="workflow_status", columns=()),),
+    )
+    assert [i.detail for i in diff_schemas(expected, actual)] == [
+        "Missing required column custom_schema.workflow_status.workflow_uuid.",
+        "Missing required table custom_schema.queues.",
+    ]
+
+
+async def test_inspect_reflects_the_adapters_own_schema() -> None:
+    # Regression guard for the bug the issue called out: passing the
+    # snapshot's schema ("dbos") into reflection reports every table as
+    # missing on a custom-schema database.
+    full = argus_only(load_full_dump())
+
+    class FakeDB:
+        dialect = "postgres"
+
+        async def reflect_schema(self) -> SchemaDump:
+            return SchemaDump(schema="custom_schema", tables=full.tables)
+
+        async def dbos_schema_revision(self) -> int:
+            return required_revision("postgres")
+
+    report = await inspect_dbos_schema(FakeDB())  # type: ignore[arg-type]
+    assert report.issues == []
+    assert report.compat.compatible
 
 
 def test_diff_treats_integer_and_bigint_as_equivalent() -> None:

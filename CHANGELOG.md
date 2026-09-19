@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Custom DBOS system schema on Postgres. Apps that set DBOS's
+  `dbos_system_schema` config key, or that use a library which sets it for
+  them, keep their system tables outside the default `dbos` schema, and
+  Argus previously showed them an empty state. Set
+  `ARGUS_DBOS_SYSTEM_SCHEMA` or pass `--dbos-system-schema` to point Argus at
+  the right schema. Every query stays schema-qualified with the configured
+  name rather than relying on `search_path`, and `/api/sql-diagnostics`
+  inspects and names that schema in its messages. The name must be a plain
+  identifier and is matched case-sensitively, as DBOS does. SQLite is
+  unaffected. `--dump-schema` now dumps the configured schema unless
+  `--dump-schema-name` overrides it.
+  ([#28](https://github.com/tmarkovski/dbos-argus/issues/28))
+
 ## [0.0.38] - 2026-08-21
 
 > **Tested against DBOS 2.30.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture floor is now `dbos>=2.30.0`.

@@ -55,6 +55,15 @@ def _version_message() -> str:
     ),
 )
 @click.option(
+    "--dbos-system-schema",
+    envvar="ARGUS_DBOS_SYSTEM_SCHEMA",
+    help=(
+        "Postgres schema holding the DBOS system tables. Set it to the same value "
+        "as your DBOS app's `dbos_system_schema` config key. Ignored on SQLite. "
+        "Also reads ARGUS_DBOS_SYSTEM_SCHEMA.  [default: dbos]"
+    ),
+)
+@click.option(
     "--host",
     default="127.0.0.1",
     show_default=True,
@@ -82,29 +91,30 @@ def _version_message() -> str:
     "--dump-schema",
     is_flag=True,
     help=(
-        "Connect to --db-url, print the live `dbos` schema as JSON to stdout, "
+        "Connect to --db-url, print the live DBOS system schema as JSON to stdout, "
         "and exit. Use this to regenerate the snapshot at "
         "dbos_argus/data/expected_schema.json against a fresh DBOS DB."
     ),
 )
 @click.option(
     "--dump-schema-name",
-    default="dbos",
-    show_default=True,
-    help="Schema to dump when --dump-schema is set.",
+    help="Schema to dump when --dump-schema is set.  [default: the --dbos-system-schema value]",
 )
 def main(
     db_url: str | None,
+    dbos_system_schema: str | None,
     host: str,
     port: int,
     log_level: str,
     cors_origins: str | None,
     dump_schema: bool,
-    dump_schema_name: str,
+    dump_schema_name: str | None,
 ) -> None:
     """Run the dbos-argus workflow viewer (FastAPI + bundled SPA)."""
     if db_url:
         os.environ["ARGUS_DATABASE_URL"] = db_url
+    if dbos_system_schema:
+        os.environ["ARGUS_DBOS_SYSTEM_SCHEMA"] = dbos_system_schema
     if cors_origins:
         os.environ["ARGUS_CORS_ORIGINS"] = cors_origins
     os.environ["ARGUS_LOG_LEVEL"] = log_level.upper()
@@ -121,10 +131,14 @@ def main(
     )
 
 
-def _dump_schema_and_exit(schema_name: str) -> None:
-    # Imported lazily so server-only deps don't load when the CLI just dumps.
+def _dump_schema_and_exit(schema_name: str | None) -> None:
+    # Imported lazily so server-only deps don't load when the CLI just dumps,
+    # and so `settings` sees the env vars `main()` just exported.
     from .db import engine
     from .schema_dump import dump_live_schema, to_json
+    from .settings import settings
+
+    schema_name = schema_name or settings.dbos_system_schema
 
     async def _run() -> dict[str, object]:
         async with engine.connect() as conn:

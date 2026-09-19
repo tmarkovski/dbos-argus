@@ -37,7 +37,10 @@ class DbosSchemaReport:
 
 async def inspect_dbos_schema(db: ArgusDB) -> DbosSchemaReport:
     expected = argus_only(load_full_dump())
-    actual = await db.reflect_schema(schema=expected.schema)
+    # The adapter reflects whichever schema it was configured with. The
+    # snapshot's own `schema` is always "dbos" (it is generated from a default
+    # DBOS install), so it can't be used to pick the live schema.
+    actual = await db.reflect_schema()
     revision = await db.dbos_schema_revision()
     return DbosSchemaReport(
         issues=diff_schemas(expected, actual),

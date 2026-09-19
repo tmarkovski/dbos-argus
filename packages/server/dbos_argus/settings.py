@@ -17,6 +17,12 @@ def _is_azure_postgres_host(hostname: str | None) -> bool:
     return bool(hostname) and hostname.endswith(".postgres.database.azure.com")
 
 
+# The schema name is interpolated into SQL (identifiers can't be bound as
+# parameters), so it is restricted to a plain identifier. Postgres truncates
+# identifiers past 63 bytes, which would silently point Argus at another schema.
+_PLAIN_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,62}")
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="ARGUS_", env_file=".env", extra="ignore")
 
@@ -28,6 +34,11 @@ class Settings(BaseSettings):
     # narrow this to their console origin(s).
     cors_origins: str = "*"
     log_level: str = "INFO"
+    # Postgres schema holding the DBOS system tables. Mirrors DBOS's own
+    # `dbos_system_schema` config key: copy that value here if the app sets it.
+    # Matched case-sensitively, because DBOS quotes the name when it creates
+    # the schema. Ignored on SQLite, which has no schema namespace.
+    dbos_system_schema: str = "dbos"
 
     # Realtime (WebSocket) layer. The /ws endpoint runs server-side polling
     # tasks and broadcasts deltas to subscribed clients. Disable to fall back
@@ -56,6 +67,22 @@ class Settings(BaseSettings):
         if v.startswith("sqlite://") and not v.startswith("sqlite+"):
             return "sqlite+aiosqlite://" + v[len("sqlite://") :]
         return v
+
+    @field_validator("dbos_system_schema")
+    @classmethod
+    def _require_plain_identifier(cls, v: str) -> str:
+        if not _PLAIN_IDENTIFIER.fullmatch(v):
+            raise ValueError(
+                f"dbos_system_schema must be a plain identifier (letters, digits and "
+                f"underscores, not starting with a digit, at most 63 characters); got {v!r}"
+            )
+        return v
+
+    @property
+    def quoted_dbos_system_schema(self) -> str:
+        # Safe to wrap in quotes without escaping: the validator above rules
+        # out every character that could close the quoted identifier.
+        return f'"{self.dbos_system_schema}"'
 
     def asyncpg_engine_args(self) -> tuple[str, dict[str, Any]]:
         # Translate libpq-style query params on the URL into asyncpg connect

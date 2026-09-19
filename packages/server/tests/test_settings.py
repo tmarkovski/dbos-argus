@@ -1,4 +1,6 @@
+import pytest
 from dbos_argus.settings import Settings
+from pydantic import ValidationError
 
 
 def test_bare_postgresql_scheme_is_rewritten_to_asyncpg() -> None:
@@ -82,3 +84,46 @@ def test_asyncpg_engine_args_passthrough_when_no_libpq_params() -> None:
     url, kwargs = s.asyncpg_engine_args()
     assert url == "postgresql+asyncpg://u:p@host:5432/db"
     assert kwargs == {}
+
+
+def test_dbos_system_schema_defaults_to_dbos(monkeypatch) -> None:
+    # CI's custom-schema leg exports the variable for the whole test run.
+    monkeypatch.delenv("ARGUS_DBOS_SYSTEM_SCHEMA", raising=False)
+    s = Settings(database_url="postgresql+asyncpg://u:p@host:5432/db")
+    assert s.dbos_system_schema == "dbos"
+    assert s.quoted_dbos_system_schema == '"dbos"'
+
+
+def test_dbos_system_schema_is_read_from_the_environment(monkeypatch) -> None:
+    monkeypatch.setenv("ARGUS_DBOS_SYSTEM_SCHEMA", "dbosify_default")
+    assert Settings().dbos_system_schema == "dbosify_default"
+
+
+def test_dbos_system_schema_preserves_case() -> None:
+    # DBOS quotes the schema when creating it, so "MyApp" and "myapp" are
+    # different schemas and Argus must not fold the case.
+    s = Settings(dbos_system_schema="MyApp_dbos")
+    assert s.quoted_dbos_system_schema == '"MyApp_dbos"'
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "1dbos",
+        "my-schema",
+        "my schema",
+        "dbos.other",
+        'dbos"; DROP SCHEMA dbos CASCADE; --',
+        "dbos'",
+        "a" * 64,
+    ],
+)
+def test_dbos_system_schema_rejects_anything_but_a_plain_identifier(value: str) -> None:
+    # The name is interpolated into SQL, so validation is the injection guard.
+    with pytest.raises(ValidationError, match="plain identifier"):
+        Settings(dbos_system_schema=value)
+
+
+def test_dbos_system_schema_accepts_the_63_character_postgres_limit() -> None:
+    assert Settings(dbos_system_schema="a" * 63).dbos_system_schema == "a" * 63
