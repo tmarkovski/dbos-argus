@@ -62,8 +62,10 @@ class ArgusDB(ABC):
         `None` result is re-tried on the next call."""
 
     @abstractmethod
-    async def reflect_schema(self, schema: str = "dbos") -> SchemaDump:
-        """Return the live DB's schema as a dialect-neutral `SchemaDump`."""
+    async def reflect_schema(self) -> SchemaDump:
+        """Return the live DBOS system schema as a dialect-neutral `SchemaDump`.
+        On Postgres that is the configured `dbos_system_schema`; SQLite has no
+        schema namespace, so it reflects the whole database."""
 
     @abstractmethod
     async def list_workflows(self, filters: WorkflowFilters) -> list[WorkflowListRow]:

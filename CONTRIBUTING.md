@@ -55,6 +55,8 @@ uv run ruff check packages/server
 uv run pytest packages/server
 ```
 
+The integration suite under `packages/server/tests/integration/` runs against a SQLite tempfile by default. Set `ARGUS_TEST_DATABASE_URL` to a Postgres URL to run it there instead, and add `ARGUS_DBOS_SYSTEM_SCHEMA=<name>` to migrate and seed a non-default DBOS system schema. CI runs all three combinations. Note that the fixture drops and recreates the schema it tests against, so point it at a disposable database.
+
 ## Code style
 
 - Python: `ruff` for both format and lint. Run `uv run ruff format` before pushing.

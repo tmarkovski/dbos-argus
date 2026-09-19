@@ -55,6 +55,15 @@ def _version_message() -> str:
     ),
 )
 @click.option(
+    "--dbos-system-schema",
+    envvar="ARGUS_DBOS_SYSTEM_SCHEMA",
+    help=(
+        "Postgres schema holding the DBOS system tables. Set it to the same value "
+        "as your DBOS app's `dbos_system_schema` config key. Ignored on SQLite. "
+        "Also reads ARGUS_DBOS_SYSTEM_SCHEMA.  [default: dbos]"
+    ),
+)
+@click.option(
     "--host",
     default="127.0.0.1",
     show_default=True,
@@ -82,32 +91,34 @@ def _version_message() -> str:
     "--dump-schema",
     is_flag=True,
     help=(
-        "Connect to --db-url, print the live `dbos` schema as JSON to stdout, "
+        "Connect to --db-url, print the live DBOS system schema as JSON to stdout, "
         "and exit. Use this to regenerate the snapshot at "
         "dbos_argus/data/expected_schema.json against a fresh DBOS DB."
     ),
 )
 @click.option(
     "--dump-schema-name",
-    default="dbos",
-    show_default=True,
-    help="Schema to dump when --dump-schema is set.",
+    help="Schema to dump when --dump-schema is set.  [default: the --dbos-system-schema value]",
 )
 def main(
     db_url: str | None,
+    dbos_system_schema: str | None,
     host: str,
     port: int,
     log_level: str,
     cors_origins: str | None,
     dump_schema: bool,
-    dump_schema_name: str,
+    dump_schema_name: str | None,
 ) -> None:
     """Run the dbos-argus workflow viewer (FastAPI + bundled SPA)."""
     if db_url:
         os.environ["ARGUS_DATABASE_URL"] = db_url
+    if dbos_system_schema:
+        os.environ["ARGUS_DBOS_SYSTEM_SCHEMA"] = dbos_system_schema
     if cors_origins:
         os.environ["ARGUS_CORS_ORIGINS"] = cors_origins
     os.environ["ARGUS_LOG_LEVEL"] = log_level.upper()
+    _check_settings()
 
     if dump_schema:
         _dump_schema_and_exit(dump_schema_name)
@@ -121,10 +132,41 @@ def main(
     )
 
 
-def _dump_schema_and_exit(schema_name: str) -> None:
-    # Imported lazily so server-only deps don't load when the CLI just dumps.
+def _check_settings() -> None:
+    """Report an invalid setting as a usage error rather than a traceback.
+
+    Left alone, a bad value surfaces as a pydantic `ValidationError` raised from
+    deep inside uvicorn's import of the app. Must run after `main()` has exported
+    the CLI flags to `os.environ`, for the reason in the module docstring.
+    """
+    from pydantic import ValidationError
+
+    try:
+        # Importing the module builds the `settings` singleton. `Settings()` is
+        # called explicitly as well so the check doesn't depend on this being
+        # the module's first import.
+        from .settings import Settings
+
+        Settings()
+    except ValidationError as exc:
+        # Only `loc` and `msg` are printed. The error's `input` is left out
+        # because for `database_url` it would echo the password.
+        problems = "\n".join(
+            f"  ARGUS_{'_'.join(str(part) for part in err['loc']).upper()}: "
+            f"{err['msg'].removeprefix('Value error, ')}"
+            for err in exc.errors()
+        )
+        raise click.UsageError(f"Invalid configuration:\n{problems}") from None
+
+
+def _dump_schema_and_exit(schema_name: str | None) -> None:
+    # Imported lazily so server-only deps don't load when the CLI just dumps,
+    # and so `settings` sees the env vars `main()` just exported.
     from .db import engine
     from .schema_dump import dump_live_schema, to_json
+    from .settings import settings
+
+    schema_name = schema_name or settings.dbos_system_schema
 
     async def _run() -> dict[str, object]:
         async with engine.connect() as conn:

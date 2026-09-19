@@ -48,6 +48,11 @@ jobs:
   # `ArgusDB` adapter method. With the URL unset (the `sqlite` matrix dim)
   # the conftest falls back to a tempfile, so both adapters get the same
   # battery of tests.
+  #
+  # The `postgres-custom-schema` leg migrates and seeds a non-default DBOS
+  # system schema. Its Postgres service never has a `dbos` schema, so any
+  # query that still hardcodes the `dbos.` prefix comes back empty and fails.
+  # The mixed case checks that the name is quoted rather than case-folded.
   test:
     runs-on: ubuntu-latest
 
@@ -57,8 +62,13 @@ jobs:
         include:
           - db: sqlite
             test_url: ""
+            system_schema: dbos
           - db: postgres
             test_url: postgresql+asyncpg://argus:argus@localhost:5432/argus
+            system_schema: dbos
+          - db: postgres-custom-schema
+            test_url: postgresql+asyncpg://argus:argus@localhost:5432/argus
+            system_schema: Argus_Custom
 
     services:
       # Always provisioned so the matrix can stay flat. The sqlite leg
@@ -79,6 +89,7 @@ jobs:
 
     env:
       ARGUS_TEST_DATABASE_URL: ${{ matrix.test_url }}
+      ARGUS_DBOS_SYSTEM_SCHEMA: ${{ matrix.system_schema }}
 
     steps:
       - uses: actions/checkout@v6

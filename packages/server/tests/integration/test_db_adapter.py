@@ -25,7 +25,7 @@ async def test_healthcheck_succeeds(populated_db: DB) -> None:
 
 async def test_reflect_schema_returns_dbos_tables(populated_db: DB) -> None:
     db, _ = populated_db
-    dump = await db.reflect_schema(schema="dbos")
+    dump = await db.reflect_schema()
     names = {t.name for t in dump.tables}
     # The argus-tracked tables must all be present after migration.
     assert {
@@ -285,3 +285,20 @@ async def test_list_notifications_consumed_filter(populated_db: DB) -> None:
     assert consumed.notifications == []
     pending = await db.list_notifications(NotificationFilters(consumed=False))
     assert len(pending.notifications) == 1
+
+
+async def test_cursors_read_the_populated_schema(populated_db: DB) -> None:
+    """Every realtime cursor swallows a missing-table error and answers
+    `("empty",)`, so a cursor aimed at the wrong schema fails silently: the
+    poller never sees a change and the console stops updating. On a seeded
+    database none of them may report empty."""
+    db, _ = populated_db
+    cursors = {
+        "workflows": await db.workflows_cursor(),
+        "stats": await db.stats_cursor(),
+        "schedules": await db.schedules_cursor(),
+        "queues": await db.queues_cursor(),
+        "notifications": await db.notifications_cursor(),
+        "timeseries": await db.timeseries_cursor(),
+    }
+    assert [name for name, cursor in cursors.items() if cursor == ("empty",)] == []

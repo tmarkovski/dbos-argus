@@ -51,6 +51,9 @@ class SchemaIssue:
 
 
 def diff_schemas(expected: SchemaDump, actual: SchemaDump) -> list[SchemaIssue]:
+    # Details name `actual.schema`, not `expected.schema`: the packaged snapshot
+    # always says "dbos", while the live DB may use a custom system schema, and
+    # the operator needs to see the name they would look up in their database.
     issues: list[SchemaIssue] = []
     actual_tables = actual.table_index()
 
@@ -64,7 +67,7 @@ def diff_schemas(expected: SchemaDump, actual: SchemaDump) -> list[SchemaIssue]:
                     column_name=None,
                     expected_type=None,
                     actual_type=None,
-                    detail=f"Missing required table {expected.schema}.{expected_table.name}.",
+                    detail=f"Missing required table {actual.schema}.{expected_table.name}.",
                 )
             )
             continue
@@ -82,7 +85,7 @@ def diff_schemas(expected: SchemaDump, actual: SchemaDump) -> list[SchemaIssue]:
                         actual_type=None,
                         detail=(
                             f"Missing required column "
-                            f"{expected.schema}.{expected_table.name}.{expected_column.name}."
+                            f"{actual.schema}.{expected_table.name}.{expected_column.name}."
                         ),
                     )
                 )
@@ -96,7 +99,7 @@ def diff_schemas(expected: SchemaDump, actual: SchemaDump) -> list[SchemaIssue]:
                         expected_type=expected_column.data_type,
                         actual_type=actual_column.data_type,
                         detail=(
-                            f"Column {expected.schema}.{expected_table.name}."
+                            f"Column {actual.schema}.{expected_table.name}."
                             f"{expected_column.name} has type {actual_column.data_type}; "
                             f"expected {expected_column.data_type}."
                         ),

@@ -157,7 +157,7 @@ class SqliteArgusDB(ArgusDB):
             return None
         return int(row[0])
 
-    async def reflect_schema(self, schema: str = "dbos") -> SchemaDump:
+    async def reflect_schema(self) -> SchemaDump:
         async with self.engine.connect() as conn:
             table_rows = (
                 await conn.execute(
@@ -190,10 +190,10 @@ class SqliteArgusDB(ArgusDB):
                 )
                 tables.append(TableInfo(name=table_name, columns=columns))
 
-        # `schema` is echoed back so the diff against the Postgres snapshot
-        # can match `expected.schema == "dbos"`. SQLite has no namespace, so
-        # the value is decorative.
-        return SchemaDump(schema=schema, tables=tuple(tables))
+        # SQLite has no schema namespace, so the label is decorative: it only
+        # shows up as the prefix in diagnostics messages. Use the same name as
+        # the packaged (Postgres) snapshot.
+        return SchemaDump(schema="dbos", tables=tuple(tables))
 
     async def list_workflows(self, filters: WorkflowFilters) -> list[WorkflowListRow]:
         try:

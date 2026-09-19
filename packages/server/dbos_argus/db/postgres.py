@@ -8,6 +8,9 @@ fed directly into Pydantic models.
 Missing-schema handling: if the `dbos.*` tables don't exist yet (no DBOS app
 has connected), reads return empty/sentinel values instead of raising. That
 matches the original behavior — the console renders an empty state.
+
+The schema is `dbos` by default and configurable through
+`Settings.dbos_system_schema`; comments below say `dbos.*` for brevity.
 """
 
 from __future__ import annotations
@@ -41,12 +44,22 @@ from .rows import (
     normalize_json_value,
 )
 
+# The `_*_SQL` constants below are templates: `{schema}` stands for the quoted
+# DBOS system schema and is filled in once, when `PostgresArgusDB` is
+# constructed. Queries stay schema-qualified (rather than leaning on
+# `search_path`) because that is what DBOS itself does, and `search_path` is
+# unreliable behind connection poolers.
+
 # Bucket → date_trunc unit (interpolated into SQL — closed set).
 _BUCKET_UNIT: dict[str, str] = {"hour": "hour", "day": "day"}
 
 
-def _build_workflow_sql(grouped: bool, filters: WorkflowFilters) -> tuple[str, dict[str, object]]:
+def _build_workflow_sql(
+    schema: str, grouped: bool, filters: WorkflowFilters
+) -> tuple[str, dict[str, object]]:
     """Render the list-workflows SQL + bound params for the given filters.
+
+    `schema` is the already-quoted DBOS system schema (see `PostgresArgusDB`).
 
     In grouped mode, filters apply to the `roots` CTE only — matching roots
     come along with their entire descendant tree. Each row's sort_path is the
@@ -103,14 +116,14 @@ def _build_workflow_sql(grouped: bool, filters: WorkflowFilters) -> tuple[str, d
         # a child name (e.g. "dispatch") would miss roots whose own name
         # doesn't contain the term.
         if has_q:
-            match_ctes = """
+            match_ctes = f"""
                 upward AS (
                     SELECT workflow_uuid, parent_workflow_id
-                    FROM dbos.workflow_status
+                    FROM {schema}.workflow_status
                     WHERE workflow_uuid ILIKE :q_pat OR name ILIKE :q_pat
                     UNION
                     SELECT ws.workflow_uuid, ws.parent_workflow_id
-                    FROM dbos.workflow_status ws
+                    FROM {schema}.workflow_status ws
                     JOIN upward u ON u.parent_workflow_id = ws.workflow_uuid
                 ),
                 matched_roots AS (
@@ -127,7 +140,7 @@ def _build_workflow_sql(grouped: bool, filters: WorkflowFilters) -> tuple[str, d
             WITH RECURSIVE
                 {match_ctes}roots AS (
                     SELECT workflow_uuid, updated_at
-                    FROM dbos.workflow_status
+                    FROM {schema}.workflow_status
                     WHERE parent_workflow_id IS NULL{where_extra}{match_filter}
                     ORDER BY updated_at DESC
                     LIMIT :limit
@@ -147,7 +160,7 @@ def _build_workflow_sql(grouped: bool, filters: WorkflowFilters) -> tuple[str, d
                         0 AS depth,
                         r.updated_at AS root_updated_at,
                         ARRAY[COALESCE(ws.started_at_epoch_ms, ws.created_at)] AS sort_path
-                    FROM dbos.workflow_status ws
+                    FROM {schema}.workflow_status ws
                     JOIN roots r ON ws.workflow_uuid = r.workflow_uuid
 
                     UNION ALL
@@ -166,12 +179,12 @@ def _build_workflow_sql(grouped: bool, filters: WorkflowFilters) -> tuple[str, d
                         t.depth + 1,
                         t.root_updated_at,
                         t.sort_path || COALESCE(c.started_at_epoch_ms, c.created_at)
-                    FROM dbos.workflow_status c
+                    FROM {schema}.workflow_status c
                     JOIN tree t ON c.parent_workflow_id = t.workflow_uuid
                 ),
                 op_counts AS (
                     SELECT workflow_uuid, COUNT(*)::bigint AS op_count
-                    FROM dbos.operation_outputs
+                    FROM {schema}.operation_outputs
                     WHERE workflow_uuid IN (SELECT workflow_uuid FROM tree)
                     GROUP BY workflow_uuid
                 )
@@ -200,14 +213,14 @@ def _build_workflow_sql(grouped: bool, filters: WorkflowFilters) -> tuple[str, d
                     COALESCE(started_at_epoch_ms, created_at) AS started_ms,
                     updated_at AS updated_ms,
                     completed_at AS completed_ms
-                FROM dbos.workflow_status
+                FROM {schema}.workflow_status
                 {flat_where}
                 ORDER BY COALESCE(started_at_epoch_ms, created_at) DESC
                 LIMIT :limit
             ),
             op_counts AS (
                 SELECT workflow_uuid, COUNT(*)::bigint AS op_count
-                FROM dbos.operation_outputs
+                FROM {schema}.operation_outputs
                 WHERE workflow_uuid IN (SELECT workflow_uuid FROM chosen)
                 GROUP BY workflow_uuid
             )
@@ -228,13 +241,13 @@ _FAMILY_SQL = """
     WITH RECURSIVE
         up AS (
             SELECT workflow_uuid, parent_workflow_id, 0 AS lvl
-            FROM dbos.workflow_status
+            FROM {schema}.workflow_status
             WHERE workflow_uuid = :workflow_id
 
             UNION ALL
 
             SELECT ws.workflow_uuid, ws.parent_workflow_id, u.lvl + 1
-            FROM dbos.workflow_status ws
+            FROM {schema}.workflow_status ws
             JOIN up u ON ws.workflow_uuid = u.parent_workflow_id
         ),
         root AS (
@@ -262,7 +275,7 @@ _FAMILY_SQL = """
                 ws.completed_at AS completed_ms,
                 0 AS depth,
                 ARRAY[COALESCE(ws.started_at_epoch_ms, ws.created_at)] AS sort_path
-            FROM dbos.workflow_status ws
+            FROM {schema}.workflow_status ws
             JOIN root r ON ws.workflow_uuid = r.workflow_uuid
 
             UNION ALL
@@ -285,7 +298,7 @@ _FAMILY_SQL = """
                 c.completed_at,
                 t.depth + 1,
                 t.sort_path || COALESCE(c.started_at_epoch_ms, c.created_at)
-            FROM dbos.workflow_status c
+            FROM {schema}.workflow_status c
             JOIN tree t ON c.parent_workflow_id = t.workflow_uuid
         )
     SELECT
@@ -312,8 +325,8 @@ _STEPS_SQL = """
         o.completed_at_epoch_ms,
         seh.key AS event_key,
         CASE WHEN o.function_name = 'DBOS.sleep' THEN o.output END AS sleep_output_raw
-    FROM dbos.operation_outputs o
-    LEFT JOIN dbos.workflow_events_history seh
+    FROM {schema}.operation_outputs o
+    LEFT JOIN {schema}.workflow_events_history seh
         ON o.function_name = 'DBOS.setEvent'
         AND seh.workflow_uuid = o.workflow_uuid
         AND seh.function_id = o.function_id
@@ -337,10 +350,10 @@ _EVENTS_SQL = """
         weh.value AS history_value,
         weh.serialization AS history_serialization,
         o.completed_at_epoch_ms
-    FROM dbos.workflow_events we
-    LEFT JOIN dbos.workflow_events_history weh
+    FROM {schema}.workflow_events we
+    LEFT JOIN {schema}.workflow_events_history weh
         ON weh.workflow_uuid = we.workflow_uuid AND weh.key = we.key
-    LEFT JOIN dbos.operation_outputs o
+    LEFT JOIN {schema}.operation_outputs o
         ON o.workflow_uuid = weh.workflow_uuid
             AND o.function_id = weh.function_id
     WHERE we.workflow_uuid = ANY(:workflow_ids)
@@ -350,33 +363,33 @@ _EVENTS_SQL = """
 
 _WORKFLOW_RESULT_SQL = """
     SELECT output, error, serialization
-    FROM dbos.workflow_status
+    FROM {schema}.workflow_status
     WHERE workflow_uuid = :workflow_id
 """
 
 
 _STEP_RESULT_SQL = """
     SELECT output, error, serialization
-    FROM dbos.operation_outputs
+    FROM {schema}.operation_outputs
     WHERE workflow_uuid = :workflow_id AND function_id = :function_id
 """
 
 
 _STATS_SQL = f"""
     SELECT
-        (SELECT COUNT(*) FROM dbos.workflow_status) AS total,
-        (SELECT COUNT(*) FROM dbos.workflow_status
+        (SELECT COUNT(*) FROM {{schema}}.workflow_status) AS total,
+        (SELECT COUNT(*) FROM {{schema}}.workflow_status
             WHERE status IN {ACTIVE_STATUSES_SQL}) AS in_flight,
-        (SELECT COUNT(*) FROM dbos.workflow_status
+        (SELECT COUNT(*) FROM {{schema}}.workflow_status
             WHERE status = 'ENQUEUED') AS enqueued,
-        (SELECT COUNT(*) FROM dbos.workflow_status
+        (SELECT COUNT(*) FROM {{schema}}.workflow_status
             WHERE status IN {ERROR_STATUSES_SQL}
             AND COALESCE(started_at_epoch_ms, created_at) >= :since_ms) AS failed_recent,
-        (SELECT COUNT(*) FROM dbos.notifications
+        (SELECT COUNT(*) FROM {{schema}}.notifications
             WHERE consumed = false) AS pending_notifications,
-        (SELECT COUNT(*) FROM dbos.workflow_schedules
+        (SELECT COUNT(*) FROM {{schema}}.workflow_schedules
             WHERE status = 'ACTIVE') AS active_schedules,
-        (SELECT COUNT(*) FROM dbos.queues) AS total_queues
+        (SELECT COUNT(*) FROM {{schema}}.queues) AS total_queues
 """
 
 
@@ -385,7 +398,7 @@ _SCHEDULES_SQL = """
         schedule_id, schedule_name, workflow_name, workflow_class_name,
         schedule, status, last_fired_at, automatic_backfill,
         cron_timezone, queue_name
-    FROM dbos.workflow_schedules
+    FROM {schema}.workflow_schedules
     ORDER BY schedule_name ASC
 """
 
@@ -403,13 +416,13 @@ _QUEUES_SQL = """
         q.created_at, q.updated_at,
         COALESCE(c.enqueued, 0)::bigint AS enqueued,
         COALESCE(c.running, 0)::bigint AS running
-    FROM dbos.queues q
+    FROM {schema}.queues q
     LEFT JOIN (
         SELECT
             queue_name,
             COUNT(*) FILTER (WHERE status = 'ENQUEUED') AS enqueued,
             COUNT(*) FILTER (WHERE status = 'PENDING') AS running
-        FROM dbos.workflow_status
+        FROM {schema}.workflow_status
         WHERE queue_name IS NOT NULL
           AND status IN ('ENQUEUED', 'PENDING')
         GROUP BY queue_name
@@ -430,7 +443,7 @@ _NOTIFICATION_ANCESTORS_SQL = """
             ws.name,
             ws.status,
             0 AS lvl
-        FROM dbos.workflow_status ws
+        FROM {schema}.workflow_status ws
         WHERE ws.workflow_uuid = ANY(:destination_ids)
 
         UNION ALL
@@ -442,7 +455,7 @@ _NOTIFICATION_ANCESTORS_SQL = """
             ws.name,
             ws.status,
             u.lvl + 1
-        FROM dbos.workflow_status ws
+        FROM {schema}.workflow_status ws
         JOIN up u ON ws.workflow_uuid = u.parent_workflow_id
     )
     SELECT seed_id, workflow_uuid, name, status, lvl
@@ -469,6 +482,20 @@ class PostgresArgusDB(ArgusDB):
         url, connect_args = settings.asyncpg_engine_args()
         self.engine = create_async_engine(url, echo=False, future=True, connect_args=connect_args)
         self._server_version: str | None = None
+        self._schema_name = settings.dbos_system_schema
+        # Identifiers can't be bound as query parameters, so the schema is
+        # interpolated. It comes from config (never from a request) and
+        # `Settings` has already validated it as a plain identifier.
+        self._schema = settings.quoted_dbos_system_schema
+        self._family_sql = _FAMILY_SQL.format(schema=self._schema)
+        self._steps_sql = _STEPS_SQL.format(schema=self._schema)
+        self._events_sql = _EVENTS_SQL.format(schema=self._schema)
+        self._workflow_result_sql = _WORKFLOW_RESULT_SQL.format(schema=self._schema)
+        self._step_result_sql = _STEP_RESULT_SQL.format(schema=self._schema)
+        self._stats_sql = _STATS_SQL.format(schema=self._schema)
+        self._schedules_sql = _SCHEDULES_SQL.format(schema=self._schema)
+        self._queues_sql = _QUEUES_SQL.format(schema=self._schema)
+        self._notification_ancestors_sql = _NOTIFICATION_ANCESTORS_SQL.format(schema=self._schema)
 
     @property
     def display_url(self) -> str:
@@ -503,7 +530,7 @@ class PostgresArgusDB(ArgusDB):
         try:
             async with self.engine.connect() as conn:
                 result = await conn.execute(
-                    text("SELECT version FROM dbos.dbos_migrations LIMIT 1")
+                    text(f"SELECT version FROM {self._schema}.dbos_migrations LIMIT 1")
                 )
                 row = result.fetchone()
         except SQLAlchemyError:
@@ -514,12 +541,12 @@ class PostgresArgusDB(ArgusDB):
             return None
         return int(row[0])
 
-    async def reflect_schema(self, schema: str = "dbos") -> SchemaDump:
+    async def reflect_schema(self) -> SchemaDump:
         async with self.engine.connect() as conn:
-            return await dump_live_schema(conn, schema=schema)
+            return await dump_live_schema(conn, schema=self._schema_name)
 
     async def list_workflows(self, filters: WorkflowFilters) -> list[WorkflowListRow]:
-        sql, params = _build_workflow_sql(filters.grouped, filters)
+        sql, params = _build_workflow_sql(self._schema, filters.grouped, filters)
         try:
             async with self.engine.connect() as conn:
                 result = await conn.execute(text(sql), params)
@@ -548,14 +575,14 @@ class PostgresArgusDB(ArgusDB):
         try:
             async with self.engine.connect() as conn:
                 family_rows = (
-                    await conn.execute(text(_FAMILY_SQL), {"workflow_id": workflow_id})
+                    await conn.execute(text(self._family_sql), {"workflow_id": workflow_id})
                 ).fetchall()
                 family_ids = [r.workflow_uuid for r in family_rows]
                 step_rows = (
-                    await conn.execute(text(_STEPS_SQL), {"workflow_ids": family_ids})
+                    await conn.execute(text(self._steps_sql), {"workflow_ids": family_ids})
                 ).fetchall()
                 event_rows = (
-                    await conn.execute(text(_EVENTS_SQL), {"workflow_ids": family_ids})
+                    await conn.execute(text(self._events_sql), {"workflow_ids": family_ids})
                 ).fetchall()
         except ProgrammingError:
             return WorkflowDetailRows(family=[], steps=[], events=[])
@@ -615,7 +642,9 @@ class PostgresArgusDB(ArgusDB):
         try:
             async with self.engine.connect() as conn:
                 row = (
-                    await conn.execute(text(_WORKFLOW_RESULT_SQL), {"workflow_id": workflow_id})
+                    await conn.execute(
+                        text(self._workflow_result_sql), {"workflow_id": workflow_id}
+                    )
                 ).fetchone()
         except ProgrammingError:
             return None
@@ -628,7 +657,7 @@ class PostgresArgusDB(ArgusDB):
             async with self.engine.connect() as conn:
                 row = (
                     await conn.execute(
-                        text(_STEP_RESULT_SQL),
+                        text(self._step_result_sql),
                         {"workflow_id": workflow_id, "function_id": function_id},
                     )
                 ).fetchone()
@@ -641,7 +670,7 @@ class PostgresArgusDB(ArgusDB):
     async def get_stats(self, since_ms: int) -> StatsRow:
         try:
             async with self.engine.connect() as conn:
-                row = (await conn.execute(text(_STATS_SQL), {"since_ms": since_ms})).fetchone()
+                row = (await conn.execute(text(self._stats_sql), {"since_ms": since_ms})).fetchone()
         except ProgrammingError:
             return _EMPTY_STATS
         if row is None:
@@ -679,7 +708,7 @@ class PostgresArgusDB(ArgusDB):
                 SELECT
                     date_trunc('{unit}', to_timestamp(ws.created_at / 1000.0)) AS ts,
                     ws.status
-                FROM dbos.workflow_status ws, params p
+                FROM {self._schema}.workflow_status ws, params p
                 WHERE ws.created_at >= p.since_ms AND ws.created_at <= p.until_ms
             )
             SELECT
@@ -712,7 +741,7 @@ class PostgresArgusDB(ArgusDB):
     async def list_schedules(self) -> list[ScheduleRow]:
         try:
             async with self.engine.connect() as conn:
-                rows = (await conn.execute(text(_SCHEDULES_SQL))).fetchall()
+                rows = (await conn.execute(text(self._schedules_sql))).fetchall()
         except ProgrammingError:
             return []
         return [
@@ -734,7 +763,7 @@ class PostgresArgusDB(ArgusDB):
     async def list_queues(self) -> list[QueueRow]:
         try:
             async with self.engine.connect() as conn:
-                rows = (await conn.execute(text(_QUEUES_SQL))).fetchall()
+                rows = (await conn.execute(text(self._queues_sql))).fetchall()
         except ProgrammingError:
             return []
         return [
@@ -772,7 +801,7 @@ class PostgresArgusDB(ArgusDB):
         sql = f"""
             SELECT message_uuid, destination_uuid, topic, consumed, created_at_epoch_ms,
                    message, serialization
-            FROM dbos.notifications
+            FROM {self._schema}.notifications
             {where}
             ORDER BY created_at_epoch_ms DESC
             LIMIT :limit
@@ -784,7 +813,7 @@ class PostgresArgusDB(ArgusDB):
                 ancestor_rows = (
                     (
                         await conn.execute(
-                            text(_NOTIFICATION_ANCESTORS_SQL),
+                            text(self._notification_ancestors_sql),
                             {"destination_ids": destination_ids},
                         )
                     ).fetchall()
@@ -819,11 +848,11 @@ class PostgresArgusDB(ArgusDB):
         return NotificationsRows(notifications=notifications, ancestors=ancestors)
 
     async def workflows_cursor(self) -> tuple:
-        sql = """
+        sql = f"""
             SELECT
-                (SELECT MAX(updated_at) FROM dbos.workflow_status) AS max_updated,
-                (SELECT COUNT(*) FROM dbos.workflow_status) AS wf_count,
-                (SELECT COUNT(*) FROM dbos.operation_outputs) AS op_count
+                (SELECT MAX(updated_at) FROM {self._schema}.workflow_status) AS max_updated,
+                (SELECT COUNT(*) FROM {self._schema}.workflow_status) AS wf_count,
+                (SELECT COUNT(*) FROM {self._schema}.operation_outputs) AS op_count
         """
         try:
             async with self.engine.connect() as conn:
@@ -835,11 +864,12 @@ class PostgresArgusDB(ArgusDB):
         return (row.max_updated, row.wf_count, row.op_count)
 
     async def stats_cursor(self) -> tuple:
-        sql = """
+        sql = f"""
             SELECT
-                (SELECT COUNT(*) FROM dbos.workflow_status) AS total,
-                (SELECT MAX(updated_at) FROM dbos.workflow_status) AS max_updated,
-                (SELECT COUNT(*) FROM dbos.notifications WHERE consumed = false) AS pending
+                (SELECT COUNT(*) FROM {self._schema}.workflow_status) AS total,
+                (SELECT MAX(updated_at) FROM {self._schema}.workflow_status) AS max_updated,
+                (SELECT COUNT(*) FROM {self._schema}.notifications
+                    WHERE consumed = false) AS pending
         """
         try:
             async with self.engine.connect() as conn:
@@ -851,9 +881,9 @@ class PostgresArgusDB(ArgusDB):
         return (row.total, row.max_updated, row.pending)
 
     async def schedules_cursor(self) -> tuple:
-        sql = """
+        sql = f"""
             SELECT MAX(last_fired_at) AS max_fired, COUNT(*) AS count_all
-            FROM dbos.workflow_schedules
+            FROM {self._schema}.workflow_schedules
         """
         try:
             async with self.engine.connect() as conn:
@@ -869,14 +899,14 @@ class PostgresArgusDB(ArgusDB):
         # change for hours, but enqueued/running counts move with every
         # send/dequeue. Both probes ride the partial in-flight index so the
         # extra cost over a queues-only cursor is negligible.
-        sql = """
+        sql = f"""
             SELECT
-                (SELECT MAX(updated_at) FROM dbos.queues) AS max_q_updated,
-                (SELECT COUNT(*) FROM dbos.queues) AS q_count,
-                (SELECT MAX(updated_at) FROM dbos.workflow_status
+                (SELECT MAX(updated_at) FROM {self._schema}.queues) AS max_q_updated,
+                (SELECT COUNT(*) FROM {self._schema}.queues) AS q_count,
+                (SELECT MAX(updated_at) FROM {self._schema}.workflow_status
                     WHERE queue_name IS NOT NULL
                       AND status IN ('ENQUEUED', 'PENDING')) AS max_wf_updated,
-                (SELECT COUNT(*) FROM dbos.workflow_status
+                (SELECT COUNT(*) FROM {self._schema}.workflow_status
                     WHERE queue_name IS NOT NULL
                       AND status IN ('ENQUEUED', 'PENDING')) AS wf_count
         """
@@ -890,12 +920,12 @@ class PostgresArgusDB(ArgusDB):
         return (row.max_q_updated, row.q_count, row.max_wf_updated, row.wf_count)
 
     async def notifications_cursor(self) -> tuple:
-        sql = """
+        sql = f"""
             SELECT
                 MAX(created_at_epoch_ms) AS max_created,
                 COUNT(*) AS count_all,
                 COUNT(*) FILTER (WHERE consumed = false) AS count_pending
-            FROM dbos.notifications
+            FROM {self._schema}.notifications
         """
         try:
             async with self.engine.connect() as conn:
@@ -907,9 +937,9 @@ class PostgresArgusDB(ArgusDB):
         return (row.max_created, row.count_all, row.count_pending)
 
     async def timeseries_cursor(self) -> tuple:
-        sql = """
+        sql = f"""
             SELECT COUNT(*) AS count_all, MAX(created_at) AS max_created
-            FROM dbos.workflow_status
+            FROM {self._schema}.workflow_status
         """
         try:
             async with self.engine.connect() as conn:
