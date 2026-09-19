@@ -21,6 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--dump-schema-name` overrides it.
   ([#28](https://github.com/tmarkovski/dbos-argus/issues/28))
 
+### Changed
+- `dbos-argus` reports an invalid setting as a usage error and exits with
+  status 2, naming the `ARGUS_*` variable at fault. Previously a bad value
+  (an unparseable `ARGUS_REALTIME_INTERVAL_MS`, for example) surfaced as a
+  pydantic traceback from inside uvicorn's import of the app. The message
+  never echoes the setting's value, so a database password can't end up in it.
+
 ## [0.0.38] - 2026-08-21
 
 > **Tested against DBOS 2.30.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture floor is now `dbos>=2.30.0`.

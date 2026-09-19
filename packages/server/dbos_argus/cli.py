@@ -118,6 +118,7 @@ def main(
     if cors_origins:
         os.environ["ARGUS_CORS_ORIGINS"] = cors_origins
     os.environ["ARGUS_LOG_LEVEL"] = log_level.upper()
+    _check_settings()
 
     if dump_schema:
         _dump_schema_and_exit(dump_schema_name)
@@ -129,6 +130,33 @@ def main(
         port=port,
         log_level=log_level,
     )
+
+
+def _check_settings() -> None:
+    """Report an invalid setting as a usage error rather than a traceback.
+
+    Left alone, a bad value surfaces as a pydantic `ValidationError` raised from
+    deep inside uvicorn's import of the app. Must run after `main()` has exported
+    the CLI flags to `os.environ`, for the reason in the module docstring.
+    """
+    from pydantic import ValidationError
+
+    try:
+        # Importing the module builds the `settings` singleton. `Settings()` is
+        # called explicitly as well so the check doesn't depend on this being
+        # the module's first import.
+        from .settings import Settings
+
+        Settings()
+    except ValidationError as exc:
+        # Only `loc` and `msg` are printed. The error's `input` is left out
+        # because for `database_url` it would echo the password.
+        problems = "\n".join(
+            f"  ARGUS_{'_'.join(str(part) for part in err['loc']).upper()}: "
+            f"{err['msg'].removeprefix('Value error, ')}"
+            for err in exc.errors()
+        )
+        raise click.UsageError(f"Invalid configuration:\n{problems}") from None
 
 
 def _dump_schema_and_exit(schema_name: str | None) -> None:
