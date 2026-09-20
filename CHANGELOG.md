@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.40] - 2026-09-20
+
+> **Tested against DBOS 2.31.1.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture now requires `dbos>=2.31.1,<3`.
+
+### Changed
+- Schema snapshot regenerated against DBOS 2.31.1. The four columns that
+  DBOS 2.31.0 added to `queues` for limits that apply to each partition
+  (`partition_concurrency`, `partition_worker_concurrency`,
+  `partition_rate_limit_max` and `partition_rate_limit_period_sec`) are
+  recorded as untracked (`argus: false`). Argus does not read them, so there
+  is no change to the REST/realtime payloads or the console. The DBOS dev
+  fixture is capped below DBOS 3 until the snapshot moves to 3.0.0
+  ([#32](https://github.com/tmarkovski/dbos-argus/issues/32)).
+  ([#29](https://github.com/tmarkovski/dbos-argus/issues/29),
+  [#31](https://github.com/tmarkovski/dbos-argus/issues/31))
+
 ## [0.0.39] - 2026-09-19
 
 > **Tested against DBOS 2.30.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility.

@@ -1,7 +1,7 @@
 {
   "schema": "dbos",
   "meta": {
-    "dbos_version": "2.30.0",
+    "dbos_version": "2.31.1",
     "note": "Full DBOS Postgres schema. `argus: true` columns are the ones the Argus backend actively reads — diff_schemas filters to those at runtime. The CI watchdog (.github/workflows/dbos-schema-watch.yml) regenerates this file against newly released DBOS versions and opens an issue when anything changes."
   },
   "tables": [
@@ -73,7 +73,11 @@
         {"name": "polling_interval_sec", "data_type": "double precision", "argus": true},
         {"name": "created_at", "data_type": "bigint", "argus": true},
         {"name": "updated_at", "data_type": "bigint", "argus": true},
-        {"name": "application_name", "data_type": "text", "argus": false}
+        {"name": "application_name", "data_type": "text", "argus": false},
+        {"name": "partition_concurrency", "data_type": "integer", "argus": false},
+        {"name": "partition_worker_concurrency", "data_type": "integer", "argus": false},
+        {"name": "partition_rate_limit_max", "data_type": "integer", "argus": false},
+        {"name": "partition_rate_limit_period_sec", "data_type": "double precision", "argus": false}
       ]
     },
     {
