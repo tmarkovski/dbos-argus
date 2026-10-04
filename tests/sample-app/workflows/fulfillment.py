@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import random
 
-from _dbos_setup import QUEUES
 from dbos import DBOS
 
 from .common import _pause, audit, log_event, maybe_fail
@@ -86,7 +85,7 @@ def fulfill_order(order_id: str) -> dict:
     cart = validate_cart(order_id)
     amount = round(cart["items"] * 19.99, 2)
 
-    payment_handle = QUEUES["payments"].enqueue(authorize_payment, order_id, amount)
+    payment_handle = DBOS.enqueue_workflow("payments", authorize_payment, order_id, amount)
     try:
         payment = payment_handle.get_result()
     except Exception as e:

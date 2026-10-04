@@ -23,6 +23,7 @@ _URL = "postgresql+asyncpg://u:p@localhost:5432/db"
 # A table reference that isn't qualified with the custom schema below.
 _DBOS_TABLES = (
     "workflow_status",
+    "workflow_output",
     "operation_outputs",
     "workflow_events",
     "workflow_events_history",

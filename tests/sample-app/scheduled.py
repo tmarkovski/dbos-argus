@@ -25,7 +25,6 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from _dbos_setup import QUEUES
 from dbos import DBOS
 from workflows import audit, log_event, send_campaign
 
@@ -89,7 +88,7 @@ def sweep_abandoned_carts(scheduled_at: datetime, context: Any = None) -> None:
     # Hand each recovery off to the campaigns engine, on the emails queue.
     # The dashboard then shows scheduler → metrics queue → emails fan-out.
     for cart_id in cart_ids:
-        QUEUES["emails"].enqueue(send_campaign, f"cart-recovery-{cart_id}", 1)
+        DBOS.enqueue_workflow("emails", send_campaign, f"cart-recovery-{cart_id}", 1)
     log_event(f"swept {len(cart_ids)} abandoned carts ({scheduled_at.isoformat()})")
 
 

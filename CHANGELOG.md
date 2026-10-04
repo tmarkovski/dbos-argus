@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+> **Tested against DBOS 3.2.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture now requires `dbos>=3.2.0,<4`.
+
+### Fixed
+- Read workflow output/error from DBOS 3's `workflow_output` table on Postgres
+  and SQLite, including family-graph result flags. Fall back to legacy payloads
+  for workflows created before the upgrade. Requires schema revision 109;
+  older databases should pin Argus to `0.0.40` or the version shown by diagnostics.
+
 ## [0.0.40] - 2026-09-20
 
 > **Tested against DBOS 2.31.1.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture now requires `dbos>=2.31.1,<3`.
@@ -941,7 +951,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.39...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.40...HEAD
 [0.0.39]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.39
 [0.0.38]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.38
 [0.0.37]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.37

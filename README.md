@@ -29,9 +29,14 @@ psql "$ARGUS_DATABASE_URL" -c 'SELECT version FROM dbos.dbos_migrations'
 | Your `dbos_migrations.version` | | Use Argus | Because it reads |
 |---|---|---|---|
 | Postgres | SQLite | | |
-| ≥ 41 | ≥ 36 | latest | — |
+| ≥ 109 | ≥ 109 | latest | — |
+| 41 – 108 | 36 – 108 | `0.0.40` | `workflow_output.output`, `.error` |
 | 36 – 40 | 33 – 35 | `0.0.28` | `workflow_status.attributes`, `.schedule_name` |
 | < 36 | < 33 | `0.0.27` | `workflow_status.completed_at` |
+
+DBOS 3.x stores workflow results in `workflow_output`. Argus also reads the old
+`workflow_status` payload columns so workflows created before the upgrade remain visible.
+See the [DBOS 3.0 upgrade guide](https://docs.dbos.dev/python/upgrading).
 
 Postgres and SQLite have separate counters because DBOS's migration lists for the two dialects diverge, so the same number means different things on each backend.
 

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import random
 
-from _dbos_setup import QUEUES
 from dbos import DBOS
 
 from .common import _pause, audit, log_event, maybe_fail
@@ -82,7 +81,7 @@ def process_return(order_id: str) -> dict:
         return {"order_id": order_id, "outcome": "rejected", **rejected}
 
     amount = round(request["items"] * 19.99, 2)
-    refund_handle = QUEUES["payments"].enqueue(issue_refund, order_id, amount)
+    refund_handle = DBOS.enqueue_workflow("payments", issue_refund, order_id, amount)
     try:
         refund = refund_handle.get_result()
     except Exception as e:
