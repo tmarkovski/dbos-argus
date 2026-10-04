@@ -428,8 +428,8 @@ class SqliteArgusDB(ArgusDB):
                                         ws.attributes,
                                         ws.recovery_attempts,
                                         ws.workflow_timeout_ms,
-                                        ws.output IS NOT NULL AS has_output,
-                                        ws.error IS NOT NULL AS has_error,
+                                        COALESCE(wo.output, ws.output) IS NOT NULL AS has_output,
+                                        COALESCE(wo.error, ws.error) IS NOT NULL AS has_error,
                                         COALESCE(ws.started_at_epoch_ms, ws.created_at)
                                             AS started_ms,
                                         ws.updated_at AS updated_ms,
@@ -437,6 +437,8 @@ class SqliteArgusDB(ArgusDB):
                                         0 AS depth
                                     FROM workflow_status ws
                                     JOIN root r ON ws.workflow_uuid = r.workflow_uuid
+                                    LEFT JOIN workflow_output wo
+                                        ON wo.workflow_uuid = ws.workflow_uuid
 
                                     UNION ALL
 
@@ -451,14 +453,16 @@ class SqliteArgusDB(ArgusDB):
                                         c.attributes,
                                         c.recovery_attempts,
                                         c.workflow_timeout_ms,
-                                        c.output IS NOT NULL,
-                                        c.error IS NOT NULL,
+                                        COALESCE(co.output, c.output) IS NOT NULL,
+                                        COALESCE(co.error, c.error) IS NOT NULL,
                                         COALESCE(c.started_at_epoch_ms, c.created_at),
                                         c.updated_at,
                                         c.completed_at,
                                         t.depth + 1
                                     FROM workflow_status c
                                     JOIN tree t ON c.parent_workflow_id = t.workflow_uuid
+                                    LEFT JOIN workflow_output co
+                                        ON co.workflow_uuid = c.workflow_uuid
                                 )
                             SELECT * FROM tree
                             """
@@ -584,8 +588,11 @@ class SqliteArgusDB(ArgusDB):
                 row = (
                     await conn.execute(
                         text(
-                            "SELECT output, error, serialization FROM workflow_status "
-                            "WHERE workflow_uuid = :workflow_id"
+                            "SELECT COALESCE(wo.output, ws.output) AS output, "
+                            "COALESCE(wo.error, ws.error) AS error, ws.serialization "
+                            "FROM workflow_status ws "
+                            "LEFT JOIN workflow_output wo ON wo.workflow_uuid = ws.workflow_uuid "
+                            "WHERE ws.workflow_uuid = :workflow_id"
                         ),
                         {"workflow_id": workflow_id},
                     )

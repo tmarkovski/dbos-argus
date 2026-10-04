@@ -94,9 +94,20 @@ COMPAT_STEPS: tuple[CompatStep, ...] = (
     CompatStep(
         postgres=41,
         sqlite=36,
-        max_argus_version=None,
+        max_argus_version="0.0.40",
         dbos_version="2.25.0",
         requires=("workflow_status.attributes", "workflow_status.schedule_name"),
+    ),
+    CompatStep(
+        postgres=109,
+        sqlite=109,
+        max_argus_version=None,
+        dbos_version="3.0.0",
+        requires=(
+            "workflow_output.workflow_uuid",
+            "workflow_output.output",
+            "workflow_output.error",
+        ),
     ),
 )
 

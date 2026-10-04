@@ -123,10 +123,10 @@ def test_message_is_actionable(dialect: Dialect) -> None:
         assert column in report.message
 
 
-def test_dialects_have_distinct_floors() -> None:
-    # Postgres and SQLite migration lists diverge; a single shared number would
-    # silently mis-grade one of the backends.
-    assert required_revision("postgres") != required_revision("sqlite")
+def test_ladder_preserves_per_dialect_revisions() -> None:
+    # Historical revisions differ even when a later migration has the same
+    # ordinal on both backends.
+    assert any(step.postgres != step.sqlite for step in COMPAT_STEPS)
 
 
 # --- drift guard against DBOS' real migrations -------------------------------

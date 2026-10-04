@@ -53,6 +53,8 @@ _DBOS_TABLES = (
     "notifications",
     "streams",
     "operation_outputs",
+    "workflow_input",
+    "workflow_output",
     "workflow_status",
     "application_versions",
     "dbos_migrations",
@@ -199,6 +201,23 @@ def _seed(sync_url: str, base_ms: int) -> dict[str, object]:
                     "c1": base_ms + 250,
                     "c3": base_ms + 350,
                 },
+            )
+            # DBOS 3 keeps payloads outside workflow_status. Leave one terminal
+            # row in the old columns to cover pre-upgrade workflows too.
+            conn.execute(
+                text(
+                    f"""INSERT INTO {p}workflow_output
+                        (workflow_uuid, output, error, retention_timestamp)
+                        SELECT workflow_uuid, output, error, created_at
+                        FROM {p}workflow_status
+                        WHERE workflow_uuid = 'wf-child-success'"""
+                )
+            )
+            conn.execute(
+                text(
+                    f"UPDATE {p}workflow_status SET output = NULL "
+                    "WHERE workflow_uuid = 'wf-child-success'"
+                )
             )
             attrs_expr = ":attrs" if _is_sqlite(sync_url) else "CAST(:attrs AS JSONB)"
             conn.execute(
