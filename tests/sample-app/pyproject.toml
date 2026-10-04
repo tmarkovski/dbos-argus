@@ -5,12 +5,8 @@ description = "Sample DBOS Transact app — dev fixture for the Argus dashboard.
 requires-python = ">=3.12"
 dependencies = [
   "click>=8.1.0",
-  # Argus tracks the latest DBOS schema (no backward compat). Floor bumped to
-  # 2.27.0 to keep the fixture aligned with the schema snapshot; 2.27.0's new
-  # debounce columns are recorded untracked (argus: false) and not read.
-  # Capped below 3 until the snapshot moves to DBOS 3.0.0 (issue #32), so the
-  # fixture keeps running the version the snapshot was generated against.
-  "dbos>=3.0.0,<4",
+  # Keep the fixture aligned with the latest tested schema snapshot.
+  "dbos>=3.2.0,<4",
   "python-dotenv>=1.0.0",
 ]
 

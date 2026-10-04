@@ -62,7 +62,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.1.0" },
-    { name = "dbos", specifier = ">=3.0.0,<4" },
+    { name = "dbos", specifier = ">=3.2.0,<4" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
 ]
 

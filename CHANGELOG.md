@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-> **Tested against DBOS 3.0.0 and 3.2.0.** Schema snapshot: DBOS 3.0.0.
+> **Tested against DBOS 3.2.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture now requires `dbos>=3.2.0,<4`.
 
 ### Fixed
 - Read workflow output/error from DBOS 3's `workflow_output` table on Postgres

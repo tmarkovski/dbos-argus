@@ -1,7 +1,7 @@
 {
   "schema": "dbos",
   "meta": {
-    "dbos_version": "3.0.0",
+    "dbos_version": "3.2.0",
     "note": "Full DBOS Postgres schema. `argus: true` columns are the ones the Argus backend actively reads — diff_schemas filters to those at runtime. The CI watchdog (.github/workflows/dbos-schema-watch.yml) regenerates this file against newly released DBOS versions and opens an issue when anything changes."
   },
   "tables": [
@@ -41,7 +41,8 @@
         {"name": "message", "data_type": "text", "argus": true},
         {"name": "created_at_epoch_ms", "data_type": "bigint", "argus": true},
         {"name": "serialization", "data_type": "text", "argus": true},
-        {"name": "consumed", "data_type": "boolean", "argus": true}
+        {"name": "consumed", "data_type": "boolean", "argus": true},
+        {"name": "consumed_by_function_id", "data_type": "integer", "argus": false}
       ]
     },
     {
@@ -185,7 +186,8 @@
         {"name": "schedule_name", "data_type": "text", "argus": true},
         {"name": "debounce_deadline_epoch_ms", "data_type": "bigint", "argus": false},
         {"name": "is_debounced", "data_type": "boolean", "argus": false},
-        {"name": "application_name", "data_type": "text", "argus": false}
+        {"name": "application_name", "data_type": "text", "argus": false},
+        {"name": "creator_xid", "data_type": "text", "argus": false}
       ]
     }
   ]
