@@ -5,15 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.41] - 2026-10-04
 
-> **Tested against DBOS 3.2.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture now requires `dbos>=3.2.0,<4`.
+> **Tested against DBOS 3.2.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture now requires `dbos>=3.2.0,<4`. This release needs a database that DBOS 3 has migrated (schema revision 109 or newer, on both Postgres and SQLite). Against an older database, the connection panel and `GET /api/sql-diagnostics` say to upgrade DBOS or to pin Argus with `pip install 'dbos-argus==0.0.40'`.
+
+### Changed
+- Schema snapshot regenerated against DBOS 3.2.0. DBOS 3 added the
+  `workflow_input` and `workflow_output` tables and the
+  `operation_outputs.retention_timestamp`,
+  `notifications.consumed_by_function_id` and `workflow_status.creator_xid`
+  columns. Argus now reads `workflow_output` (see Fixed below), and the rest
+  are recorded as untracked (`argus: false`). The DBOS dev fixture moves to
+  DBOS 3 and enqueues through `DBOS.enqueue_workflow`.
+  ([#32](https://github.com/tmarkovski/dbos-argus/issues/32),
+  [#34](https://github.com/tmarkovski/dbos-argus/issues/34),
+  [#35](https://github.com/tmarkovski/dbos-argus/issues/35))
 
 ### Fixed
-- Read workflow output/error from DBOS 3's `workflow_output` table on Postgres
-  and SQLite, including family-graph result flags. Fall back to legacy payloads
-  for workflows created before the upgrade. Requires schema revision 109;
-  older databases should pin Argus to `0.0.40` or the version shown by diagnostics.
+- Workflows run on DBOS 3 showed no output or error, and their result flags
+  in the family graph were false, because DBOS 3 writes those payloads to the
+  new `workflow_output` table. Argus now reads that table on Postgres and
+  SQLite, and falls back to the old `workflow_status` columns for workflows
+  created before the upgrade, the same way DBOS reads them.
+  ([#36](https://github.com/tmarkovski/dbos-argus/pull/36))
 
 ## [0.0.40] - 2026-09-20
 
@@ -951,7 +965,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.40...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.41...HEAD
+[0.0.41]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.41
+[0.0.40]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.40
 [0.0.39]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.39
 [0.0.38]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.38
 [0.0.37]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.37
