@@ -95,7 +95,6 @@ def _today_iso() -> str:
 
 def _build_use_cases() -> list[UseCase]:
     """Build the enqueue plan. Imports workflow refs so DBOS can serialize them."""
-    from _dbos_setup import QUEUES
     from workflows import (
         fulfill_order,
         generate_daily_report,
@@ -111,42 +110,46 @@ def _build_use_cases() -> list[UseCase]:
             queue="onboarding",
             interval_sec=60,
             jitter_sec=20,
-            enqueue_fn=lambda: QUEUES["onboarding"].enqueue(onboard_user, _rand_email()),
+            enqueue_fn=lambda: DBOS.enqueue_workflow("onboarding", onboard_user, _rand_email()),
         ),
         UseCase(
             name="fulfill_order",
             queue="orders",
             interval_sec=45,
             jitter_sec=15,
-            enqueue_fn=lambda: QUEUES["orders"].enqueue(fulfill_order, _rand_order_id()),
+            enqueue_fn=lambda: DBOS.enqueue_workflow("orders", fulfill_order, _rand_order_id()),
         ),
         UseCase(
             name="run_billing_cycle",
             queue="billing",
             interval_sec=90,
             jitter_sec=30,
-            enqueue_fn=lambda: QUEUES["billing"].enqueue(run_billing_cycle, _rand_account_id()),
+            enqueue_fn=lambda: DBOS.enqueue_workflow(
+                "billing", run_billing_cycle, _rand_account_id()
+            ),
         ),
         UseCase(
             name="send_campaign",
             queue="emails",
             interval_sec=120,
             jitter_sec=30,
-            enqueue_fn=lambda: QUEUES["emails"].enqueue(send_campaign, _rand_campaign_id()),
+            enqueue_fn=lambda: DBOS.enqueue_workflow("emails", send_campaign, _rand_campaign_id()),
         ),
         UseCase(
             name="process_return",
             queue="returns",
             interval_sec=180,
             jitter_sec=60,
-            enqueue_fn=lambda: QUEUES["returns"].enqueue(process_return, _rand_order_id()),
+            enqueue_fn=lambda: DBOS.enqueue_workflow("returns", process_return, _rand_order_id()),
         ),
         UseCase(
             name="generate_daily_report",
             queue="reports",
             interval_sec=300,
             jitter_sec=60,
-            enqueue_fn=lambda: QUEUES["reports"].enqueue(generate_daily_report, _today_iso()),
+            enqueue_fn=lambda: DBOS.enqueue_workflow(
+                "reports", generate_daily_report, _today_iso()
+            ),
         ),
     ]
 

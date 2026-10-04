@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import random
 
-from _dbos_setup import QUEUES
 from dbos import DBOS
 
 from .common import _pause, audit, log_event, maybe_fail
@@ -44,7 +43,7 @@ def send_campaign(campaign_id: str, recipient_count: int | None = None) -> dict:
     audit(f"campaign-start:{campaign_id}:{recipient_count}")
 
     recipients = [f"user{i}@demo.example" for i in range(recipient_count)]
-    handles = [QUEUES["emails"].enqueue(deliver_message, campaign_id, r) for r in recipients]
+    handles = [DBOS.enqueue_workflow("emails", deliver_message, campaign_id, r) for r in recipients]
 
     delivered = 0
     failed = 0
