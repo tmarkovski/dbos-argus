@@ -72,7 +72,7 @@ export function statusBadgeClass(status: string | null): string {
   const s = (status ?? "").toUpperCase();
   if (s === "SUCCESS") return "bg-status-success/15 text-status-success";
   if (s === "ENQUEUED") return "bg-status-queued/15 text-status-queued";
-  if (s === "PENDING" || s === "DELAYED")
+  if (s === "PENDING" || s === "DELAYED" || s === "SUSPENDED")
     return "bg-status-running/15 text-status-running";
   if (s === "CANCELLED") return "bg-status-warning/15 text-status-warning";
   if (s === "ERROR" || s === "MAX_RECOVERY_ATTEMPTS_EXCEEDED")
@@ -99,7 +99,7 @@ export function statusDotClass(status: string | null): string {
   const s = (status ?? "").toUpperCase();
   if (s === "SUCCESS") return "bg-status-success";
   if (s === "ENQUEUED") return "bg-status-queued";
-  if (s === "PENDING" || s === "DELAYED") return "bg-status-running";
+  if (s === "PENDING" || s === "DELAYED" || s === "SUSPENDED") return "bg-status-running";
   if (s === "CANCELLED") return "bg-status-warning";
   if (s === "ERROR" || s === "MAX_RECOVERY_ATTEMPTS_EXCEEDED") return "bg-status-error";
   return "bg-muted-foreground/40";

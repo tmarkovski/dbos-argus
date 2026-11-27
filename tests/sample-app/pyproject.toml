@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
   "click>=8.1.0",
   # Keep the fixture aligned with the latest tested schema snapshot.
-  "dbos>=3.2.0,<4",
+  "dbos>=3.7.0,<4",
   "python-dotenv>=1.0.0",
 ]
 

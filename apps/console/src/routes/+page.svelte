@@ -11,6 +11,7 @@
   import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
   import { breadcrumb } from "$lib/breadcrumb.svelte";
   import { formatStatus, statusBadgeClass, type Workflow } from "$lib/workflow-tree";
+  import { ACTIVE_STATUSES } from "$lib/workflow-status";
   import { formatRelative } from "$lib/format";
   import {
     diagnosticsIssueSummary,
@@ -89,7 +90,8 @@
     queuesHandle?.dispose();
   });
 
-  const inFlightHref = "#/workflows/?status=PENDING&status=ENQUEUED&status=DELAYED";
+  // Same set the server counts as in flight (ACTIVE_STATUSES).
+  const inFlightHref = `#/workflows/?${ACTIVE_STATUSES.map((s) => `status=${s}`).join("&")}`;
   const enqueuedHref = "#/workflows/?status=ENQUEUED";
   const failedHref = "#/workflows/?status=ERROR&status=MAX_RECOVERY_ATTEMPTS_EXCEEDED";
 

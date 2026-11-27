@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.42] - 2026-11-27
+
+> **Tested against DBOS 3.7.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture now requires `dbos>=3.7.0,<4`. The minimum DBOS schema revision is unchanged (109), so any database that 0.0.41 can read still works.
+
+### Changed
+- Schema snapshot regenerated against DBOS 3.7.0, which covers the drift
+  reports for DBOS 3.5.0, 3.6.0 and 3.7.0. DBOS added the `external_objects`
+  table and the `workflow_status.suspend_key`, `archive_pending` and
+  `result_waiter_ids` columns. Argus does not read any of them, so they are
+  recorded as untracked (`argus: false`).
+  ([#37](https://github.com/tmarkovski/dbos-argus/issues/37),
+  [#38](https://github.com/tmarkovski/dbos-argus/issues/38),
+  [#39](https://github.com/tmarkovski/dbos-argus/issues/39))
+
+### Fixed
+- DBOS 3.5 added a `SUSPENDED` workflow status for workflows parked in the
+  database while they wait in `recv`, `sleep` or on another workflow's
+  result. Argus now counts these workflows as in flight on the dashboard,
+  offers the status in the workflow list filter, and draws them like
+  `DELAYED` workflows. Previously they were left out of the in-flight count
+  and shown in a neutral colour. A new server test compares Argus' status
+  list with `dbos.WorkflowStatusString`, so the next status DBOS adds fails
+  CI when the fixture is bumped, even though the schema watchdog cannot see it.
+
 ## [0.0.41] - 2026-10-04
 
 > **Tested against DBOS 3.2.0.** See `tested_dbos_version` in `GET /version` and `dbos-argus --version`. Argus tracks the latest DBOS schema and does not aim for backward compatibility; the dev fixture now requires `dbos>=3.2.0,<4`. This release needs a database that DBOS 3 has migrated (schema revision 109 or newer, on both Postgres and SQLite). Against an older database, the connection panel and `GET /api/sql-diagnostics` say to upgrade DBOS or to pin Argus with `pip install 'dbos-argus==0.0.40'`.
@@ -965,7 +989,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow detail page with parent/child family DFS view, step timelines, lazy-loaded outputs, and `DBOS.sleep` / `DBOS.setEvent` decoding.
 - Single-stage Docker image at `tmarkovski/dbos-argus`, multi-arch (amd64/arm64), installed straight from PyPI.
 
-[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.41...HEAD
+[Unreleased]: https://github.com/tmarkovski/dbos-argus/compare/v0.0.42...HEAD
+[0.0.42]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.42
 [0.0.41]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.41
 [0.0.40]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.40
 [0.0.39]: https://github.com/tmarkovski/dbos-argus/releases/tag/v0.0.39

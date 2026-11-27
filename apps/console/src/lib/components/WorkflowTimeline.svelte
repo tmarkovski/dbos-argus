@@ -13,6 +13,7 @@
     type TimelineRow,
   } from "$lib/timeline";
   import { statusDotClass } from "$lib/workflow-tree";
+  import { ACTIVE_STATUSES } from "$lib/workflow-status";
   import { realtimeClient } from "$lib/realtime";
 
   let {
@@ -43,9 +44,8 @@
   let trackWidth = $state(0);
 
   const anyActive = $derived(
-    family.some(
-      (w) => w.status === "PENDING" || w.status === "ENQUEUED" || w.status === "DELAYED",
-    ) || steps.some((s) => s.started_at && !s.completed_at),
+    family.some((w) => (ACTIVE_STATUSES as readonly string[]).includes(w.status ?? "")) ||
+      steps.some((s) => s.started_at && !s.completed_at),
   );
 
   $effect(() => {
@@ -100,7 +100,7 @@
     if (s === "ERROR" || s === "MAX_RECOVERY_ATTEMPTS_EXCEEDED")
       return "border border-status-error/70 bg-status-error/20";
     if (s === "CANCELLED") return "border border-status-warning/70 bg-status-warning/20";
-    if (s === "PENDING" || s === "DELAYED")
+    if (s === "PENDING" || s === "DELAYED" || s === "SUSPENDED")
       return "border border-status-running/70 bg-status-running/20 animate-pulse";
     if (s === "ENQUEUED") return "border border-dashed border-muted-foreground/60";
     return "border border-workflow-accent/70 bg-workflow-accent/20";

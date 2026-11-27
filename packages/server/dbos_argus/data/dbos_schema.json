@@ -1,7 +1,7 @@
 {
   "schema": "dbos",
   "meta": {
-    "dbos_version": "3.2.0",
+    "dbos_version": "3.7.0",
     "note": "Full DBOS Postgres schema. `argus: true` columns are the ones the Argus backend actively reads — diff_schemas filters to those at runtime. The CI watchdog (.github/workflows/dbos-schema-watch.yml) regenerates this file against newly released DBOS versions and opens an issue when anything changes."
   },
   "tables": [
@@ -30,6 +30,15 @@
         {"name": "value", "data_type": "text", "argus": false},
         {"name": "update_seq", "data_type": "numeric", "argus": false},
         {"name": "update_time", "data_type": "numeric", "argus": false}
+      ]
+    },
+    {
+      "name": "external_objects",
+      "columns": [
+        {"name": "object_key", "data_type": "text", "argus": false},
+        {"name": "store_id", "data_type": "text", "argus": false},
+        {"name": "workflow_uuid", "data_type": "text", "argus": false},
+        {"name": "created_at", "data_type": "bigint", "argus": false}
       ]
     },
     {
@@ -187,7 +196,10 @@
         {"name": "debounce_deadline_epoch_ms", "data_type": "bigint", "argus": false},
         {"name": "is_debounced", "data_type": "boolean", "argus": false},
         {"name": "application_name", "data_type": "text", "argus": false},
-        {"name": "creator_xid", "data_type": "text", "argus": false}
+        {"name": "creator_xid", "data_type": "text", "argus": false},
+        {"name": "suspend_key", "data_type": "text", "argus": false},
+        {"name": "archive_pending", "data_type": "boolean", "argus": false},
+        {"name": "result_waiter_ids", "data_type": "ARRAY", "argus": false}
       ]
     }
   ]
